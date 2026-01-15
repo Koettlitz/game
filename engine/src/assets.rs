@@ -19,9 +19,9 @@ pub enum SpriteSheet {
 impl SpriteSheet {
     pub fn path(&self) -> &'static str {
         match self {
-            Self::Outside => "assets/sprites/tilesets/Outside.png",
-            Self::Inside => "assets/sprites/tilesets/Inside.png",
-            Self::WaterCalm => "assets/sprites/autotiles/water_calm.png",
+            Self::Outside => "sprites/tilesets/Outside.png",
+            Self::Inside => "sprites/tilesets/Inside.png",
+            Self::WaterCalm => "sprites/autotiles/water_calm.png",
         }
     }
 
