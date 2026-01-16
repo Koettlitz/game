@@ -119,8 +119,16 @@ impl GroundTileGrid {
         self.height
     }
 
-    fn size(&self) -> UVec2 {
+    pub fn size(&self) -> UVec2 {
         UVec2::new(self.width(), self.height())
+    }
+
+    pub fn contains(&self, coords: impl Into<Vec2>) -> bool {
+        let coords = coords.into();
+        coords.x >= 0.0
+            && coords.x < self.width() as f32
+            && coords.y >= 0.0
+            && coords.y < self.height() as f32
     }
 
     fn _set(&mut self, coords: impl Into<UVec2>, tile: GroundTile) {
