@@ -14,6 +14,7 @@ pub enum SpriteSheet {
     Outside,
     Inside,
     WaterCalm,
+    WaterDeep,
 }
 
 impl SpriteSheet {
@@ -22,6 +23,7 @@ impl SpriteSheet {
             Self::Outside => "sprites/tilesets/Outside.png",
             Self::Inside => "sprites/tilesets/Inside.png",
             Self::WaterCalm => "sprites/autotiles/water_calm.png",
+            Self::WaterDeep => "sprites/autotiles/water_deep.png",
         }
     }
 
@@ -30,6 +32,7 @@ impl SpriteSheet {
             Self::Outside => TextureAtlasLayout::from_grid(TILE_SIZE, 8, 888, None, None),
             Self::Inside => TextureAtlasLayout::from_grid(TILE_SIZE, 8, 736, None, None),
             Self::WaterCalm => TextureAtlasLayout::from_grid(TILE_SIZE, 3, 4, None, None),
+            Self::WaterDeep => TextureAtlasLayout::from_grid(TILE_SIZE, 24, 4, None, None),
         }
     }
 }

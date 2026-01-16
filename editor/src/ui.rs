@@ -17,6 +17,8 @@ fn switch_cursor(keys: Res<ButtonInput<KeyCode>>, mut cursor: ResMut<Cursor>) {
         *cursor = Cursor::GroundTile(GroundTileKind::Gras);
     } else if keys.just_pressed(KeyCode::KeyW) {
         *cursor = Cursor::GroundTile(GroundTileKind::WaterCalm);
+    } else if keys.just_pressed(KeyCode::KeyD) {
+        *cursor = Cursor::GroundTile(GroundTileKind::WaterDeep);
     }
 }
 
@@ -46,7 +48,7 @@ fn write_place_tile_messages(
                         }
                         starting_pos += tile_step;
                     }
-                } else {
+                } else if mouse_btn.just_pressed(MouseButton::Left) {
                     if let Some(pos) = window_pos_to_grid_pos(pos, &grid) {
                         message_writer.write(PlaceTile { pos, tile_kind });
                     }
