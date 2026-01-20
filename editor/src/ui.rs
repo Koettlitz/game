@@ -1,24 +1,27 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
-use engine::assets::TILE_SIZE;
+use engine::{assets::TILE_SIZE, overworld::tile::GridSize};
 
-use crate::tile::{GroundTileGrid, GroundTileKind};
+use crate::{State, tile::GroundTile};
 
 pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PlaceTile>()
             .init_resource::<Cursor>()
-            .add_systems(PreUpdate, (write_place_tile_messages, switch_cursor));
+            .add_systems(
+                PreUpdate,
+                (write_place_tile_messages, switch_cursor).run_if(in_state(State::Initialized)),
+            );
     }
 }
 
 fn switch_cursor(keys: Res<ButtonInput<KeyCode>>, mut cursor: ResMut<Cursor>) {
     if keys.just_pressed(KeyCode::KeyG) {
-        *cursor = Cursor::GroundTile(GroundTileKind::Gras);
+        *cursor = Cursor::GroundTile(GroundTile::Gras);
     } else if keys.just_pressed(KeyCode::KeyW) {
-        *cursor = Cursor::GroundTile(GroundTileKind::WaterCalm);
+        *cursor = Cursor::GroundTile(GroundTile::WaterCalm);
     } else if keys.just_pressed(KeyCode::KeyD) {
-        *cursor = Cursor::GroundTile(GroundTileKind::WaterDeep);
+        *cursor = Cursor::GroundTile(GroundTile::WaterDeep);
     }
 }
 
@@ -27,7 +30,7 @@ fn write_place_tile_messages(
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Res<Cursor>,
-    grid: Res<GroundTileGrid>,
+    grid_size: Res<GridSize>,
     mut message_writer: MessageWriter<PlaceTile>,
 ) {
     if mouse_btn.pressed(MouseButton::Left) {
@@ -43,13 +46,13 @@ fn write_place_tile_messages(
                         .clamp_length(tile_step_size, tile_step_size);
                     let step_count = (delta.length() / tile_step.length()).ceil() as usize;
                     for _ in 0..step_count {
-                        if let Some(pos) = window_pos_to_grid_pos(starting_pos, &grid) {
+                        if let Some(pos) = window_pos_to_grid_pos(starting_pos, &grid_size) {
                             message_writer.write(PlaceTile { pos, tile_kind });
                         }
                         starting_pos += tile_step;
                     }
                 } else if mouse_btn.just_pressed(MouseButton::Left) {
-                    if let Some(pos) = window_pos_to_grid_pos(pos, &grid) {
+                    if let Some(pos) = window_pos_to_grid_pos(pos, &grid_size) {
                         message_writer.write(PlaceTile { pos, tile_kind });
                     }
                 }
@@ -58,10 +61,10 @@ fn write_place_tile_messages(
     }
 }
 
-fn window_pos_to_grid_pos(window_pos: Vec2, grid: &GroundTileGrid) -> Option<UVec2> {
-    let half_grid_size = grid.size().as_vec2() / 2.0;
+fn window_pos_to_grid_pos(window_pos: Vec2, grid_size: &GridSize) -> Option<UVec2> {
+    let half_grid_size = grid_size.0.as_vec2() / 2.0;
     let grid_pos = window_pos / TILE_SIZE.as_vec2() + half_grid_size;
-    if grid.contains(grid_pos) {
+    if grid_size.contains(grid_pos) {
         Some(grid_pos.as_uvec2())
     } else {
         None
@@ -72,11 +75,11 @@ fn window_pos_to_grid_pos(window_pos: Vec2, grid: &GroundTileGrid) -> Option<UVe
 pub enum Cursor {
     #[default]
     Default,
-    GroundTile(GroundTileKind),
+    GroundTile(GroundTile),
 }
 
 #[derive(Message)]
 pub struct PlaceTile {
     pub pos: UVec2,
-    pub tile_kind: GroundTileKind,
+    pub tile_kind: GroundTile,
 }
