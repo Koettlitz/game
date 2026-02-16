@@ -1,27 +1,65 @@
-use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
-use engine::{assets::TILE_SIZE, overworld::tile::GridSize};
+use bevy::{
+    input::mouse::MouseMotion, platform::collections::HashMap, prelude::*, window::PrimaryWindow,
+};
+use engine::{
+    Id,
+    assets::tile::TILE_SIZE,
+    overworld::tile::{GridPosition, GridSize},
+    progress::ProgressState,
+};
 
-use crate::{State, tile::GroundTile};
+use crate::tile::GroundTileKind;
 
 pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PlaceTile>()
             .init_resource::<Cursor>()
+            .init_resource::<TileKindKeyMap>()
+            .add_observer(init_tile_kind_keymap)
             .add_systems(
                 PreUpdate,
-                (write_place_tile_messages, switch_cursor).run_if(in_state(State::Initialized)),
+                (write_place_tile_messages, switch_cursor)
+                    .run_if(in_state(ProgressState::Finished)),
             );
     }
 }
 
-fn switch_cursor(keys: Res<ButtonInput<KeyCode>>, mut cursor: ResMut<Cursor>) {
-    if keys.just_pressed(KeyCode::KeyG) {
-        *cursor = Cursor::GroundTile(GroundTile::Gras);
-    } else if keys.just_pressed(KeyCode::KeyW) {
-        *cursor = Cursor::GroundTile(GroundTile::WaterCalm);
-    } else if keys.just_pressed(KeyCode::KeyD) {
-        *cursor = Cursor::GroundTile(GroundTile::WaterDeep);
+fn init_tile_kind_keymap(
+    event: On<Add, (GroundTileKind, Id)>,
+    tile_kinds: Query<&Id, With<GroundTileKind>>,
+    mut keymap: ResMut<TileKindKeyMap>,
+) {
+    // TODO remove hardcoded shit
+    let id = tile_kinds
+        .get(event.entity)
+        .expect("missing id for added groundtilekind");
+    let keycode = match id.0.as_str() {
+        "grass" => KeyCode::KeyG,
+        "water_calm" => KeyCode::KeyC,
+        "water_wild" => KeyCode::KeyW,
+        "sand" => KeyCode::KeyS,
+        _ => {
+            warn!("no hard coded key for tile kind {id:?}");
+            return;
+        }
+    };
+
+    keymap.0.insert(keycode, event.entity);
+}
+
+#[derive(Resource, Default)]
+struct TileKindKeyMap(HashMap<KeyCode, Entity>);
+
+fn switch_cursor(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut cursor: ResMut<Cursor>,
+    keymap: Res<TileKindKeyMap>,
+) {
+    for key in keys.get_just_pressed() {
+        if let Some(entity) = keymap.0.get(key) {
+            *cursor = Cursor::GroundTile(*entity);
+        }
     }
 }
 
@@ -61,25 +99,21 @@ fn write_place_tile_messages(
     }
 }
 
-fn window_pos_to_grid_pos(window_pos: Vec2, grid_size: &GridSize) -> Option<UVec2> {
-    let half_grid_size = grid_size.0.as_vec2() / 2.0;
+fn window_pos_to_grid_pos(window_pos: Vec2, grid_size: &GridSize) -> Option<GridPosition> {
+    let half_grid_size = grid_size.as_vec2() / 2.0;
     let grid_pos = window_pos / TILE_SIZE.as_vec2() + half_grid_size;
-    if grid_size.contains(grid_pos) {
-        Some(grid_pos.as_uvec2())
-    } else {
-        None
-    }
+    GridPosition::new(grid_pos, grid_size)
 }
 
 #[derive(Resource, Default)]
 pub enum Cursor {
     #[default]
     Default,
-    GroundTile(GroundTile),
+    GroundTile(Entity),
 }
 
 #[derive(Message)]
 pub struct PlaceTile {
-    pub pos: UVec2,
-    pub tile_kind: GroundTile,
+    pub pos: GridPosition,
+    pub tile_kind: Entity,
 }

@@ -5,6 +5,11 @@ edition = "2024"
 
 [dependencies]
 engine = { path = "../engine" }
+macros = { path = "../macros" }
 bevy = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

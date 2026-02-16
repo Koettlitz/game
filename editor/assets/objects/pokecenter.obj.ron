@@ -1,0 +1,7 @@
+(
+    collision_box: Some((
+        min: (-2, -2),
+        max: (2, 2),
+    )),
+    sprite_sheet_id: "pokecenter",
+)

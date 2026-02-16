@@ -1,26 +1,74 @@
-use std::iter;
+use std::{fmt::Debug, iter, ops};
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Default)]
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum Passability {
     #[default]
     Always,
     Never,
     Bike,
     Surf,
+    Waterfall,
 }
 
-#[derive(Resource)]
-pub struct TileGrid<T> {
-    width: u32,
-    height: u32,
-    grid: Vec<T>,
+impl ops::BitAnd for Passability {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        match self {
+            Self::Always => rhs,
+            Self::Bike => match rhs {
+                Self::Always | Self::Bike => Self::Bike,
+                other => other,
+            },
+            Self::Surf => match rhs {
+                Self::Always | Self::Bike | Self::Surf => Self::Surf,
+                other => other,
+            },
+            Self::Waterfall => match rhs {
+                Self::Always | Self::Bike | Self::Surf | Self::Waterfall => Self::Waterfall,
+                other => other,
+            },
+            Self::Never => Self::Never,
+        }
+    }
 }
 
-#[derive(Resource, Copy, Clone)]
-pub struct GridSize(pub UVec2);
+impl ops::BitAndAssign for Passability {
+    fn bitand_assign(&mut self, rhs: Self) {
+        *self = *self & rhs;
+    }
+}
+
+#[derive(Resource, Copy, Clone, Debug)]
+pub struct GridSize(UVec2);
+impl From<UVec2> for GridSize {
+    fn from(value: UVec2) -> Self {
+        Self(value)
+    }
+}
 impl GridSize {
+    pub fn width(&self) -> u32 {
+        self.0.x
+    }
+
+    pub fn height(&self) -> u32 {
+        self.0.y
+    }
+
+    pub fn as_uvec2(&self) -> UVec2 {
+        self.0
+    }
+
+    pub fn as_vec2(&self) -> Vec2 {
+        self.0.as_vec2()
+    }
+
+    pub fn iter<'a>(&'a self) -> GridIterator<'a> {
+        GridIterator::new(self)
+    }
+
     pub fn contains(&self, position: impl Into<Vec2>) -> bool {
         let position = position.into();
         position.x >= 0.0
@@ -30,64 +78,375 @@ impl GridSize {
     }
 }
 
+pub struct GridIterator<'a> {
+    grid_size: &'a GridSize,
+    current_pos: Option<UVec2>,
+}
+impl<'a> GridIterator<'a> {
+    fn new(grid_size: &'a GridSize) -> Self {
+        Self {
+            grid_size,
+            current_pos: Some(UVec2::splat(0)),
+        }
+    }
+}
+impl<'a> Iterator for GridIterator<'a> {
+    type Item = GridPosition;
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(current_pos) = self.current_pos.as_mut() else {
+            return None;
+        };
+        let result = Some(GridPosition(*current_pos));
+        if current_pos.x < self.grid_size.0.x - 1 {
+            current_pos.x += 1;
+        } else if current_pos.y < self.grid_size.0.y - 1 {
+            current_pos.x = 0;
+            current_pos.y += 1;
+        } else {
+            self.current_pos = None;
+        }
+        return result;
+    }
+}
+
 impl Into<UVec2> for GridSize {
     fn into(self) -> UVec2 {
         self.0
     }
 }
 
-impl<T: Default> TileGrid<T> {
-    pub fn new(size: impl Into<UVec2>) -> Self {
-        let size = size.into();
-        let width = size.x;
-        let height = size.y;
-        let grid = iter::repeat_with(T::default)
-            .take((width * height) as usize)
-            .collect();
-        Self {
-            width,
-            height,
-            grid,
-        }
-    }
-}
+#[derive(Resource, Default)]
+pub struct TileGrid<T>(Vec<T>);
 
-impl<T: Copy> TileGrid<T> {
-    pub fn get(&self, coords: impl Into<UVec2>) -> Option<T> {
-        let coords = coords.into();
-        if coords.x < self.width && coords.y < self.height {
-            self.grid
-                .get((coords.y * self.width + coords.x) as usize)
-                .copied()
-        } else {
-            None
-        }
+impl<T: Default> TileGrid<T> {
+    pub fn with_size(size: &GridSize) -> Self {
+        Self::new(size, T::default)
     }
 }
 
 impl<T> TileGrid<T> {
-    pub fn get_mut(&mut self, coords: impl Into<UVec2>) -> Option<&mut T> {
-        let coords = coords.into();
-        if coords.x < self.width && coords.y < self.height {
-            self.grid
-                .get_mut((coords.y * self.width + coords.x) as usize)
+    pub fn new(size: &GridSize, constructor: impl FnMut() -> T) -> Self {
+        let grid = iter::repeat_with(constructor)
+            .take((size.0.x * size.0.y) as usize)
+            .collect();
+        Self(grid)
+    }
+
+    pub fn view_of<'a>(&'a self, adjacent: Adjacent<'a>) -> GridView<'a, T> {
+        GridView {
+            adjacent,
+            grid: self,
+        }
+    }
+}
+
+impl<T> ops::Index<&GridIndex> for TileGrid<T> {
+    type Output = T;
+    fn index(&self, index: &GridIndex) -> &Self::Output {
+        &self.0[index.0]
+    }
+}
+
+impl<T> ops::IndexMut<&GridIndex> for TileGrid<T> {
+    fn index_mut(&mut self, index: &GridIndex) -> &mut Self::Output {
+        &mut self.0[index.0]
+    }
+}
+
+pub struct GridView<'a, T> {
+    adjacent: Adjacent<'a>,
+    grid: &'a TileGrid<T>,
+}
+
+impl<'a, T: Debug> Debug for GridView<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{\n\ttop_left: {:?},\n\ttop: {:?},\n\ttop_right: {:?},\n\tleft: {:?},\n\tself: {:?},\n\tright: {:?},\n\t, bottom_left: {:?},\n\t, bottom: {:?},\n\t, bottom_right: {:?},\n}}",
+            self.top_left(),
+            self.top(),
+            self.top_right(),
+            self.left(),
+            self.center(),
+            self.right(),
+            self.bottom_left(),
+            self.bottom(),
+            self.bottom_right()
+        )
+    }
+}
+
+impl<'a, T> GridView<'a, T> {
+    pub fn iter_exclusive(&self) -> [Option<&T>; 8] {
+        [
+            self.top_left(),
+            self.top(),
+            self.top_right(),
+            self.left(),
+            self.right(),
+            self.bottom_left(),
+            self.bottom(),
+            self.bottom_right(),
+        ]
+    }
+
+    pub fn iter_inclusive(&self) -> [Option<&T>; 9] {
+        [
+            self.top_left(),
+            self.top(),
+            self.top_right(),
+            self.left(),
+            Some(self.center()),
+            self.right(),
+            self.bottom_left(),
+            self.bottom(),
+            self.bottom_right(),
+        ]
+    }
+
+    pub fn neighbor(&self, neighbor: &Neighbor) -> Option<&T> {
+        self.adjacent
+            .neighbor(neighbor)
+            .map(|n| &self.grid[&n.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn top_left(&self) -> Option<&T> {
+        self.adjacent
+            .top_left()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn top(&self) -> Option<&T> {
+        self.adjacent
+            .top()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn top_right(&self) -> Option<&T> {
+        self.adjacent
+            .top_right()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn left(&self) -> Option<&T> {
+        self.adjacent
+            .left()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn center(&self) -> &T {
+        &self.grid[&self.adjacent.center.as_index(&self.adjacent.grid_size)]
+    }
+
+    pub fn right(&self) -> Option<&T> {
+        self.adjacent
+            .right()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn bottom_left(&self) -> Option<&T> {
+        self.adjacent
+            .bottom_left()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn bottom(&self) -> Option<&T> {
+        self.adjacent
+            .bottom()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+
+    pub fn bottom_right(&self) -> Option<&T> {
+        self.adjacent
+            .bottom_right()
+            .map(|p| &self.grid[&p.as_index(self.adjacent.grid_size)])
+    }
+}
+
+pub struct Adjacent<'a> {
+    center: GridPosition,
+    grid_size: &'a GridSize,
+}
+
+impl<'a> Adjacent<'a> {
+    pub fn iter_exclusive(&self) -> [Option<GridPosition>; 8] {
+        [
+            self.top_left(),
+            self.top(),
+            self.top_right(),
+            self.left(),
+            self.right(),
+            self.bottom_left(),
+            self.bottom(),
+            self.bottom_right(),
+        ]
+    }
+    pub fn iter_inclusive(&self) -> [Option<GridPosition>; 9] {
+        [
+            self.top_left(),
+            self.top(),
+            self.top_right(),
+            self.left(),
+            Some(self.center),
+            self.right(),
+            self.bottom_left(),
+            self.bottom(),
+            self.bottom_right(),
+        ]
+    }
+
+    pub fn neighbor(&self, neighbor: &Neighbor) -> Option<GridPosition> {
+        self.center.neighbor(neighbor, self.grid_size)
+    }
+
+    pub fn top_left(&self) -> Option<GridPosition> {
+        self.center.top_left(self.grid_size)
+    }
+
+    pub fn top(&self) -> Option<GridPosition> {
+        self.center.top(self.grid_size)
+    }
+
+    pub fn top_right(&self) -> Option<GridPosition> {
+        self.center.top_right(self.grid_size)
+    }
+
+    pub fn left(&self) -> Option<GridPosition> {
+        self.center.left(self.grid_size)
+    }
+
+    pub fn center(&self) -> GridPosition {
+        self.center
+    }
+
+    pub fn right(&self) -> Option<GridPosition> {
+        self.center.right(self.grid_size)
+    }
+
+    pub fn bottom_left(&self) -> Option<GridPosition> {
+        self.center.bottom_left(self.grid_size)
+    }
+
+    pub fn bottom(&self) -> Option<GridPosition> {
+        self.center.bottom(self.grid_size)
+    }
+
+    pub fn bottom_right(&self) -> Option<GridPosition> {
+        self.center.bottom_right(self.grid_size)
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct GridIndex(usize);
+impl GridIndex {
+    pub fn from_position(position: &GridPosition, grid_size: &GridSize) -> Self {
+        Self((position.0.y * grid_size.0.x + position.0.x) as usize)
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+pub struct GridPosition(UVec2);
+impl Into<UVec2> for GridPosition {
+    fn into(self) -> UVec2 {
+        self.0
+    }
+}
+
+impl GridPosition {
+    pub fn new(position: impl Into<Vec2>, grid_size: &GridSize) -> Option<Self> {
+        let position = position.into();
+        if grid_size.contains(position) {
+            Some(Self(position.as_uvec2()))
         } else {
             None
         }
     }
 
-    pub fn set(&mut self, coords: impl Into<UVec2>, tile: T) {
-        let coords = coords.into();
-        if coords.x < self.width && coords.y < self.height {
-            self.grid[(coords.y * self.width + coords.x) as usize] = tile;
+    pub fn as_index(&self, grid_size: &GridSize) -> GridIndex {
+        GridIndex::from_position(self, grid_size)
+    }
+
+    pub fn adjacent<'a>(self, grid_size: &'a GridSize) -> Adjacent<'a> {
+        Adjacent {
+            center: self,
+            grid_size,
         }
     }
 
-    pub fn contains(&self, coords: impl Into<Vec2>) -> bool {
-        let coords = coords.into();
-        coords.x >= 0.0
-            && coords.x < self.width as f32
-            && coords.y >= 0.0
-            && coords.y < self.height as f32
+    pub fn neighbor(&self, neighbor: &Neighbor, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_add_signed(neighbor.as_ivec2())
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn top_left(&self, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_sub(UVec2::splat(1))
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn top(&self, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_sub(UVec2::Y)
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn top_right(&self, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_sub(UVec2::Y)
+            .map(|p| p + UVec2::X)
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn left(&self, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_sub(UVec2::X)
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn right(&self, grid_size: &GridSize) -> Option<Self> {
+        Self::new((self.0 + UVec2::X).as_vec2(), grid_size)
+    }
+
+    pub fn bottom_left(&self, grid_size: &GridSize) -> Option<Self> {
+        self.0
+            .checked_sub(UVec2::X)
+            .map(|p| p + UVec2::Y)
+            .and_then(|p| Self::new(p.as_vec2(), grid_size))
+    }
+
+    pub fn bottom(&self, grid_size: &GridSize) -> Option<Self> {
+        Self::new((self.0 + UVec2::Y).as_vec2(), grid_size)
+    }
+
+    pub fn bottom_right(&self, grid_size: &GridSize) -> Option<Self> {
+        Self::new((self.0 + UVec2::splat(1)).as_vec2(), grid_size)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum Neighbor {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight,
+}
+
+impl Neighbor {
+    pub fn as_ivec2(&self) -> IVec2 {
+        match self {
+            Self::TopLeft => IVec2::splat(-1),
+            Self::Top => IVec2::new(0, -1),
+            Self::TopRight => IVec2::new(1, -1),
+            Self::Left => IVec2::new(-1, 0),
+            Self::Right => IVec2::new(1, 0),
+            Self::BottomLeft => IVec2::new(-1, 1),
+            Self::Bottom => IVec2::new(0, 1),
+            Self::BottomRight => IVec2::splat(1),
+        }
     }
 }

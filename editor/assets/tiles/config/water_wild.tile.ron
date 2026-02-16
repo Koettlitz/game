@@ -1,0 +1,127 @@
+(
+    passability: Surf,
+    visuals: {
+        (): (
+            base: Animated(animation_id: "water_wild",),
+        ),
+        ( // top left corner
+            top_left: Either("grass"),
+            top: Either("grass"),
+            left: Either("grass"),
+            right: Same,
+        ): (
+            below: [
+                Neighbor(TopLeft),
+            ],
+            base: Animated(animation_id: "water_wild_top_left_corner",), 
+        ),
+        ( // top edge
+            top: Either("grass"),
+            left: Same,
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild_top_edge",), 
+        ),
+        ( // top right corner
+            top: Either("grass"),
+            top_right: Either("grass"),
+            left: Same,
+            right: Either("grass"),
+        ): (
+            below: [
+                Neighbor(TopRight),
+            ],
+            base: Animated(animation_id: "water_wild_top_right_corner",), 
+        ),
+        ( // left edge
+            top: Same,
+            left: Either("grass"),
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild_left_edge",), 
+        ),
+        ( // right edge
+            top: Same,
+            left: Same,
+            right: Either("grass"),
+        ): (
+            base: Animated(animation_id: "water_wild_right_edge",), 
+        ),
+        ( // left and right edge
+            top: Same,
+            left: Either("grass"),
+            right: Either("grass"),
+        ): (
+            base: Animated(animation_id: "water_wild_left_right_edge",), 
+        ),
+        ( // left, right and top edge
+            top: Either("grass"),
+            left: Either("grass"),
+            right: Either("grass"),
+        ): (
+            below: [
+                Neighbor(Top)
+            ],
+            base: Animated(animation_id: "water_wild_left_top_right_edge",), 
+        ),
+        ( // top left land corner
+            top_left: Either("grass"),
+            top: Same,
+            top_right: Same,
+            left: Same,
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild",), 
+            above: [
+               Animated(animation_id:  "water_wild_top_left_land_corner",), 
+            ],
+        ),
+        ( // top left land corner and right edge
+            top_left: Either("grass"),
+            top: Same,
+            left: Same,
+            right: Either("grass"),
+        ): (
+            base: Animated(animation_id: "water_wild_right_edge",),
+            above: [
+                Animated(animation_id: "water_wild_top_left_land_corner",),
+            ],
+        ),
+        ( // top right land corner
+            top_left: Same,
+            top: Same,
+            top_right: Either("grass"),
+            left: Same,
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild",), 
+            above: [
+               Animated(animation_id:  "water_wild_top_right_land_corner",), 
+            ],
+        ),
+        ( // top right land corner and left edge
+            top: Same,
+            top_right: Either("grass"),
+            left: Either("grass"),
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild_left_edge",),
+            above: [
+                Animated(animation_id: "water_wild_top_right_land_corner",),
+            ],
+        ),
+        ( // top right and top left land corners
+            top_left: Either("grass"),
+            top: Same,
+            top_right: Either("grass"),
+            left: Same,
+            right: Same,
+        ): (
+            base: Animated(animation_id: "water_wild",), 
+            above: [
+               Animated(animation_id:  "water_wild_top_right_land_corner",), 
+               Animated(animation_id:  "water_wild_top_left_land_corner",), 
+            ],
+        ),
+    },
+)
