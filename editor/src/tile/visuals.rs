@@ -3,7 +3,7 @@ use std::{collections::HashSet, fmt::Debug};
 use bevy::prelude::*;
 use engine::{
     animation::{Animated, SpriteAnimation},
-    assets::tile::{SpriteSheet, TILE_SIZE},
+    assets::{SpriteSheet, tile::TILE_SIZE},
     overworld::tile::{GridPosition, GridSize, GridView, Neighbor, TileGrid},
     progress::ProgressState,
 };
@@ -131,9 +131,7 @@ fn spawn_tile_visuals(
     grid_size: &GridSize,
     tile_grid: &TileGrid<Entity>,
 ) -> Option<Entity> {
-    let transform = Transform::from_translation(
-        grid_pos_to_sprite_pos((*position).into(), grid_size.as_uvec2()).extend(z),
-    );
+    let transform = Transform::from_translation(grid_size.to_world_pos(position).extend(z));
     match layer {
         GroundTileVisual::Static(idx) => {
             let atlas = TextureAtlas {
@@ -189,6 +187,46 @@ fn spawn_tile_visuals(
                 grid_size,
                 tile_grid,
             );
+        }
+    }
+}
+
+pub fn create_tile_sprite(
+    visuals: &GroundTileVisuals,
+    sprite_sheet: &SpriteSheet,
+    animations: Query<&SpriteAnimation>,
+) -> (Sprite, Option<Entity>) {
+    let visual = visuals.get_default();
+    match visual.base {
+        GroundTileVisual::Static(index) => (
+            Sprite {
+                image: sprite_sheet.image.clone(),
+                texture_atlas: Some(TextureAtlas {
+                    layout: sprite_sheet.layout.clone(),
+                    index,
+                }),
+                ..Default::default()
+            },
+            None,
+        ),
+        GroundTileVisual::Animated(animation_entity) => {
+            let animation = animations
+                .get(animation_entity)
+                .expect("missing sprite animation for ground tile kind");
+            (
+                Sprite {
+                    image: sprite_sheet.image.clone(),
+                    texture_atlas: Some(TextureAtlas {
+                        layout: sprite_sheet.layout.clone(),
+                        index: animation.current_idx(),
+                    }),
+                    ..Default::default()
+                },
+                Some(animation_entity),
+            )
+        }
+        GroundTileVisual::Neighbor(_) => {
+            panic!("GroundTileVisual cannot have neighbor sprite as default")
         }
     }
 }
@@ -254,7 +292,7 @@ impl GroundTileVisuals {
         Some(Self(parsed_visuals))
     }
 
-    fn get_default(&self) -> &GroundTileVisualLayers {
+    pub fn get_default(&self) -> &GroundTileVisualLayers {
         &self.0.last().expect("empty config").1
     }
 }

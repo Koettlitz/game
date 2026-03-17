@@ -1,8 +1,5 @@
 use engine::{
-    assets::{
-        AssetMap, AssetSetPlugin, FileAsset, LoadState,
-        tile::{SpriteSheet, SpriteSheetMap},
-    },
+    assets::{AssetMap, AssetSetPlugin, FileAsset, LoadState, SpriteSheet, SpriteSheetMap},
     overworld::tile::{Neighbor, Passability},
 };
 use macros::asset_set;
@@ -11,7 +8,7 @@ use std::{collections::HashMap, fmt::Debug, io};
 use thiserror::Error;
 
 use bevy::{asset::AssetLoader, prelude::*};
-use engine::assets::tile::derive_texture_atlas_layouts;
+use engine::assets::tile;
 use serde::{Deserialize, Serialize, Serializer};
 
 pub struct GroundTileAssetsPlugin;
@@ -26,11 +23,13 @@ impl Plugin for GroundTileAssetsPlugin {
             ))
             .add_systems(
                 OnEnter(LoadState::<TileSpriteAssets>::finished()),
-                derive_texture_atlas_layouts::<TileSpriteAssets, TileSpriteSheetMap>,
+                tile::derive_texture_atlas_layouts::<TileSpriteAssets, TileSpriteSheetMap>,
             )
             .add_systems(
                 OnEnter(LoadState::<TileSpriteAssets>::finished()),
-                cleanup.after(derive_texture_atlas_layouts::<TileSpriteAssets, TileSpriteSheetMap>),
+                cleanup.after(
+                    tile::derive_texture_atlas_layouts::<TileSpriteAssets, TileSpriteSheetMap>,
+                ),
             );
     }
 }
@@ -45,8 +44,7 @@ pub struct TileSpriteAssets;
 #[asset_set(
     name = "ground_tile_asset_folder",
     folder = "editor://tiles/config",
-    asset_type(GroundTileAsset),
-    extension = "tile.ron"
+    asset_type(GroundTileAsset)
 )]
 pub struct GroundTileAssetFolder;
 
@@ -55,6 +53,14 @@ pub struct TileSpriteSheetMap(pub HashMap<String, SpriteSheet>);
 impl SpriteSheetMap for TileSpriteSheetMap {
     fn insert(&mut self, id: String, value: SpriteSheet) {
         self.0.insert(id, value);
+    }
+
+    fn get(&self, id: &str) -> Option<&SpriteSheet> {
+        self.0.get(id)
+    }
+
+    fn remove(&mut self, id: &str) -> Option<SpriteSheet> {
+        self.0.remove(id)
     }
 }
 

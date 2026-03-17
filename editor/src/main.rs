@@ -4,11 +4,16 @@ use engine::{
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
-use crate::{assets::AssetsPlugin, tile::TilePlugin, ui::UIPlugin};
+use crate::{assets::AssetsPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
 
 mod assets;
+mod object;
 mod tile;
 mod ui;
+
+mod asset_registry {
+    include!(concat!(env!("OUT_DIR"), "/asset_registry.rs"));
+}
 
 fn main() {
     App::new()
@@ -22,6 +27,7 @@ fn main() {
             ProgressPlugin,
             UIPlugin,
             TilePlugin,
+            GameObjectPlugin,
             AnimationPlugin,
         ))
         .add_systems(Startup, init)

@@ -1,6 +1,8 @@
 use std::{borrow::Cow, hash::Hash, marker::PhantomData};
 
-use bevy::{asset::AssetPath, platform::collections::HashMap, prelude::*};
+use bevy::prelude::*;
+use std::collections::HashMap;
+use std::collections::hash_map::Iter;
 
 use crate::{
     assets::Phantom,
@@ -35,14 +37,14 @@ impl<S: AssetSet> Plugin for AssetSetPlugin<S> {
                 PostUpdate,
                 check_load_state::<S>.run_if(in_state(LoadState::<S>::loading())),
             )
-            .add_systems(OnEnter(LoadState::<S>::finished()), cleanup::<S::Asset>);
+            .add_systems(OnEnter(LoadState::<S>::finished()), cleanup::<S>);
 
         if self.show_progress {
             app.add_systems(
                 Update,
                 init_progress::<S>
                     .before(fill_asset_map::<S>)
-                    .run_if(resource_added::<LoadingFolder<S::Asset>>)
+                    .run_if(resource_added::<LoadingFolder<S>>)
                     .run_if(in_state(LoadState::<S>::loading())),
             );
         }
@@ -54,7 +56,7 @@ pub struct FillAssetMap;
 
 pub trait AssetSet: 'static {
     type Asset: FileAsset;
-    fn paths() -> Vec<impl Into<AssetPath<'static>>>;
+    const PATHS: &'static [&'static str];
     fn name() -> Option<&'static str> {
         None
     }
@@ -69,20 +71,17 @@ pub trait FileAsset: Asset {
 impl FileAsset for Image {}
 
 fn load_asset_folder<S: AssetSet>(asset_server: Res<AssetServer>, mut commands: Commands) {
-    let handles = S::paths()
-        .into_iter()
-        .map(|path| asset_server.load(path))
+    let handles = S::PATHS
+        .iter()
+        .map(|path| asset_server.load(*path))
         .collect();
-    commands.insert_resource(LoadingFolder::<S::Asset>::new(handles));
+    commands.insert_resource(LoadingFolder::<S>::new(handles));
 }
 
-fn init_progress<S: AssetSet>(
-    loading_folder: Res<LoadingFolder<S::Asset>>,
-    mut commands: Commands,
-) {
+fn init_progress<S: AssetSet>(loading_folder: Res<LoadingFolder<S>>, mut commands: Commands) {
     commands.spawn((
         Progress::new(0, loading_folder.0.len()),
-        ProgressPanel::new(set_name::<S>().into_owned()),
+        ProgressPanel::new(asset_set_name::<S>().into_owned()),
         FolderProgress::<S>::default(),
     ));
 }
@@ -98,7 +97,7 @@ impl<S> Default for FolderProgress<S> {
 
 fn fill_asset_map<S: AssetSet>(
     asset_server: Res<AssetServer>,
-    loading_folder: Option<ResMut<LoadingFolder<S::Asset>>>,
+    loading_folder: Option<ResMut<LoadingFolder<S>>>,
     assets: Res<Assets<S::Asset>>,
     mut asset_map: ResMut<AssetMap<S>>,
     mut progress: Query<&mut Progress, With<FolderProgress<S>>>,
@@ -117,7 +116,7 @@ fn fill_asset_map<S: AssetSet>(
                         .path()
                         .map(|p| Cow::Owned(format!("{p}")))
                         .unwrap_or_else(|| Cow::Borrowed("with no path")),
-                    set_name::<S>()
+                    asset_set_name::<S>()
                 );
                 for mut progress in progress.iter_mut() {
                     progress.add(1);
@@ -148,7 +147,7 @@ fn fill_asset_map<S: AssetSet>(
 }
 
 fn check_load_state<S: AssetSet>(
-    loading_folder: Option<Res<LoadingFolder<S::Asset>>>,
+    loading_folder: Option<Res<LoadingFolder<S>>>,
     mut next_state: ResMut<NextState<LoadState<S>>>,
 ) {
     let Some(loading_folder) = loading_folder else {
@@ -159,15 +158,15 @@ fn check_load_state<S: AssetSet>(
     }
 }
 
-fn cleanup<A: FileAsset>(mut commands: Commands) {
-    commands.remove_resource::<LoadingFolder<A>>();
+fn cleanup<S: AssetSet>(mut commands: Commands) {
+    commands.remove_resource::<LoadingFolder<S>>();
 }
 
 #[derive(Resource)]
-struct LoadingFolder<A: Asset>(Vec<Handle<A>>, Phantom<A>);
-impl<A: Asset> LoadingFolder<A> {
-    fn new(loading_folder: Vec<Handle<A>>) -> Self {
-        Self(loading_folder, PhantomData::default())
+struct LoadingFolder<S: AssetSet>(Vec<Handle<S::Asset>>);
+impl<S: AssetSet> LoadingFolder<S> {
+    fn new(loading_folder: Vec<Handle<S::Asset>>) -> Self {
+        Self(loading_folder)
     }
 }
 
@@ -176,6 +175,15 @@ pub struct AssetMap<S: AssetSet>(pub HashMap<String, Handle<S::Asset>>);
 impl<F: AssetSet> Default for AssetMap<F> {
     fn default() -> Self {
         Self(HashMap::new())
+    }
+}
+impl<S: AssetSet> AssetMap<S> {
+    pub fn get(&self, id: &str) -> Option<&Handle<S::Asset>> {
+        self.0.get(id)
+    }
+
+    pub fn iter(&self) -> Iter<'_, String, Handle<S::Asset>> {
+        self.0.iter()
     }
 }
 
@@ -230,17 +238,14 @@ impl<S> std::fmt::Debug for LoadState<S> {
     }
 }
 
-fn set_name<'a, S: AssetSet>() -> Cow<'a, str> {
+fn asset_set_name<'a, S: AssetSet>() -> Cow<'a, str> {
     S::name().map(|n| Cow::Borrowed(n)).unwrap_or_else(|| {
         Cow::Owned(format!(
             "{}",
-            S::paths()
-                .into_iter()
-                .next()
-                .unwrap()
-                .into()
+            std::path::Path::new(S::PATHS.first().unwrap())
                 .parent()
                 .unwrap()
+                .display()
         ))
     })
 }

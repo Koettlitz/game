@@ -17,6 +17,5 @@ impl Plugin for SpriteAnimationPlugin {
     name = "SpriteAnimations",
     folder = "sprite_animations",
     asset_type(SpriteAnimationAsset)
-    extension = "ani.ron"
 )]
 pub struct AnimationFolder;

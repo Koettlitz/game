@@ -3,6 +3,8 @@ use std::{fmt::Debug, iter, ops};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::assets::tile::TILE_SIZE;
+
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum Passability {
     #[default]
@@ -63,6 +65,35 @@ impl GridSize {
 
     pub fn as_vec2(&self) -> Vec2 {
         self.0.as_vec2()
+    }
+
+    pub fn to_grid_pos(&self, world_position: impl Into<Vec2>) -> Option<GridPosition> {
+        GridPosition::new(self.to_grid_space(world_position), self)
+    }
+
+    fn to_grid_space(&self, world_position: impl Into<Vec2>) -> Vec2 {
+        let mut grid_position = world_position.into();
+        let half_size = self.0.as_vec2() * TILE_SIZE.as_vec2() / 2.0;
+        grid_position.x += half_size.x;
+        grid_position.y = half_size.y - grid_position.y;
+        grid_position / TILE_SIZE.as_vec2()
+    }
+
+    pub fn to_world_pos(&self, grid_position: &GridPosition) -> Vec2 {
+        self.to_world_space(grid_position.as_vec2())
+    }
+
+    fn to_world_space(&self, grid_position: impl Into<Vec2>) -> Vec2 {
+        let half_size = self.0.as_vec2() * TILE_SIZE.as_vec2() / 2.0;
+        let mut world_position = grid_position.into() * TILE_SIZE.as_vec2();
+        world_position += TILE_SIZE.as_vec2() / 2.0;
+        world_position.x -= half_size.x;
+        world_position.y = half_size.y - world_position.y;
+        world_position
+    }
+
+    pub fn center_on_tile(&self, world_position: impl Into<Vec2>) -> Vec2 {
+        self.to_world_space(self.to_grid_space(world_position).as_uvec2().as_vec2())
     }
 
     pub fn iter<'a>(&'a self) -> GridIterator<'a> {
@@ -362,6 +393,14 @@ impl GridPosition {
         }
     }
 
+    pub fn as_uvec2(self) -> UVec2 {
+        self.0
+    }
+
+    pub fn as_vec2(self) -> Vec2 {
+        self.0.as_vec2()
+    }
+
     pub fn as_index(&self, grid_size: &GridSize) -> GridIndex {
         GridIndex::from_position(self, grid_size)
     }
@@ -448,5 +487,36 @@ impl Neighbor {
             Self::Bottom => IVec2::new(0, 1),
             Self::BottomRight => IVec2::splat(1),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy::math::{UVec2, Vec2};
+
+    use crate::overworld::tile::GridSize;
+
+    const GRID_SIZE: GridSize = GridSize(UVec2::splat(10));
+
+    #[test]
+    fn world_origin_maps_to_grid_center() {
+        let half_grid_size = GRID_SIZE.0 / 2;
+        test_to_grid_pos(Vec2::splat(0.0), half_grid_size);
+    }
+
+    #[test]
+    fn left_of_world_origin_maps_to_left_of_grid_center() {
+        let half_grid_size = GRID_SIZE.0 / 2;
+        test_to_grid_pos(
+            Vec2::new(-30.0, 0.0),
+            half_grid_size.with_x(half_grid_size.x - 1),
+        );
+    }
+
+    fn test_to_grid_pos(world_position: impl Into<Vec2>, expected: impl Into<UVec2>) {
+        let Some(result) = GRID_SIZE.to_grid_pos(world_position.into()) else {
+            panic!("expected grid center, but got None");
+        };
+        assert_eq!(result.as_uvec2(), expected.into());
     }
 }

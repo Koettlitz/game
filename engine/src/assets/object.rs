@@ -2,8 +2,6 @@ use bevy::prelude::*;
 
 use crate::assets::{AssetMap, AssetSet, SpriteSheet, SpriteSheetMap};
 
-pub const TILE_SIZE: UVec2 = UVec2::splat(32);
-
 pub fn derive_texture_atlas_layouts<S, R>(
     tile_sprites: Res<AssetMap<S>>,
     images: Res<Assets<Image>>,
@@ -17,12 +15,8 @@ pub fn derive_texture_atlas_layouts<S, R>(
         let Some(image) = images.get(handle.id()) else {
             continue;
         };
-        if image.size() % TILE_SIZE != UVec2::splat(0) {
-            panic!("sprite sheet size not a multiple of {TILE_SIZE}");
-        }
-        let size_in_tiles = image.size() / TILE_SIZE;
         let layout =
-            TextureAtlasLayout::from_grid(TILE_SIZE, size_in_tiles.x, size_in_tiles.y, None, None);
+            TextureAtlasLayout::from_grid(image.size(), image.size().x, image.size().y, None, None);
         let layout = layouts.add(layout);
         let sprite_sheet = SpriteSheet {
             image: handle.clone(),

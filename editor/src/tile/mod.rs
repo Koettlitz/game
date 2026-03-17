@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use engine::{
     Id,
     animation::SpriteAnimation,
-    assets::{AssetMap, EntityLookupMap, LoadState, folder::FolderProgress, tile::SpriteSheet},
+    assets::{AssetMap, EntityLookupMap, LoadState, SpriteSheet, folder::FolderProgress},
     overworld::tile::{GridPosition, GridSize, TileGrid},
     progress::{Progress, ProgressPanel, ProgressState},
 };

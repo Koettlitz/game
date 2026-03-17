@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::assets::{
-    animation::SpriteAnimationPlugin, objects::ObjectAssetPlugin, tile::GroundTileAssetsPlugin,
+    animation::SpriteAnimationPlugin, object::ObjectAssetPlugin, tile::GroundTileAssetsPlugin,
 };
 pub mod animation;
-mod objects;
+pub mod object;
 pub mod tile;
 
 pub struct AssetsPlugin;
