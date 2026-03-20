@@ -1,4 +1,7 @@
-use build::{AssetSetArgs, create_asset_set_impl, resolve_crate_path};
+use build::{
+    asset_set::{AssetSetArgs, create_asset_set_impl},
+    resolve_crate_path,
+};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, ItemStruct, parse_macro_input};

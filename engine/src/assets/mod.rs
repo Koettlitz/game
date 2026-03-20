@@ -11,6 +11,7 @@ pub use spawn::{EntityFolderPlugin, EntityLookupMap};
 pub mod animations;
 pub mod folder;
 pub mod object;
+pub mod overworld;
 mod spawn;
 pub mod tile;
 

@@ -1,6 +1,6 @@
 use build::AssetSource;
-use build::generate_path_consts;
-use build::scan_asset_dir;
+use build::asset_set::generate_path_consts;
+use build::asset_set::scan_asset_dir;
 use std::collections::HashMap;
 use std::fs;
 use std::io;

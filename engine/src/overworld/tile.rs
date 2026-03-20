@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets::tile::TILE_SIZE;
 
+#[derive(Serialize, Deserialize)]
+pub struct TileAsset {
+    pub passability: Passability,
+    pub sprite_sheet_id: String,
+    pub animator_id: Option<String>,
+}
+
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum Passability {
     #[default]

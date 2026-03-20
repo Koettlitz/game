@@ -1,0 +1,12 @@
+(
+    width: 1,
+    height: 1,
+    tile_grid: [
+        Some((
+            passability: Always,
+            sprite_sheet_id: "hugelbugel",
+            animator_id: None,
+        )),
+    ],
+    object_sprites: [],
+)
