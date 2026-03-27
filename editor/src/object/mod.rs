@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use crate::assets::object::ObjectSprites;
-use crate::assets::object::{GameObjectAsset, ObjectAssets, ObjectSpriteSheetMap};
+use crate::assets::object::{GameObjectAsset, ObjectSpriteSheetMap};
 use crate::ui::PlaceObject;
 use bevy::prelude::*;
 use engine::Id;
+use engine::assets::AssetMap;
 use engine::assets::LoadState;
-use engine::assets::SpriteSheetMap;
-use engine::assets::{AssetMap, SpriteSheet};
+use engine::assets::sprite_sheet::{SpriteSheet, SpriteSheetMap};
 use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
 
@@ -20,13 +20,13 @@ impl Plugin for GameObjectPlugin {
             Update,
             spawn_object_kinds
                 .run_if(in_state(LoadState::<ObjectSprites>::finished()))
-                .run_if(resource_exists::<AssetMap<ObjectAssets>>),
+                .run_if(resource_exists::<AssetMap<GameObjectAsset>>),
         )
         .add_systems(
             Update,
             cleanup
-                .run_if(resource_exists::<AssetMap<ObjectAssets>>)
-                .run_if(in_state(LoadState::<ObjectAssets>::finished())),
+                .run_if(resource_exists::<AssetMap<GameObjectAsset>>)
+                .run_if(in_state(LoadState::<GameObjectAsset>::finished())),
         )
         .add_systems(
             Update,
@@ -38,7 +38,7 @@ impl Plugin for GameObjectPlugin {
 fn spawn_object_kinds(
     mut commands: Commands,
     mut assets: ResMut<Assets<GameObjectAsset>>,
-    asset_map: Res<AssetMap<ObjectAssets>>,
+    asset_map: Res<AssetMap<GameObjectAsset>>,
     mut spritesheet_map: ResMut<ObjectSpriteSheetMap>,
 ) {
     for (id, handle) in asset_map.iter() {
@@ -68,14 +68,7 @@ fn place_object(
             .expect("missing sprite sheet of game object kind");
         commands.spawn((
             GameObject { kind: *object_kind },
-            Sprite {
-                image: sprite_sheet.image.clone(),
-                texture_atlas: Some(TextureAtlas {
-                    layout: sprite_sheet.layout.clone(),
-                    index: 0,
-                }),
-                ..Default::default()
-            },
+            Sprite::from_image(sprite_sheet.image.clone()),
             Transform::from_translation(grid_size.to_world_pos(pos).extend(OBJECT_LAYER)),
         ));
     }
@@ -101,8 +94,8 @@ impl From<GameObjectAsset> for GameObjectKind {
     }
 }
 
-fn cleanup(mut commands: Commands, object_assets: Res<AssetMap<ObjectAssets>>) {
+fn cleanup(mut commands: Commands, object_assets: Res<AssetMap<GameObjectAsset>>) {
     if object_assets.0.is_empty() {
-        commands.remove_resource::<AssetMap<ObjectAssets>>();
+        commands.remove_resource::<AssetMap<GameObjectAsset>>();
     }
 }

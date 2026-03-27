@@ -1,6 +1,6 @@
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 
-use crate::overworld::lozo::LozoPlugin;
+use crate::overworld::OverworldPlugin;
 
 mod overworld;
 
@@ -10,6 +10,6 @@ fn main() {
             "game",
             AssetSourceBuilder::platform_default("game/assets", None),
         )
-        .add_plugins(LozoPlugin)
+        .add_plugins(OverworldPlugin)
         .run();
 }

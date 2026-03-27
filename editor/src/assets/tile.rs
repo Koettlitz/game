@@ -1,14 +1,17 @@
 use engine::{
-    assets::{AssetMap, AssetSetPlugin, FileAsset, LoadState, SpriteSheet, SpriteSheetMap},
+    assets::{
+        AssetMap, AssetSetPlugin, LoadState, one_or_many,
+        sprite_sheet::{SpriteSheet, SpriteSheetMap},
+    },
     overworld::tile::{Neighbor, Passability},
 };
-use macros::asset_set;
+use macros::{FromDef, asset_set};
 use ron::de::SpannedError;
 use std::{collections::HashMap, fmt::Debug, io};
 use thiserror::Error;
 
 use bevy::{asset::AssetLoader, prelude::*};
-use engine::assets::tile;
+use engine::assets::overworld::tile;
 use serde::{Deserialize, Serialize, Serializer};
 
 pub struct GroundTileAssetsPlugin;
@@ -19,7 +22,7 @@ impl Plugin for GroundTileAssetsPlugin {
             .init_asset_loader::<GroundTileAssetLoader>()
             .add_plugins((
                 AssetSetPlugin::<TileSpriteAssets>::default(),
-                AssetSetPlugin::<GroundTileAssetFolder>::default(),
+                AssetSetPlugin::<GroundTileAsset>::default(),
             ))
             .add_systems(
                 OnEnter(LoadState::<TileSpriteAssets>::finished()),
@@ -36,17 +39,12 @@ impl Plugin for GroundTileAssetsPlugin {
 
 #[asset_set(
     name = "tile_sprite_folder",
-    folder = "tiles/spritesheets",
+    base_path = "tiles/spritesheets",
+    extension = "png",
+    asset_registry(crate::asset_registry),
     asset_type(Image)
 )]
 pub struct TileSpriteAssets;
-
-#[asset_set(
-    name = "ground_tile_asset_folder",
-    folder = "editor://tiles/config",
-    asset_type(GroundTileAsset)
-)]
-pub struct GroundTileAssetFolder;
 
 #[derive(Resource, Default)]
 pub struct TileSpriteSheetMap(pub HashMap<String, SpriteSheet>);
@@ -121,7 +119,13 @@ where
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Asset, TypePath)]
+#[derive(FromDef, Debug, Serialize, Deserialize, Asset, TypePath)]
+#[asset_set(
+    base_path = "editor://tiles/config",
+    extension = "tile.ron",
+    asset_registry(crate::asset_registry),
+    asset_type(Self)
+)]
 pub struct GroundTileAsset {
     #[serde(
         default,
@@ -131,12 +135,6 @@ pub struct GroundTileAsset {
     pub id: Option<String>,
     pub passability: Passability,
     pub visuals: HashMap<AdjacentRequirementsConfig, GroundTileVisualLayersConfig>,
-}
-
-impl FileAsset for GroundTileAsset {
-    fn id(&self) -> Option<&str> {
-        self.id.as_ref().map(|id| id.as_str())
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -260,40 +258,8 @@ pub enum AdjacentRequirementConfig {
     Any,
     Same,
     Other,
-    #[serde(with = "either_id")]
+    #[serde(with = "one_or_many")]
     Either(Vec<String>),
-}
-
-mod either_id {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum OneOrMany {
-        One(String),
-        Many(Vec<String>),
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        match OneOrMany::deserialize(deserializer)? {
-            OneOrMany::One(s) => Ok(vec![s]),
-            OneOrMany::Many(v) => Ok(v),
-        }
-    }
-
-    pub fn serialize<S>(value: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if value.len() == 1 {
-            serializer.serialize_str(&value[0])
-        } else {
-            value.serialize(serializer)
-        }
-    }
 }
 
 impl AdjacentRequirementConfig {

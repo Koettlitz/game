@@ -5,16 +5,16 @@ use bevy::prelude::*;
 use engine::{
     Id,
     animation::SpriteAnimation,
-    assets::{AssetMap, EntityLookupMap, LoadState, SpriteSheet, folder::FolderProgress},
+    assets::{
+        AssetMap, EntityLookupMap, LoadState, animations::sprite::SpriteAnimationAsset,
+        folder::FolderProgress, sprite_sheet::SpriteSheet,
+    },
     overworld::tile::{GridPosition, GridSize, TileGrid},
     progress::{Progress, ProgressPanel, ProgressState},
 };
 
 use crate::{
-    assets::{
-        animation::AnimationFolder,
-        tile::{GroundTileAsset, GroundTileAssetFolder, TileSpriteAssets, TileSpriteSheetMap},
-    },
+    assets::tile::{GroundTileAsset, TileSpriteAssets, TileSpriteSheetMap},
     tile::visuals::{GroundTileVisuals, TileVisualsPlugin},
     ui::PlaceTile,
 };
@@ -34,7 +34,7 @@ impl Plugin for TilePlugin {
             .add_observer(init_link_progress)
             .add_systems(
                 PostUpdate,
-                spawn_tile_kinds.run_if(in_state(LoadState::<GroundTileAssetFolder>::loading())),
+                spawn_tile_kinds.run_if(in_state(LoadState::<GroundTileAsset>::loading())),
             )
             .add_systems(
                 Update,
@@ -69,8 +69,8 @@ fn init_tile_grid_progress(mut commands: Commands) {
 struct TileGridProgress;
 
 fn init_link_progress(
-    event: On<Add, FolderProgress<GroundTileAssetFolder>>,
-    query: Query<&Progress, With<FolderProgress<GroundTileAssetFolder>>>,
+    event: On<Add, FolderProgress<GroundTileAsset>>,
+    query: Query<&Progress, With<FolderProgress<GroundTileAsset>>>,
     mut commands: Commands,
 ) {
     let progress = query
@@ -89,7 +89,7 @@ struct LinkProgress;
 fn spawn_tile_kinds(
     mut commands: Commands,
     mut assets: ResMut<Assets<GroundTileAsset>>,
-    mut asset_map: ResMut<AssetMap<GroundTileAssetFolder>>,
+    mut asset_map: ResMut<AssetMap<GroundTileAsset>>,
     mut tile_kinds: ResMut<UnlinkedGroundTileKinds>,
 ) {
     let mut spawned_ids = Vec::new();
@@ -137,7 +137,7 @@ fn link_tile_kinds(
     let max = progress.max();
     progress.add(max);
     commands.remove_resource::<UnlinkedGroundTileKinds>();
-    commands.remove_resource::<AssetMap<GroundTileAssetFolder>>();
+    commands.remove_resource::<AssetMap<GroundTileAsset>>();
     commands.remove_resource::<TileSpriteSheetMap>();
 }
 
@@ -176,9 +176,9 @@ fn link_tile_kind(
 }
 
 fn ready_to_link_tiles(
-    ground_tile_state: Res<State<LoadState<GroundTileAssetFolder>>>,
+    ground_tile_state: Res<State<LoadState<GroundTileAsset>>>,
     sprite_sheet_state: Res<State<LoadState<TileSpriteAssets>>>,
-    animation_state: Res<State<LoadState<AnimationFolder>>>,
+    animation_state: Res<State<LoadState<SpriteAnimationAsset>>>,
 ) -> bool {
     ground_tile_state.get().is_finished()
         && sprite_sheet_state.get().is_finished()
@@ -197,7 +197,7 @@ fn spawn_ground_tile_grid(
         .next()
         .expect("missing ground tile kind \"grass\"")
         .0;
-    let grid = TileGrid::new(&grid_size, || ground_tile_entity);
+    let grid = TileGrid::with_tile(&grid_size, ground_tile_entity);
     commands.insert_resource(GroundTileGrid(grid));
     let mut progress = progress.single_mut().expect("missing tile grid progress");
     progress.add(1);

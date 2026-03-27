@@ -3,7 +3,7 @@ use std::{collections::HashSet, fmt::Debug};
 use bevy::prelude::*;
 use engine::{
     animation::{Animated, SpriteAnimation},
-    assets::{SpriteSheet, tile::TILE_SIZE},
+    assets::{animations::sprite::SpriteAnimationAsset, sprite_sheet::SpriteSheet},
     overworld::tile::{GridPosition, GridSize, GridView, Neighbor, TileGrid},
     progress::ProgressState,
 };
@@ -25,10 +25,8 @@ impl Plugin for TileVisualsPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<UpdateTileSprites>()
             .add_systems(
-                Update,
-                init_sprite_grid
-                    .after(spawn_ground_tile_grid)
-                    .run_if(in_state(ProgressState::Loading)),
+                OnEnter(ProgressState::Finished),
+                init_sprite_grid.after(spawn_ground_tile_grid),
             )
             .add_observer(on_ground_tile_changed)
             .add_systems(
@@ -42,16 +40,11 @@ fn init_sprite_grid(
     mut commands: Commands,
     grid_size: Res<GridSize>,
     mut message_writer: MessageWriter<UpdateTileSprites>,
-    mut initialized: Local<bool>,
 ) {
-    if *initialized {
-        return;
-    }
     commands.insert_resource(TileSpriteGrid(TileGrid::with_size(&grid_size)));
     for pos in grid_size.iter() {
         message_writer.write(UpdateTileSprites(pos));
     }
-    *initialized = true;
 }
 
 fn on_ground_tile_changed(
@@ -82,6 +75,7 @@ fn update_sprites(
     grid_size: Res<GridSize>,
     visuals_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
     animations: Query<&SpriteAnimation>,
+    animation_assets: Res<Assets<SpriteAnimationAsset>>,
     mut sprites_grid: ResMut<TileSpriteGrid>,
 ) {
     for UpdateTileSprites(position) in message_reader.read() {
@@ -108,6 +102,7 @@ fn update_sprites(
                 sprite_sheet,
                 &mut commands,
                 animations,
+                &animation_assets,
                 visuals_query,
                 &grid_size,
                 &ground_tile_grid.0,
@@ -127,6 +122,7 @@ fn spawn_tile_visuals(
     sprite_sheet: &SpriteSheet,
     commands: &mut Commands,
     animations: Query<&SpriteAnimation>,
+    animation_assets: &Assets<SpriteAnimationAsset>,
     visuals_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
     grid_size: &GridSize,
     tile_grid: &TileGrid<Entity>,
@@ -140,11 +136,7 @@ fn spawn_tile_visuals(
             };
             let entity = commands
                 .spawn((
-                    Sprite {
-                        image: sprite_sheet.image.clone(),
-                        texture_atlas: Some(atlas),
-                        ..Default::default()
-                    },
+                    Sprite::from_atlas_image(sprite_sheet.image.clone(), atlas),
                     transform,
                 ))
                 .id();
@@ -153,16 +145,14 @@ fn spawn_tile_visuals(
         GroundTileVisual::Animated(animation_entity) => {
             let animation = animations
                 .get(*animation_entity)
-                .expect("missing tile sprite animation");
+                .expect("missing tile sprite animation")
+                .with_asset(animation_assets)
+                .expect("missing sprite animation asset");
             let atlas = TextureAtlas {
                 layout: sprite_sheet.layout.clone(),
                 index: animation.current_idx(),
             };
-            let sprite = Sprite {
-                image: sprite_sheet.image.clone(),
-                texture_atlas: Some(atlas),
-                ..Default::default()
-            };
+            let sprite = Sprite::from_atlas_image(sprite_sheet.image.clone(), atlas);
             let entity = commands
                 .spawn((sprite, Animated::by(*animation_entity), transform))
                 .id();
@@ -183,6 +173,7 @@ fn spawn_tile_visuals(
                 sprite_sheet,
                 commands,
                 animations,
+                animation_assets,
                 visuals_query,
                 grid_size,
                 tile_grid,
@@ -195,6 +186,7 @@ pub fn create_tile_sprite(
     visuals: &GroundTileVisuals,
     sprite_sheet: &SpriteSheet,
     animations: Query<&SpriteAnimation>,
+    animation_assets: &Assets<SpriteAnimationAsset>,
 ) -> (Sprite, Option<Entity>) {
     let visual = visuals.get_default();
     match visual.base {
@@ -212,7 +204,9 @@ pub fn create_tile_sprite(
         GroundTileVisual::Animated(animation_entity) => {
             let animation = animations
                 .get(animation_entity)
-                .expect("missing sprite animation for ground tile kind");
+                .expect("missing sprite animation for ground tile kind")
+                .with_asset(animation_assets)
+                .unwrap();
             (
                 Sprite {
                     image: sprite_sheet.image.clone(),
@@ -229,12 +223,6 @@ pub fn create_tile_sprite(
             panic!("GroundTileVisual cannot have neighbor sprite as default")
         }
     }
-}
-
-fn grid_pos_to_sprite_pos(grid_pos: UVec2, grid_size: UVec2) -> Vec2 {
-    let half_grid_size = grid_size.as_vec2() / 2.0;
-    let sprite_pos = grid_pos.as_vec2() - half_grid_size;
-    sprite_pos.with_y(-sprite_pos.y) * TILE_SIZE.as_vec2()
 }
 
 #[derive(Message)]

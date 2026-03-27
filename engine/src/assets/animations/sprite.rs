@@ -1,59 +1,36 @@
-use std::{io, time::Duration};
+use std::time::Duration;
 
-use bevy::{asset::AssetLoader, prelude::*};
-use ron::de::SpannedError;
+use bevy::prelude::*;
+use macros::{FromDef, asset_set};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use super::{deserialize_duration_millis, serialize_duration_millis};
-use crate::{animation::SpriteAnimation, assets::FileAsset};
+use crate::{animation::SpriteAnimation, assets::spawn::Spawn};
 
-#[derive(TypePath, Default)]
-pub struct SpriteAnimationAssetLoader;
-impl AssetLoader for SpriteAnimationAssetLoader {
-    type Asset = SpriteAnimationAsset;
-    type Error = SpriteAssetLoadingError;
-    type Settings = ();
-    async fn load(
-        &self,
-        reader: &mut dyn bevy::asset::io::Reader,
-        _: &Self::Settings,
-        _: &mut bevy::asset::LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        Ok(ron::de::from_bytes(&mut bytes)?)
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["ani.ron"]
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum SpriteAssetLoadingError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    #[error(transparent)]
-    Ron(#[from] SpannedError),
-}
-
-#[derive(Debug, Asset, TypePath, Serialize, Deserialize)]
+#[derive(FromDef, Asset, TypePath, Serialize, Deserialize, Debug)]
+#[asset_set(
+    base_path = "sprite_animations",
+    extension = "ani.ron",
+    asset_registry(crate::assets::registry),
+    asset_type(Self)
+)]
 pub struct SpriteAnimationAsset {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     id: Option<String>,
-    indices: Vec<usize>,
+    pub indices: Vec<usize>,
     #[serde(
         serialize_with = "serialize_duration_millis",
         deserialize_with = "deserialize_duration_millis"
     )]
-    frame_duration: Duration,
+    pub frame_duration: Duration,
 }
 
-impl FileAsset for SpriteAnimationAsset {}
-
-impl Into<SpriteAnimation> for SpriteAnimationAsset {
-    fn into(self) -> SpriteAnimation {
-        SpriteAnimation::new(self.indices, self.frame_duration)
+impl Spawn for SpriteAnimationAsset {
+    type B = SpriteAnimation;
+    fn spawn(&self, handle: Handle<Self>) -> Self::B
+    where
+        Self: Sized,
+    {
+        SpriteAnimation::new(self, handle)
     }
 }

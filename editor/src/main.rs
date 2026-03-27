@@ -7,6 +7,7 @@ use engine::{
 use crate::{assets::AssetsPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
 
 mod assets;
+mod io;
 mod object;
 mod tile;
 mod ui;

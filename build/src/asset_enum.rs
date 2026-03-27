@@ -8,33 +8,38 @@ use std::{
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::Ident;
+use syn::{Ident, TypePath};
 
-use crate::{AssetSource, extension_matches, resolve_crate_path};
+use crate::{AssetSource, extension_matches, resolve_crate_name};
+
+pub trait AssetKind {
+    fn enum_name(&self) -> Option<&'static str>;
+    fn asset_type(&self) -> TypePath;
+    fn folder_path(&self) -> &'static Path;
+    fn file_extension(&self) -> Option<&'static str>;
+}
 
 pub fn generate_enum(
     asset_root: &Path,
-    asset_folder: &Path,
     asset_source: AssetSource,
-    enum_name: Option<&str>,
-    extension: Option<&str>,
+    asset_kind: &impl AssetKind,
 ) -> Result<TokenStream, BsError> {
-    let mut variants = Vec::new();
+    let asset_folder = asset_root.join(asset_kind.folder_path());
+    let mut variant_idents = Vec::new();
+    let mut variant_strings = Vec::new();
     let mut paths = Vec::new();
-    for file in fs::read_dir(asset_folder)? {
+    for file in fs::read_dir(&asset_folder)? {
         let file = file?;
         let file_name = file.file_name().to_string_lossy().to_string();
-        if let Some(extension) = extension {
+        if let Some(extension) = asset_kind.file_extension() {
             if !extension_matches(&file_name, extension) {
                 continue;
             }
         }
-        let variant_name = file_name
-            .split('.')
-            .next()
-            .unwrap()
-            .to_case(Case::UpperCamel);
-        variants.push(Ident::new(&variant_name, Span::call_site()));
+        let variant_string = file_name.split('.').next().unwrap().to_string();
+        let variant_name = variant_string.to_case(Case::UpperCamel);
+        variant_idents.push(Ident::new(&variant_name, Span::call_site()));
+        variant_strings.push(variant_string);
         let asset_path = match file.path().strip_prefix(asset_root) {
             Ok(asset_path) => asset_path.to_string_lossy().to_string(),
             Err(e) => {
@@ -56,28 +61,46 @@ pub fn generate_enum(
         paths.push(syn::LitStr::new(&asset_path, Span::call_site()));
     }
     // TODO: determine default another way (e.g. descriptor file)
-    let default_variant = variants.remove(0);
+    let default_variant_ident = variant_idents.remove(0);
     let default_variant_path = paths.remove(0);
-    let enum_name = if let Some(enum_name) = enum_name {
+    let default_variant_string = variant_strings.remove(0);
+    let enum_name = if let Some(enum_name) = asset_kind.enum_name() {
         enum_name.to_string()
     } else {
-        derive_enum_name(asset_folder)?
+        derive_enum_name(&asset_folder)?
     };
     let enum_ident = Ident::new(&enum_name, Span::call_site());
-    let bevy_crate = resolve_crate_path("bevy")?;
+    let asset_type = asset_kind.asset_type();
+    let bevy_crate = resolve_crate_name("bevy")?;
+    let engine_crate = resolve_crate_name("engine")?;
     Ok(quote! {
-        #[derive(Default, Clone, Copy, Hash, PartialEq, Eq)]
+        #[derive(Default, Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
         pub enum #enum_ident {
             #[default]
-            #default_variant,
-            #(#variants),*
+            #default_variant_ident,
+            #(#variant_idents),*
         }
 
-        impl #enum_ident {
-            pub fn asset_path(&self) -> #bevy_crate::asset::AssetPath<'_> {
+        impl std::str::FromStr for #enum_ident {
+            type Err = #engine_crate::assets::AssetResolveError;
+            fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+                match s {
+                    #default_variant_string => Ok(Self::#default_variant_ident),
+                    #(#variant_strings => Ok(Self::#variant_idents),)*
+                    _ => Err(#engine_crate::assets::AssetResolveError {
+                        target: #enum_name.to_string(),
+                        id: s.to_string(),
+                    }),
+                }
+            }
+        }
+
+        impl #engine_crate::assets::AssetResolver for #enum_ident {
+            type Asset = #asset_type;
+            fn asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
                 match self {
-                    Self::#default_variant => #bevy_crate::asset::AssetPath::from(#default_variant_path),
-                    #(Self::#variants => #bevy_crate::asset::AssetPath::from(#paths),)*
+                    Self::#default_variant_ident => #bevy_crate::asset::AssetPath::from(#default_variant_path),
+                    #(Self::#variant_idents => #bevy_crate::asset::AssetPath::from(#paths),)*
                 }
             }
         }

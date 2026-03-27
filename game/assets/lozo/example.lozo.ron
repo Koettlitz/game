@@ -1,12 +1,23 @@
 (
-    width: 1,
-    height: 1,
+    width: 2,
+    height: 2,
     tile_grid: [
         Some((
             passability: Always,
-            sprite_sheet_id: "hugelbugel",
-            animator_id: None,
+            sprite_id_stack: [
+                "water_wild",
+                "hugelbugel",
+            ],
         )),
+        Some((
+            passability: Surf,
+            sprite_id_stack: "water_wild",
+        )),
+        Some((
+            passability: Surf,
+            sprite_id_stack: "water_wild",
+        )),
+        None,
     ],
-    object_sprites: [],
+    game_object_ids: [],
 )

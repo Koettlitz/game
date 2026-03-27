@@ -1,18 +1,35 @@
 use std::{borrow::Cow, hash::Hash, marker::PhantomData};
 
-use bevy::prelude::*;
+use bevy::{
+    asset::{AssetPath, ParseAssetPathError},
+    prelude::*,
+};
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 
 use crate::{
-    assets::Phantom,
+    assets::{AssetResolver, Phantom},
     progress::{Progress, ProgressPanel},
 };
+
+pub trait AssetSet {
+    type Resolver: AssetResolver;
+    const NAMES: &'static [&'static str];
+
+    fn name() -> &'static str {
+        <Self::Resolver as AssetResolver>::Asset::type_ident().unwrap()
+    }
+
+    fn paths() -> impl Iterator<Item = Result<AssetPath<'static>, ParseAssetPathError>> {
+        Self::NAMES.iter().map(|n| Self::Resolver::resolve(n))
+    }
+}
 
 pub struct AssetSetPlugin<S> {
     show_progress: bool,
     _marker: Phantom<S>,
 }
+
 impl<S> Default for AssetSetPlugin<S> {
     fn default() -> Self {
         Self {
@@ -22,7 +39,7 @@ impl<S> Default for AssetSetPlugin<S> {
     }
 }
 
-impl<S: AssetSet> Plugin for AssetSetPlugin<S> {
+impl<S: AssetSet + 'static> Plugin for AssetSetPlugin<S> {
     fn build(&self, app: &mut bevy::app::App) {
         app.init_state::<LoadState<S>>()
             .init_resource::<AssetMap<S>>()
@@ -54,34 +71,21 @@ impl<S: AssetSet> Plugin for AssetSetPlugin<S> {
 #[derive(SystemSet, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct FillAssetMap;
 
-pub trait AssetSet: 'static {
-    type Asset: FileAsset;
-    const PATHS: &'static [&'static str];
-    fn name() -> Option<&'static str> {
-        None
-    }
-}
-
-pub trait FileAsset: Asset {
-    fn id(&self) -> Option<&str> {
-        None
-    }
-}
-
-impl FileAsset for Image {}
-
-fn load_asset_folder<S: AssetSet>(asset_server: Res<AssetServer>, mut commands: Commands) {
-    let handles = S::PATHS
-        .iter()
-        .map(|path| asset_server.load(*path))
-        .collect();
+fn load_asset_folder<S: AssetSet + 'static>(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    let handles = S::paths().map(|p| asset_server.load(p.unwrap())).collect();
     commands.insert_resource(LoadingFolder::<S>::new(handles));
 }
 
-fn init_progress<S: AssetSet>(loading_folder: Res<LoadingFolder<S>>, mut commands: Commands) {
+fn init_progress<S: AssetSet + 'static>(
+    loading_folder: Res<LoadingFolder<S>>,
+    mut commands: Commands,
+) {
     commands.spawn((
         Progress::new(0, loading_folder.0.len()),
-        ProgressPanel::new(asset_set_name::<S>().into_owned()),
+        ProgressPanel::new(S::name().to_string()),
         FolderProgress::<S>::default(),
     ));
 }
@@ -95,55 +99,57 @@ impl<S> Default for FolderProgress<S> {
     }
 }
 
-fn fill_asset_map<S: AssetSet>(
+fn fill_asset_map<S: AssetSet + 'static>(
     asset_server: Res<AssetServer>,
     loading_folder: Option<ResMut<LoadingFolder<S>>>,
-    assets: Res<Assets<S::Asset>>,
+    assets: Res<Assets<<S::Resolver as AssetResolver>::Asset>>,
     mut asset_map: ResMut<AssetMap<S>>,
     mut progress: Query<&mut Progress, With<FolderProgress<S>>>,
 ) {
     let Some(mut loading_folder) = loading_folder else {
         return;
     };
-    loading_folder.0.retain(|handle| {
-        let Some(asset) = assets.get(handle.id()) else {
-            return if let Some(bevy::asset::LoadState::Failed(e)) =
-                asset_server.get_load_state(handle.id())
-            {
-                error!(
-                    "failed to load asset {} from folder {} - {e}",
-                    handle
-                        .path()
-                        .map(|p| Cow::Owned(format!("{p}")))
-                        .unwrap_or_else(|| Cow::Borrowed("with no path")),
-                    asset_set_name::<S>()
-                );
-                for mut progress in progress.iter_mut() {
-                    progress.add(1);
-                }
-                false
-            } else {
-                true
+    loading_folder
+        .0
+        .retain(|handle: &Handle<<S::Resolver as AssetResolver>::Asset>| {
+            let Some(_asset) = assets.get(handle.id()) else {
+                return if let Some(bevy::asset::LoadState::Failed(e)) =
+                    asset_server.get_load_state(handle.id())
+                {
+                    error!(
+                        "failed to load asset {} from folder {} - {e}",
+                        handle
+                            .path()
+                            .map(|p| Cow::Owned(format!("{p}")))
+                            .unwrap_or_else(|| Cow::Borrowed("with no path")),
+                        S::name()
+                    );
+                    for mut progress in progress.iter_mut() {
+                        progress.add(1);
+                    }
+                    false
+                } else {
+                    true
+                };
             };
-        };
-        let id = asset.id().map(|id| id.to_string()).unwrap_or_else(|| {
-            let asset_path = handle.path().expect("missing asset path");
-            let id = asset_path
-                .path()
-                .file_stem()
-                .unwrap_or_else(|| panic!("missing file stem in asset path {}", asset_path));
-            id.to_string_lossy()
-                .split('.')
-                .next()
-                .expect("split string was emtpy")
-                .to_string()
+            let id = {
+                let asset_path = handle.path().expect("missing asset path");
+                let id = asset_path
+                    .path()
+                    .file_stem()
+                    .unwrap_or_else(|| panic!("missing file stem in asset path {}", asset_path));
+                id.to_string_lossy()
+                    .split('.')
+                    .next()
+                    .expect("split string was emtpy")
+                    .to_string()
+            };
+            asset_map.0.insert(id, handle.clone());
+            for mut progress in progress.iter_mut() {
+                progress.add(1);
+            }
+            false
         });
-        asset_map.0.insert(id, handle.clone());
-        for mut progress in progress.iter_mut() {
-            progress.add(1);
-        }
-        false
-    });
 }
 
 fn check_load_state<S: AssetSet>(
@@ -158,31 +164,33 @@ fn check_load_state<S: AssetSet>(
     }
 }
 
-fn cleanup<S: AssetSet>(mut commands: Commands) {
+fn cleanup<S: AssetSet + 'static>(mut commands: Commands) {
     commands.remove_resource::<LoadingFolder<S>>();
 }
 
 #[derive(Resource)]
-struct LoadingFolder<S: AssetSet>(Vec<Handle<S::Asset>>);
+struct LoadingFolder<S: AssetSet>(Vec<Handle<<S::Resolver as AssetResolver>::Asset>>);
 impl<S: AssetSet> LoadingFolder<S> {
-    fn new(loading_folder: Vec<Handle<S::Asset>>) -> Self {
+    fn new(loading_folder: Vec<Handle<<S::Resolver as AssetResolver>::Asset>>) -> Self {
         Self(loading_folder)
     }
 }
 
 #[derive(Resource)]
-pub struct AssetMap<S: AssetSet>(pub HashMap<String, Handle<S::Asset>>);
+pub struct AssetMap<S: AssetSet>(
+    pub HashMap<String, Handle<<S::Resolver as AssetResolver>::Asset>>,
+);
 impl<F: AssetSet> Default for AssetMap<F> {
     fn default() -> Self {
         Self(HashMap::new())
     }
 }
 impl<S: AssetSet> AssetMap<S> {
-    pub fn get(&self, id: &str) -> Option<&Handle<S::Asset>> {
+    pub fn get(&self, id: &str) -> Option<&Handle<<S::Resolver as AssetResolver>::Asset>> {
         self.0.get(id)
     }
 
-    pub fn iter(&self) -> Iter<'_, String, Handle<S::Asset>> {
+    pub fn iter(&self) -> Iter<'_, String, Handle<<S::Resolver as AssetResolver>::Asset>> {
         self.0.iter()
     }
 }
@@ -236,16 +244,4 @@ impl<S> std::fmt::Debug for LoadState<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::mem::discriminant(self).fmt(f)
     }
-}
-
-fn asset_set_name<'a, S: AssetSet>() -> Cow<'a, str> {
-    S::name().map(|n| Cow::Borrowed(n)).unwrap_or_else(|| {
-        Cow::Owned(format!(
-            "{}",
-            std::path::Path::new(S::PATHS.first().unwrap())
-                .parent()
-                .unwrap()
-                .display()
-        ))
-    })
 }

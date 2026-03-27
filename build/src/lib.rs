@@ -7,6 +7,8 @@ use syn::Ident;
 
 pub mod asset_enum;
 pub mod asset_set;
+pub mod from_def;
+pub mod resolver;
 
 pub enum AssetSource {
     Workspace,
@@ -28,8 +30,8 @@ impl AssetSource {
     }
 }
 
-pub fn resolve_crate_path(crate_path: &str) -> syn::Result<proc_macro2::TokenStream> {
-    match crate_name(crate_path) {
+pub fn resolve_crate_name(orig_name: &str) -> syn::Result<proc_macro2::TokenStream> {
+    match crate_name(orig_name) {
         Ok(FoundCrate::Itself) => Ok(quote!(crate)),
         Ok(FoundCrate::Name(name)) => {
             let ident = Ident::new(&name, Span::call_site());
@@ -37,7 +39,7 @@ pub fn resolve_crate_path(crate_path: &str) -> syn::Result<proc_macro2::TokenStr
         }
         Err(e) => Err(syn::Error::new(
             Span::call_site(),
-            format!("could not resolve crate {crate_path} - {e}"),
+            format!("could not resolve crate {orig_name} - {e}"),
         )),
     }
 }

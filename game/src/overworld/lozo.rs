@@ -1,7 +1,6 @@
 use bevy::prelude::*;
+use engine::assets::AssetResolver;
 use engine::assets::overworld::lozo::LozoAsset;
-
-include!(concat!(env!("OUT_DIR"), "/lozo.rs"));
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
@@ -16,19 +15,26 @@ impl Plugin for LozoPlugin {
 }
 
 #[derive(Resource, Default)]
-pub struct NextLozo {
-    target: Option<Lozo>,
+pub struct NextLozo(Option<NextLozoRequest>);
+
+#[derive(Clone)]
+struct NextLozoRequest {
+    target: String,
+    player_location: UVec2,
 }
 
 impl NextLozo {
-    pub fn set(&mut self, target: Lozo) {
-        self.target = Some(target);
+    pub fn set(&mut self, target: String, player_location: UVec2) {
+        self.0 = Some(NextLozoRequest {
+            target,
+            player_location,
+        });
     }
 }
 
 #[derive(Resource)]
 struct LozoTransition {
-    target: Lozo,
+    next_lozo: NextLozoRequest,
     asset_handle: Handle<LozoAsset>,
 }
 
@@ -38,17 +44,16 @@ fn detect_lozo_transition(
     mut next_state: ResMut<NextState<LozoState>>,
     mut commands: Commands,
 ) {
-    let Some(ref target) = transition.target else {
+    let Some(next_lozo) = transition.0.take() else {
         return;
     };
 
+    let asset_path = LozoAsset::resolve(&next_lozo.target).unwrap();
     commands.insert_resource(LozoTransition {
-        target: *target,
-        asset_handle: asset_server.load(target.asset_path()),
+        next_lozo: next_lozo,
+        asset_handle: asset_server.load(asset_path),
     });
     next_state.set(LozoState::LoadingLozoAsset);
-
-    transition.target = None;
 }
 
 #[derive(States, Default, PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -56,5 +61,4 @@ enum LozoState {
     #[default]
     Default,
     LoadingLozoAsset,
-    LoadingDependencies,
 }

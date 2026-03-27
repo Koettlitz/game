@@ -4,8 +4,8 @@ use bevy::{
 use engine::{
     Id,
     animation::{Animated, SpriteAnimation},
-    assets::{SpriteSheet, tile::TILE_SIZE},
-    overworld::tile::{GridPosition, GridSize},
+    assets::{animations::sprite::SpriteAnimationAsset, sprite_sheet::SpriteSheet},
+    overworld::tile::{GridPosition, GridSize, TILE_SIZE},
     progress::ProgressState,
 };
 
@@ -113,6 +113,7 @@ fn on_cursor_changed(
     tile_kind_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
     object_kind_query: Query<(&GameObjectKind, &SpriteSheet)>,
     animations: Query<&SpriteAnimation>,
+    animation_assets: Res<Assets<SpriteAnimationAsset>>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform)>,
 ) {
@@ -125,7 +126,7 @@ fn on_cursor_changed(
                 .get(ground_tile_entity)
                 .expect("cursor contained missing ground tile kind entity");
             let (mut sprite, animation_entity) =
-                create_tile_sprite(visuals, sprite_sheet, animations);
+                create_tile_sprite(visuals, sprite_sheet, animations, &animation_assets);
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
             if let Some(animation_entity) = animation_entity {

@@ -8,9 +8,14 @@ bevy = { workspace = true }
 engine = { path = "../engine" }
 serde = { workspace = true }
 ron = { workspace = true }
+thiserror = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }
 syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
+strum = "0.28"
+strum_macros = "0.28"

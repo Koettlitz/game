@@ -1,18 +1,14 @@
 use std::{fmt::Debug, iter, ops};
 
 use bevy::prelude::*;
+use macros::FromDef;
 use serde::{Deserialize, Serialize};
 
-use crate::assets::tile::TILE_SIZE;
+pub const TILE_SIZE: UVec2 = UVec2::splat(32);
 
-#[derive(Serialize, Deserialize)]
-pub struct TileAsset {
-    pub passability: Passability,
-    pub sprite_sheet_id: String,
-    pub animator_id: Option<String>,
-}
-
-#[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(
+    FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize,
+)]
 pub enum Passability {
     #[default]
     Always,
@@ -158,16 +154,27 @@ pub struct TileGrid<T>(Vec<T>);
 
 impl<T: Default> TileGrid<T> {
     pub fn with_size(size: &GridSize) -> Self {
-        Self::new(size, T::default)
+        Self::from_fn(size, |_| T::default())
+    }
+}
+
+impl<T: Copy> TileGrid<T> {
+    pub fn with_tile(size: &GridSize, tile: T) -> Self {
+        Self(
+            iter::repeat(tile)
+                .take((size.width() * size.height()) as usize)
+                .collect(),
+        )
     }
 }
 
 impl<T> TileGrid<T> {
-    pub fn new(size: &GridSize, constructor: impl FnMut() -> T) -> Self {
-        let grid = iter::repeat_with(constructor)
-            .take((size.0.x * size.0.y) as usize)
-            .collect();
-        Self(grid)
+    pub fn from_fn(size: &GridSize, mut constructor: impl FnMut(GridPosition) -> T) -> Self {
+        let mut tiles = Vec::with_capacity((size.width() * size.height()) as usize);
+        for pos in size.iter() {
+            tiles.push(constructor(pos));
+        }
+        Self(tiles)
     }
 
     pub fn view_of<'a>(&'a self, adjacent: Adjacent<'a>) -> GridView<'a, T> {
@@ -379,6 +386,13 @@ pub struct GridIndex(usize);
 impl GridIndex {
     pub fn from_position(position: &GridPosition, grid_size: &GridSize) -> Self {
         Self((position.0.y * grid_size.0.x + position.0.x) as usize)
+    }
+}
+
+impl ops::Deref for GridIndex {
+    type Target = usize;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

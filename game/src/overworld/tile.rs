@@ -1,11 +1,12 @@
 use bevy::prelude::*;
-use engine::overworld::tile::TileGrid;
+use engine::overworld::tile::Passability;
 
 pub struct TilePlugin;
 impl Plugin for TilePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, init_tile_grid);
-    }
+    fn build(&self, _app: &mut App) {}
 }
 
-fn init_tile_grid(mut commands: Commands, asset_server: Res<AssetServer>) {}
+#[derive(Component)]
+pub struct Tile {
+    pub passability: Passability,
+}

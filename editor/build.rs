@@ -1,4 +1,3 @@
-use build::AssetSource;
 use build::asset_set::generate_path_consts;
 use build::asset_set::scan_asset_dir;
 use std::collections::HashMap;
@@ -23,12 +22,10 @@ fn main() -> Result<(), io::Error> {
 
     let mut output = String::new();
     output.push_str(&generate_path_consts(
-        AssetSource::Editor,
         &editor_asset_root,
         &editor_asset_paths,
     ));
     output.push_str(&generate_path_consts(
-        AssetSource::Workspace,
         &general_asset_root,
         &general_asset_paths,
     ));

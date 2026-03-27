@@ -1,22 +1,24 @@
-use std::{collections::HashMap, io};
+use std::collections::HashMap;
 
-use bevy::{asset::AssetLoader, prelude::*};
+use bevy::prelude::*;
 use engine::assets::AssetMap;
-use engine::assets::object;
-use engine::assets::{AssetSetPlugin, LoadState, SpriteSheet, SpriteSheetMap};
-use macros::{FileAsset, asset_set};
-use ron::de::SpannedError;
+use engine::assets::GameAssetLoader;
+use engine::assets::overworld::object;
+use engine::assets::sprite_sheet::SpriteSheet;
+use engine::assets::sprite_sheet::SpriteSheetMap;
+use engine::assets::{AssetSetPlugin, LoadState};
+use macros::FromDef;
+use macros::asset_set;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 pub struct ObjectAssetPlugin;
 impl Plugin for ObjectAssetPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<GameObjectAsset>()
-            .init_asset_loader::<ObjectAssetLoader>()
+            .init_asset_loader::<GameAssetLoader<GameObjectAsset, GameObjectAsset>>()
             .init_resource::<ObjectSpriteSheetMap>()
             .add_plugins((
-                AssetSetPlugin::<ObjectAssets>::default(),
+                AssetSetPlugin::<GameObjectAsset>::default(),
                 AssetSetPlugin::<ObjectSprites>::default(),
             ))
             .add_systems(
@@ -32,14 +34,14 @@ impl Plugin for ObjectAssetPlugin {
     }
 }
 
+#[derive(FromDef, Asset, TypePath, Serialize, Deserialize)]
 #[asset_set(
-    name = "Objects",
-    folder = "editor://objects",
-    asset_type(GameObjectAsset)
+    name = "GameObjects",
+    base_path = "editor://objects",
+    extension = "obj.ron",
+    asset_registry(crate::asset_registry),
+    asset_type(Self)
 )]
-pub struct ObjectAssets;
-
-#[derive(Asset, FileAsset, TypePath, Serialize, Deserialize)]
 pub struct GameObjectAsset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collision_box: Option<IRect>,
@@ -50,7 +52,9 @@ pub struct GameObjectAsset {
 
 #[asset_set(
     name = "object_sprite_folder",
-    folder = "objects/spritesheets",
+    base_path = "objects/spritesheets",
+    extension = "png",
+    asset_registry(crate::asset_registry),
     asset_type(Image)
 )]
 pub struct ObjectSprites;
@@ -69,33 +73,6 @@ impl SpriteSheetMap for ObjectSpriteSheetMap {
     fn remove(&mut self, id: &str) -> Option<SpriteSheet> {
         self.0.remove(id)
     }
-}
-
-#[derive(Default, TypePath)]
-struct ObjectAssetLoader;
-impl AssetLoader for ObjectAssetLoader {
-    type Asset = GameObjectAsset;
-    type Settings = ();
-    type Error = ObjectAssetLoadError;
-    async fn load(
-        &self,
-        reader: &mut dyn bevy::asset::io::Reader,
-        _: &Self::Settings,
-        _: &mut bevy::asset::LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let asset: GameObjectAsset = ron::de::from_bytes(&mut bytes)?;
-        Ok(asset)
-    }
-}
-
-#[derive(Debug, Error)]
-enum ObjectAssetLoadError {
-    #[error("{0}")]
-    Io(#[from] io::Error),
-    #[error("{0}")]
-    Ron(#[from] SpannedError),
 }
 
 fn cleanup(mut commands: Commands) {
