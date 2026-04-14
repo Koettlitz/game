@@ -1,7 +1,7 @@
 use bevy::ecs::component::Component;
 
 pub mod animation;
-pub mod assets;
+pub mod asset;
 pub mod overworld;
 pub mod progress;
 

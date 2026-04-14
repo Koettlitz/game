@@ -1,143 +1,213 @@
 use std::{
+    collections::HashMap,
+    env::VarError,
     fmt::{self, Display},
     fs,
     io::{self, ErrorKind},
-    path::{Path, StripPrefixError},
+    path::{Path, PathBuf, StripPrefixError},
 };
+use thiserror::Error;
 
+use crate::{AssetSource, resolve_crate_name};
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{Ident, TypePath};
+use syn::Ident;
 
-use crate::{AssetSource, extension_matches, resolve_crate_name};
-
-pub trait AssetKind {
-    fn enum_name(&self) -> Option<&'static str>;
-    fn asset_type(&self) -> TypePath;
-    fn folder_path(&self) -> &'static Path;
-    fn file_extension(&self) -> Option<&'static str>;
+pub fn generate_resolver_enums(
+    asset_source: AssetSource,
+    asset_root: &Path,
+) -> Result<HashMap<PathBuf, TokenStream>, BsError> {
+    let mut result = HashMap::new();
+    generate_resolver_enums_in(asset_source, asset_root, asset_root, &mut result)?;
+    Ok(result)
 }
 
-pub fn generate_enum(
-    asset_root: &Path,
+fn generate_resolver_enums_in(
     asset_source: AssetSource,
-    asset_kind: &impl AssetKind,
+    asset_root: &Path,
+    asset_dir: &Path,
+    enums: &mut HashMap<PathBuf, TokenStream>,
+) -> Result<(), BsError> {
+    let mut asset_files = Vec::new();
+    let read_dir = match fs::read_dir(asset_root.join(asset_dir)) {
+        Ok(dir) => dir,
+        Err(e) => {
+            return Err(BsError::io(
+                e,
+                format!("could not read asset_dir \"{}\"", asset_dir.display()),
+            ));
+        }
+    };
+
+    for file in read_dir {
+        let file = file?;
+        let path = file.path();
+        let path = path.strip_prefix(asset_root)?;
+        if file.file_type()?.is_dir() {
+            generate_resolver_enums_in(asset_source, asset_root, path, enums)?;
+        } else {
+            asset_files.push(path.to_path_buf());
+        }
+    }
+
+    if !asset_files.is_empty() {
+        let enum_name = derive_enum_type_name(asset_dir)?;
+        let progress_name = derive_progress_name(asset_dir)?;
+        let resolver_enum =
+            generate_resolver_enum(&enum_name, &progress_name, asset_files, asset_source)?;
+        let generated_file_path = derive_enum_file_name(asset_dir)?;
+        enums.insert(generated_file_path, resolver_enum);
+    };
+    Ok(())
+}
+
+fn generate_resolver_enum(
+    enum_name: &str,
+    progress_name: &str,
+    file_paths: impl IntoIterator<Item = impl AsRef<Path>>,
+    asset_source: AssetSource,
 ) -> Result<TokenStream, BsError> {
-    let asset_folder = asset_root.join(asset_kind.folder_path());
     let mut variant_idents = Vec::new();
     let mut variant_strings = Vec::new();
-    let mut paths = Vec::new();
-    for file in fs::read_dir(&asset_folder)? {
-        let file = file?;
-        let file_name = file.file_name().to_string_lossy().to_string();
-        if let Some(extension) = asset_kind.file_extension() {
-            if !extension_matches(&file_name, extension) {
-                continue;
-            }
-        }
+    let mut asset_paths = Vec::new();
+    for file in file_paths {
+        let file = file.as_ref();
+        let Some(file_name) = file.file_name() else {
+            continue;
+        };
+        let file_name = file_name.to_string_lossy().to_string();
         let variant_string = file_name.split('.').next().unwrap().to_string();
         let variant_name = variant_string.to_case(Case::UpperCamel);
         variant_idents.push(Ident::new(&variant_name, Span::call_site()));
         variant_strings.push(variant_string);
-        let asset_path = match file.path().strip_prefix(asset_root) {
-            Ok(asset_path) => asset_path.to_string_lossy().to_string(),
-            Err(e) => {
-                return Err(BsError::PathError {
-                    e,
-                    msg: Some(format!(
-                        "could not make asset path {} relative to asset root {}",
-                        file.path().display(),
-                        asset_root.display()
-                    )),
-                });
-            }
-        };
         let asset_path = if let Some(prefix) = asset_source.prefix() {
-            format!("{prefix}{}", asset_path)
+            format!("{prefix}{}", file.to_string_lossy())
         } else {
-            asset_path
+            file.to_string_lossy().to_string()
         };
-        paths.push(syn::LitStr::new(&asset_path, Span::call_site()));
+        asset_paths.push(syn::LitStr::new(&asset_path, Span::call_site()));
     }
     // TODO: determine default another way (e.g. descriptor file)
     let default_variant_ident = variant_idents.remove(0);
-    let default_variant_path = paths.remove(0);
+    let default_variant_path = asset_paths.remove(0);
     let default_variant_string = variant_strings.remove(0);
-    let enum_name = if let Some(enum_name) = asset_kind.enum_name() {
-        enum_name.to_string()
-    } else {
-        derive_enum_name(&asset_folder)?
-    };
-    let enum_ident = Ident::new(&enum_name, Span::call_site());
-    let asset_type = asset_kind.asset_type();
+    let enum_type: syn::Type = syn::parse_str(&enum_name)?;
     let bevy_crate = resolve_crate_name("bevy")?;
     let engine_crate = resolve_crate_name("engine")?;
     Ok(quote! {
         #[derive(Default, Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
-        pub enum #enum_ident {
+        pub enum #enum_type {
             #[default]
             #default_variant_ident,
             #(#variant_idents),*
         }
 
-        impl std::str::FromStr for #enum_ident {
-            type Err = #engine_crate::assets::AssetResolveError;
+        impl std::str::FromStr for #enum_type {
+            type Err = #engine_crate::asset::folder::InvalidAssetLinkError;
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     #default_variant_string => Ok(Self::#default_variant_ident),
                     #(#variant_strings => Ok(Self::#variant_idents),)*
-                    _ => Err(#engine_crate::assets::AssetResolveError {
-                        target: #enum_name.to_string(),
-                        id: s.to_string(),
-                    }),
+                    _ => Err(#engine_crate::asset::folder::InvalidAssetLinkError(s.to_string())),
                 }
             }
         }
 
-        impl #engine_crate::assets::AssetResolver for #enum_ident {
-            type Asset = #asset_type;
-            fn asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
+        impl #engine_crate::asset::folder::AsAssetPath for #enum_type {
+            fn as_asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
                 match self {
                     Self::#default_variant_ident => #bevy_crate::asset::AssetPath::from(#default_variant_path),
-                    #(Self::#variant_idents => #bevy_crate::asset::AssetPath::from(#paths),)*
+                    #(Self::#variant_idents => #bevy_crate::asset::AssetPath::from(#asset_paths),)*
                 }
+            }
+        }
+
+        impl #engine_crate::asset::folder::ProgressName for #enum_type {
+            fn name<'a>() -> &'a str {
+                #progress_name
+            }
+        }
+
+        impl #engine_crate::asset::AssetResolver for #enum_type {
+            fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #engine_crate::asset::FromDefError> {
+                let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
+                Ok(<Self as #engine_crate::asset::folder::AsAssetPath>::as_asset_path(&instance))
             }
         }
     })
 }
 
-fn derive_enum_name(asset_folder: &Path) -> io::Result<String> {
-    let Some(folder_name) = asset_folder.file_name() else {
+pub fn derive_enum_file_name(base_path: &Path) -> io::Result<PathBuf> {
+    let base_name = stripped_file_name(base_path)?;
+    let file_name = base_name.to_case(Case::Snake) + ".rs";
+    Ok(if let Some(parent) = base_path.parent() {
+        parent.join(&file_name)
+    } else {
+        PathBuf::from(file_name)
+    })
+}
+
+pub fn derive_enum_type_name(base_path: &Path) -> io::Result<String> {
+    let base_name = stripped_file_name(base_path)?;
+    Ok(base_name.to_case(Case::UpperCamel))
+}
+
+pub fn derive_progress_name(base_path: &Path) -> io::Result<String> {
+    stripped_file_name(base_path)
+}
+
+fn stripped_file_name(base_path: &Path) -> io::Result<String> {
+    let Some(dir_name) = base_path.file_name() else {
         return Err(io::Error::new(
             ErrorKind::InvalidFilename,
-            format!("no file name for asset_folder {}", asset_folder.display()),
+            format!("no file name for base_path {}", base_path.display()),
         ));
     };
-    Ok(folder_name
+    let base_name = dir_name
         .to_string_lossy()
+        .to_string()
         .split('.')
         .next()
         .unwrap()
-        .to_case(Case::UpperCamel))
+        .to_string();
+    Ok(base_name
+        .strip_suffix('s')
+        .unwrap_or(&base_name)
+        .to_string())
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum BsError {
     Io {
+        #[source]
         e: io::Error,
         msg: Option<String>,
     },
     PathError {
+        #[source]
         e: StripPrefixError,
         msg: Option<String>,
     },
     Syn(syn::Error),
+    Var(#[from] VarError),
+}
+
+impl BsError {
+    pub fn io(e: io::Error, msg: String) -> Self {
+        Self::Io { e, msg: Some(msg) }
+    }
 }
 
 impl From<io::Error> for BsError {
     fn from(e: io::Error) -> Self {
         Self::Io { e, msg: None }
+    }
+}
+
+impl From<StripPrefixError> for BsError {
+    fn from(e: StripPrefixError) -> Self {
+        Self::PathError { e, msg: None }
     }
 }
 
@@ -164,6 +234,7 @@ impl Display for BsError {
             Self::Io { e, msg } => with_err_and_optional_msg(f, e, msg.as_deref()),
             Self::PathError { e, msg } => with_err_and_optional_msg(f, e, msg.as_deref()),
             Self::Syn(e) => e.fmt(f),
+            Self::Var(e) => e.fmt(f),
         }
     }
 }

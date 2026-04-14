@@ -1,0 +1,19 @@
+(
+    passability: Always,
+    visuals: (
+        spritesheet: "grass.png",
+        config: {
+            (): (
+                base: Static(0),
+            ),
+            (
+                top: Either(["water_calm", "water_wild"]),
+            ): (
+                base: Static(0),
+                above: [
+                    Static(1)
+                ],
+            ),
+        }
+    ),
+)

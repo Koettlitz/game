@@ -1,15 +1,19 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ops,
+    path::{Path, PathBuf},
+};
 
 use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::Span;
-use quote::quote;
-use syn::Ident;
+use quote::{ToTokens, quote};
+use syn::{Ident, TypePath, spanned::Spanned};
 
 pub mod asset_enum;
 pub mod asset_set;
 pub mod from_def;
-pub mod resolver;
+pub mod spec;
 
+#[derive(Clone, Copy, Debug)]
 pub enum AssetSource {
     Workspace,
     Editor,
@@ -41,6 +45,78 @@ pub fn resolve_crate_name(orig_name: &str) -> syn::Result<proc_macro2::TokenStre
             Span::call_site(),
             format!("could not resolve crate {orig_name} - {e}"),
         )),
+    }
+}
+
+/// A [`syn::Path`] whose first segment is rewritten to the correct crate name.
+///
+/// Resolution happens in [`CratePath::try_from`] using
+/// [`proc_macro_crate::crate_name`].
+#[derive(Clone)]
+pub struct CratePath(syn::Path);
+impl TryFrom<&'static str> for CratePath {
+    type Error = syn::Error;
+
+    fn try_from(path: &'static str) -> Result<Self, Self::Error> {
+        let path: syn::Path = syn::parse_str(path)?;
+        Self::try_from(path)
+    }
+}
+impl TryFrom<syn::Path> for CratePath {
+    type Error = syn::Error;
+
+    fn try_from(mut path: syn::Path) -> Result<Self, Self::Error> {
+        let first_segment = match path.segments.first_mut() {
+            Some(segment) => segment,
+            None => {
+                return Err(syn::Error::new(
+                    path.span(),
+                    "wtf is this? Comon man! Don't gimme that empty syn::Path abomination! I can't...",
+                ));
+            }
+        };
+        let crate_string = first_segment.ident.to_string();
+        let span = first_segment.ident.span();
+        first_segment.ident = match crate_name(&crate_string) {
+            Ok(FoundCrate::Itself) => Ident::new("crate", span),
+            Ok(FoundCrate::Name(name)) => Ident::new(&name, span),
+            Err(e) => {
+                return Err(syn::Error::new(
+                    span,
+                    format!("could not resolve crate `{crate_string}`: {e}"),
+                ));
+            }
+        };
+        Ok(Self(path))
+    }
+}
+impl ops::Deref for CratePath {
+    type Target = syn::Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl AsRef<syn::Path> for CratePath {
+    fn as_ref(&self) -> &syn::Path {
+        &self.0
+    }
+}
+impl From<CratePath> for syn::Path {
+    fn from(p: CratePath) -> Self {
+        p.0
+    }
+}
+impl ToTokens for CratePath {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.0.to_tokens(tokens);
+    }
+}
+
+pub fn is_self(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(TypePath { qself: None, path }) => path.is_ident("Self"),
+        _ => false,
     }
 }
 

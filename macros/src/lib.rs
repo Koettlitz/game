@@ -1,21 +1,24 @@
-use std::borrow::Cow;
+use std::path::PathBuf;
 
 use build::{
-    asset_set::{AssetSetArgs, create_asset_set_impl},
+    asset_enum::{derive_enum_file_name, derive_enum_type_name},
+    asset_set::AssetSetArgs,
     from_def::{derive_def_type_name, from_def_trait, generate_conversion_for, generate_def_for},
-    resolve_crate_name,
-    resolver::{ResolverArgs, create_resolver_impl},
+    is_self, resolve_crate_name,
+    spec::{SpecArgs, create_spec_impl},
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{ToTokens, quote};
 use syn::{
-    DeriveInput, Ident, Item, ItemEnum, ItemStruct, Token, Type, parse, parse_macro_input,
+    DeriveInput, Ident, Item, ItemEnum, ItemStruct, LitStr, Token, Type, parse, parse_macro_input,
     punctuated::Punctuated,
 };
 
+/// Generates an implementation of [`engine::asset::AssetPathSpec`] for the annotated struct or
+/// enum.
 #[proc_macro_attribute]
-pub fn resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn asset_spec(attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = match syn::parse(item.clone()) {
         Ok(item) => item,
         Err(e) => {
@@ -44,36 +47,23 @@ pub fn resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     };
-    let args = parse_macro_input!(attr as ResolverArgs);
-    let resolver_impl = match create_resolver_impl(type_ident, &args) {
+    let args = parse_macro_input!(attr as SpecArgs);
+    let spec_impl = match create_spec_impl(type_ident, &args) {
         Ok(resolver_impl) => resolver_impl,
         Err(e) => e.to_compile_error(),
     };
     quote! {
         #item
 
-        #resolver_impl
+        #spec_impl
     }
     .into()
 }
 
-#[proc_macro_derive(FileAsset)]
-pub fn file_asset(item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
-    let ident = input.ident;
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    match resolve_crate_name("engine") {
-        Ok(engine_crate) => quote! {
-            impl #impl_generics #engine_crate::assets::folder::FileAsset
-            for #ident #ty_generics
-            #where_clause
-            {}
-        }
-        .into(),
-        Err(e) => e.into_compile_error().into(),
-    }
-}
-
+/// Generates an implementation of [`engine::asset::HasResolver`] for the annotated type.
+/// The `engine::asset::AssetResolver` type is included based on the provided `base_path` via
+/// `include!(concat!(env!("OUT_DIR"), path))`, where the `path` points to a `.rs` file generated
+/// by the `build.rs`.
 #[proc_macro_attribute]
 pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let input_struct = parse_macro_input!(item as ItemStruct);
@@ -88,41 +78,72 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     };
-    let mut errors = Vec::new();
-    let resolver_args = ResolverArgs {
-        base_path: Cow::Borrowed(&args.base_path),
-        extension: Cow::Borrowed(&args.extension),
-        asset_type: Cow::Borrowed(&args.asset_type),
-    };
-
-    let resolver_impl = match create_resolver_impl(&input_struct.ident, &resolver_args) {
-        Ok(resolver_impl) => Some(resolver_impl),
+    let base_path = PathBuf::from(args.base_path.value());
+    let enum_file_path = match derive_enum_file_name(&base_path) {
+        Ok(p) => p,
         Err(e) => {
-            errors.push(e.to_compile_error());
-            None
+            return syn::Error::new(args.base_path.span(), e.to_string())
+                .to_compile_error()
+                .into();
         }
     };
-    let asset_set_impl = match create_asset_set_impl(&args, &input_struct, &syn::parse_quote!(Self))
-    {
-        Ok(asset_set_impl) => Some(asset_set_impl),
+    let enum_file_path_lit = LitStr::new(
+        &format!("/{}", enum_file_path.to_string_lossy()),
+        Span::call_site(),
+    );
+    let resolver_enum_include = quote! {
+        include!(concat!(env!("OUT_DIR"), #enum_file_path_lit));
+    };
+    let enum_type_name = match derive_enum_type_name(&base_path) {
+        Ok(n) => n,
         Err(e) => {
-            errors.push(e.to_compile_error());
-            None
+            return syn::Error::new(args.base_path.span(), e.to_string())
+                .to_compile_error()
+                .into();
+        }
+    };
+    let enum_type: Type = match syn::parse_str(&enum_type_name) {
+        Ok(enum_type) => enum_type,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let engine_crate = match resolve_crate_name("engine") {
+        Ok(engine_crate) => engine_crate,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let struct_ident = &input_struct.ident;
+    let (impl_generics, ty_generics, where_clause) = input_struct.generics.split_for_impl();
+    let has_resolver_impl = quote! {
+        impl #impl_generics #engine_crate::asset::HasResolver for #struct_ident #ty_generics
+            #where_clause
+        {
+            type Resolver = #enum_type;
+
         }
     };
     quote! {
         #input_struct
 
-        #(#errors)*
+        #resolver_enum_include
 
-        #resolver_impl
-
-        #asset_set_impl
+        #has_resolver_impl
     }
     .into()
 }
 
-#[proc_macro_derive(FromDef)]
+/// Implements the trait engine::asset::FromDef for the annotated struct or enum.
+/// The type `FromDef::Def` can be provided by the additional attributes
+/// `#[def_type(DefType)]`. If this attribute is omitted, a DefType is generated.
+///
+/// There are the the following ways to use this macro:
+///     1. `#[def_type(Self)]`
+///     2. `#[def_type(CustomType)]` provides a custom type to be used.
+///     That type needs to have the same number of fields with the same names as Self.
+///     The field types must match the corresponing fields type in Self in terms
+///     of the Self fields FromDef::Def type.
+///     3. If the additional `#[def_type]` attribute is not provided at all this macro generates a
+///        def type.
+///     All fields must implement FromDef tho.
+#[proc_macro_derive(FromDef, attributes(def_type))]
 pub fn from_def(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let engine_crate = match resolve_crate_name("engine") {
@@ -133,42 +154,69 @@ pub fn from_def(item: TokenStream) -> TokenStream {
         Ok(bevy_crate) => bevy_crate,
         Err(e) => return e.into_compile_error().into(),
     };
-    let def = match generate_def_for(&input, &engine_crate) {
-        Ok(def) => def,
-        Err(e) => return e.to_compile_error().into(),
-    };
     let load_context_var_ident = Ident::new("ctx", Span::call_site());
-    let ident = &input.ident;
-    let game_asset_trait = from_def_trait(&engine_crate);
+    let input_ident = &input.ident;
+    let from_def_trait = from_def_trait(&engine_crate);
     let def_var_ident = Ident::new("def", Span::call_site());
-    let (def_type, conversion_impl) = if def.is_some() {
-        let def_type_name = derive_def_type_name(&ident.to_string());
-        let def_type_ident = Ident::new(&def_type_name, Span::call_site());
-        let conversion_impl = match generate_conversion_for(
-            &input,
-            &engine_crate,
-            &def_var_ident,
-            &load_context_var_ident,
-            quote!(R),
-        ) {
-            Ok(cimpl) => cimpl,
-            Err(e) => return e.to_compile_error().into(),
-        };
-        (def_type_ident, conversion_impl)
-    } else {
-        let self_type = Ident::new("Self", Span::call_site());
-        (self_type, def_var_ident.to_token_stream())
+
+    let mut def_type: Option<syn::Type> = None;
+    for attribute in &input.attrs {
+        if attribute.path().is_ident("def_type") {
+            def_type = match attribute.parse_args() {
+                Ok(ty) => Some(ty),
+                Err(e) => return e.to_compile_error().into(),
+            };
+        }
+    }
+    let (generated_def, def_type, conversion_impl) = match def_type {
+        None => {
+            let def_type_name = derive_def_type_name(&input_ident.to_string());
+            let def_type = match syn::parse_str(&def_type_name) {
+                Ok(def_type) => def_type,
+                Err(e) => return e.to_compile_error().into(),
+            };
+            let generated_def = match generate_def_for(&input, &engine_crate, &def_type) {
+                Ok(def) => def,
+                Err(e) => return e.to_compile_error().into(),
+            };
+            let conversion_impl = match generate_conversion_for(
+                &input,
+                &engine_crate,
+                &def_type,
+                &def_var_ident,
+                &load_context_var_ident,
+            ) {
+                Ok(cimpl) => cimpl,
+                Err(e) => return e.to_compile_error().into(),
+            };
+            (Some(generated_def), def_type, conversion_impl)
+        }
+        Some(def_type) if is_self(&def_type) => (None, def_type, def_var_ident.to_token_stream()),
+        Some(def_type) => {
+            let conversion_impl = match generate_conversion_for(
+                &input,
+                &engine_crate,
+                &def_type,
+                &def_var_ident,
+                &load_context_var_ident,
+            ) {
+                Ok(cimpl) => cimpl,
+                Err(e) => return e.to_compile_error().into(),
+            };
+            (None, def_type, conversion_impl)
+        }
     };
     let macro_result = quote! {
-        #def
-        impl #game_asset_trait for #ident {
-            type Def = #def_type;
-            type Error = #bevy_crate::asset::ParseAssetPathError;
+        #generated_def
 
-            fn from_def<R: #engine_crate::assets::AssetResolver>(
+        impl #from_def_trait for #input_ident {
+            type Def = #def_type;
+            type Error = #engine_crate::asset::FromDefError;
+
+            fn from_def(
                 #def_var_ident: Self::Def,
                 #load_context_var_ident: &mut #bevy_crate::asset::LoadContext<'_>,
-            ) -> Result<Self, Self::Error> {
+            ) -> std::result::Result<Self, Self::Error> {
                 Ok(#conversion_impl)
             }
         }
@@ -184,7 +232,7 @@ pub fn from_def_self(input: TokenStream) -> TokenStream {
         Ok(c) => c,
         Err(e) => return e.to_compile_error().into(),
     };
-    let bevy_crate = match resolve_crate_name("bevy") {
+    let bevy_crate = match resolve_crate_name("engine") {
         Ok(c) => c,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -194,9 +242,9 @@ pub fn from_def_self(input: TokenStream) -> TokenStream {
         let impl_block = quote! {
             impl #from_def_trait for #ident {
                 type Def = Self;
-                type Error = #bevy_crate::asset::ParseAssetPathError;
+                type Error = #engine_crate::asset::FromDefError;
 
-                fn from_def<R: #engine_crate::assets::AssetResolver>(
+                fn from_def(
                     def: Self::Def,
                     _: &mut #bevy_crate::asset::LoadContext<'_>,
                 ) -> Result<Self, Self::Error> {

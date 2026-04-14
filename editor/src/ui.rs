@@ -2,19 +2,18 @@ use bevy::{
     input::mouse::MouseMotion, platform::collections::HashMap, prelude::*, window::PrimaryWindow,
 };
 use engine::{
-    Id,
-    animation::{Animated, SpriteAnimation},
-    assets::{animations::sprite::SpriteAnimationAsset, sprite_sheet::SpriteSheet},
+    animation::Animated,
+    asset::AssetRef,
     overworld::tile::{GridPosition, GridSize, TILE_SIZE},
     progress::ProgressState,
 };
 
 use crate::{
-    object::GameObjectKind,
-    tile::{
-        GroundTileKind,
-        visuals::{GroundTileVisuals, create_tile_sprite},
+    asset::{
+        object::{GameObjectKindAsset, GameObjectKindMap},
+        tile::{TileKindAsset, TileKindMap},
     },
+    tile::visuals::create_tile_sprite,
 };
 
 const CURSOR_SPRITE_ALPHA: f32 = 0.5;
@@ -27,8 +26,8 @@ impl Plugin for UIPlugin {
             .init_resource::<Cursor>()
             .init_resource::<TileKindKeyMap>()
             .init_resource::<GameObjectKindKeyMap>()
-            .add_systems(Update, init_tile_kind_keymap)
-            .add_systems(Update, init_object_kind_keymap)
+            .add_systems(OnEnter(ProgressState::Finished), init_tile_kind_keymap)
+            .add_systems(OnEnter(ProgressState::Finished), init_object_kind_keymap)
             .add_systems(
                 PreUpdate,
                 (
@@ -43,11 +42,31 @@ impl Plugin for UIPlugin {
     }
 }
 
-fn init_tile_kind_keymap(
-    tile_kinds: Query<(Entity, &Id), Added<GroundTileKind>>,
-    mut keymap: ResMut<TileKindKeyMap>,
-) {
-    for (entity, Id(id)) in tile_kinds {
+#[derive(Resource, Default)]
+pub enum Cursor {
+    #[default]
+    Default,
+    GroundTile(AssetRef<TileKindAsset>),
+    Object(AssetRef<GameObjectKindAsset>),
+}
+
+#[derive(Component)]
+struct CursorSprite;
+
+#[derive(Message)]
+pub struct PlaceTile {
+    pub pos: GridPosition,
+    pub tile_kind: AssetRef<TileKindAsset>,
+}
+
+#[derive(Message)]
+pub struct PlaceObject {
+    pub pos: GridPosition,
+    pub object_kind: AssetRef<GameObjectKindAsset>,
+}
+
+fn init_tile_kind_keymap(tile_kind_map: Res<TileKindMap>, mut keymap: ResMut<TileKindKeyMap>) {
+    for (id, handle) in tile_kind_map.iter() {
         let keycode = match id.as_str() {
             "grass" => KeyCode::KeyG,
             "water_calm" => KeyCode::KeyC,
@@ -59,15 +78,17 @@ fn init_tile_kind_keymap(
             }
         };
 
-        keymap.0.insert(keycode, entity);
+        keymap
+            .0
+            .insert(keycode, AssetRef::new(id.clone(), handle.clone()));
     }
 }
 
 fn init_object_kind_keymap(
-    object_kinds: Query<(Entity, &Id), Added<GameObjectKind>>,
+    object_kind_map: Res<GameObjectKindMap>,
     mut keymap: ResMut<GameObjectKindKeyMap>,
 ) {
-    for (entity, Id(id)) in object_kinds.iter() {
+    for (id, handle) in object_kind_map.iter() {
         let keycode = match id.as_str() {
             "pokecenter" => KeyCode::KeyC,
             _ => {
@@ -75,14 +96,16 @@ fn init_object_kind_keymap(
                 continue;
             }
         };
-        keymap.0.insert(keycode, entity);
+        keymap
+            .0
+            .insert(keycode, AssetRef::new(id.clone(), handle.clone()));
     }
 }
 
 #[derive(Resource, Default)]
-struct TileKindKeyMap(HashMap<KeyCode, Entity>);
+struct TileKindKeyMap(HashMap<KeyCode, AssetRef<TileKindAsset>>);
 #[derive(Resource, Default)]
-struct GameObjectKindKeyMap(HashMap<KeyCode, Entity>);
+struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 
 fn switch_cursor(
     keys: Res<ButtonInput<KeyCode>>,
@@ -92,14 +115,14 @@ fn switch_cursor(
 ) {
     if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
         for key in keys.get_just_pressed() {
-            if let Some(entity) = objectkind_keymap.0.get(key) {
-                *cursor = Cursor::Object(*entity);
+            if let Some(handle) = objectkind_keymap.0.get(key) {
+                *cursor = Cursor::Object(handle.clone());
             }
         }
     } else {
         for key in keys.get_just_pressed() {
-            if let Some(entity) = tilekind_keymap.0.get(key) {
-                *cursor = Cursor::GroundTile(*entity);
+            if let Some(handle) = tilekind_keymap.0.get(key) {
+                *cursor = Cursor::GroundTile(handle.clone());
             }
         }
     }
@@ -110,27 +133,24 @@ fn on_cursor_changed(
     cursor_sprite: Query<Entity, With<CursorSprite>>,
     cursor: Res<Cursor>,
     grid_size: Res<GridSize>,
-    tile_kind_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
-    object_kind_query: Query<(&GameObjectKind, &SpriteSheet)>,
-    animations: Query<&SpriteAnimation>,
-    animation_assets: Res<Assets<SpriteAnimationAsset>>,
+    tile_kinds: Res<Assets<TileKindAsset>>,
+    object_kinds: Res<Assets<GameObjectKindAsset>>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform)>,
-) {
+) -> Result<()> {
     if let Ok(entity) = cursor_sprite.single() {
         commands.entity(entity).despawn();
     }
-    match *cursor {
-        Cursor::GroundTile(ground_tile_entity) => {
-            let (visuals, sprite_sheet) = tile_kind_query
-                .get(ground_tile_entity)
-                .expect("cursor contained missing ground tile kind entity");
-            let (mut sprite, animation_entity) =
-                create_tile_sprite(visuals, sprite_sheet, animations, &animation_assets);
+    match &*cursor {
+        Cursor::GroundTile(tile_kind_handle) => {
+            let tile_kind = tile_kinds
+                .get(tile_kind_handle.handle().id())
+                .expect("cursor contained missing tile kind id");
+            let (mut sprite, animation_handle) = create_tile_sprite(&tile_kind.visuals)?;
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
-            if let Some(animation_entity) = animation_entity {
-                entity.insert(Animated::by(animation_entity));
+            if let Some(animation_handle) = animation_handle {
+                entity.insert(Animated::by(animation_handle));
             }
             if let Some(cursor_position) = window
                 .cursor_position()
@@ -142,12 +162,12 @@ fn on_cursor_changed(
                 entity.insert(Transform::from_translation(translation));
             }
         }
-        Cursor::Object(entity) => {
-            let (_object_kind, sprite_sheet) = object_kind_query
-                .get(entity)
+        Cursor::Object(object_handle) => {
+            let object_kind = object_kinds
+                .get(object_handle.handle().id())
                 .expect("cursor contained missing game object kind entity");
             let sprite = Sprite {
-                image: sprite_sheet.image.clone(),
+                image: object_kind.sprite_sheet.handle().clone(),
                 ..Default::default()
             };
             let mut entity = commands.spawn((sprite, CursorSprite));
@@ -163,6 +183,7 @@ fn on_cursor_changed(
         }
         Cursor::Default => {}
     }
+    Ok(())
 }
 
 fn update_cursor_sprite(
@@ -196,7 +217,7 @@ fn write_place_tile_messages(
     if !mouse_btn.pressed(MouseButton::Left) {
         return;
     }
-    let Cursor::GroundTile(tile_kind) = *cursor else {
+    let Cursor::GroundTile(ref tile_kind) = *cursor else {
         return;
     };
     let Some(cursor_position) = window.cursor_position() else {
@@ -213,14 +234,20 @@ fn write_place_tile_messages(
         for _ in 0..step_count {
             let world_position = cursor_pos_to_world_pos(starting_pos, camera.0, camera.1);
             if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-                message_writer.write(PlaceTile { pos, tile_kind });
+                message_writer.write(PlaceTile {
+                    pos,
+                    tile_kind: tile_kind.clone(),
+                });
             }
             starting_pos += tile_step;
         }
     } else if mouse_btn.just_pressed(MouseButton::Left) {
         let world_position = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
         if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-            message_writer.write(PlaceTile { pos, tile_kind });
+            message_writer.write(PlaceTile {
+                pos,
+                tile_kind: tile_kind.clone(),
+            });
         }
     }
 }
@@ -236,7 +263,7 @@ fn write_place_object_message(
     if !mouse_btn.pressed(MouseButton::Left) {
         return;
     }
-    let Cursor::Object(object_kind_entity) = *cursor else {
+    let Cursor::Object(ref object_kind_handle) = *cursor else {
         return;
     };
     let Some(cursor_position) = window.cursor_position() else {
@@ -249,7 +276,7 @@ fn write_place_object_message(
     };
     message_writer.write(PlaceObject {
         pos: grid_position,
-        object_kind: object_kind_entity,
+        object_kind: object_kind_handle.clone(),
     });
 }
 
@@ -262,27 +289,4 @@ fn cursor_pos_to_world_pos(
         Ok(world_pos) => world_pos.extend(128.0),
         Err(e) => panic!("could not get world coords from mouse coords - {e}"),
     }
-}
-
-#[derive(Resource, Default)]
-pub enum Cursor {
-    #[default]
-    Default,
-    GroundTile(Entity),
-    Object(Entity),
-}
-
-#[derive(Component)]
-struct CursorSprite;
-
-#[derive(Message)]
-pub struct PlaceTile {
-    pub pos: GridPosition,
-    pub tile_kind: Entity,
-}
-
-#[derive(Message)]
-pub struct PlaceObject {
-    pub pos: GridPosition,
-    pub object_kind: Entity,
 }

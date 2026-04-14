@@ -1,20 +1,33 @@
-use build::asset_set::{generate_path_consts, scan_asset_dir};
-use std::collections::HashMap;
+use build::AssetSource;
+use build::asset_enum::BsError;
+use build::asset_enum::generate_resolver_enums;
+use std::fs;
+use std::io;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 
-fn main() -> Result<(), io::Error> {
-    let engine_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workspace_root = engine_root
+fn main() -> Result<(), BsError> {
+    let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workspace_root = crate_root
         .parent()
-        .unwrap_or_else(|| panic!("engine crate root has no parent directory"));
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "crate root had now parent"))?;
     let asset_root = workspace_root.join("assets");
     println!("cargo:rerun-if-changed={}", asset_root.display());
+    let resolver_enums = generate_resolver_enums(AssetSource::Workspace, &asset_root)?;
+    for (path, resolver_enum) in resolver_enums {
+        write_out(&path, &resolver_enum.to_string())?;
+    }
+    Ok(())
+}
 
-    let mut asset_paths = HashMap::new();
-    scan_asset_dir(&asset_root, &mut asset_paths)?;
-
-    let output = generate_path_consts(&asset_root, &asset_paths);
-    let out_dir = std::env::var("OUT_DIR").expect("missing OUT_DIR environment variable");
-    fs::write(Path::new(&out_dir).join("asset_registry.rs"), &output)
+fn write_out(path: &Path, content: &impl AsRef<[u8]>) -> Result<(), BsError> {
+    let out_dir = std::env::var("OUT_DIR")?;
+    let path = Path::new(&out_dir).join(path);
+    fs::create_dir_all(
+        &path
+            .parent()
+            .ok_or_else(|| io::Error::new(ErrorKind::Other, "path {path:?} had no parent"))?,
+    )?;
+    fs::write(path, content)?;
+    Ok(())
 }

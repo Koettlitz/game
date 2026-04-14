@@ -16,3 +16,4 @@ tracing = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }
+thiserror = "2.0"

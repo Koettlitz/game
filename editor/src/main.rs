@@ -4,17 +4,13 @@ use engine::{
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
-use crate::{assets::AssetsPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
+use crate::{object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
 
-mod assets;
+mod asset;
 mod io;
 mod object;
 mod tile;
 mod ui;
-
-mod asset_registry {
-    include!(concat!(env!("OUT_DIR"), "/asset_registry.rs"));
-}
 
 fn main() {
     App::new()
@@ -24,7 +20,7 @@ fn main() {
         )
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            AssetsPlugin,
+            asset::AssetPlugin,
             ProgressPlugin,
             UIPlugin,
             TilePlugin,

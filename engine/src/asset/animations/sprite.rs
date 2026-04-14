@@ -5,18 +5,12 @@ use macros::{FromDef, asset_set};
 use serde::{Deserialize, Serialize};
 
 use super::{deserialize_duration_millis, serialize_duration_millis};
-use crate::{animation::SpriteAnimation, assets::spawn::Spawn};
+use crate::asset::spawn::Spawn;
 
 #[derive(FromDef, Asset, TypePath, Serialize, Deserialize, Debug)]
-#[asset_set(
-    base_path = "sprite_animations",
-    extension = "ani.ron",
-    asset_registry(crate::assets::registry),
-    asset_type(Self)
-)]
+#[def_type(Self)]
+#[asset_set(base_path = "sprite_animations", progress_name = "sprite_animations")]
 pub struct SpriteAnimationAsset {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
     pub indices: Vec<usize>,
     #[serde(
         serialize_with = "serialize_duration_millis",
@@ -26,11 +20,11 @@ pub struct SpriteAnimationAsset {
 }
 
 impl Spawn for SpriteAnimationAsset {
-    type B = SpriteAnimation;
+    type B = crate::animation::SpriteAnimation;
     fn spawn(&self, handle: Handle<Self>) -> Self::B
     where
         Self: Sized,
     {
-        SpriteAnimation::new(self, handle)
+        crate::animation::SpriteAnimation::new(self.frame_duration, handle)
     }
 }

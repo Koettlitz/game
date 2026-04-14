@@ -1,17 +1,17 @@
 use bevy::prelude::*;
-use engine::assets::{
+use engine::asset::{
     animations::sprite::SpriteAnimationAsset,
-    overworld::{lozo::LozoAsset, object::GameObjectAsset, tile::TileSpriteAsset},
+    overworld::{lozo::LozoAsset, object::GameObjectAsset, tile::TileVisualsAsset},
 };
 
-type GameAssetPlugin<A> = engine::assets::GameAssetPlugin<A, A>;
+type GameAssetPlugin<A> = engine::asset::RonAssetPlugin<A, A>;
 
 pub struct AssetPlugin;
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             GameAssetPlugin::<LozoAsset>::default(),
-            GameAssetPlugin::<TileSpriteAsset>::default(),
+            GameAssetPlugin::<TileVisualsAsset>::default(),
             GameAssetPlugin::<GameObjectAsset>::default(),
             GameAssetPlugin::<SpriteAnimationAsset>::default(),
         ));

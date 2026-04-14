@@ -1,14 +1,14 @@
 use bevy::prelude::*;
-use macros::{FromDef, resolver};
+use macros::{FromDef, asset_spec};
 
-use crate::{assets::overworld::tile::TileAsset, overworld::tile::GridSize};
+use crate::{asset::overworld::tile::TileAsset, overworld::tile::GridSize};
 
 #[derive(FromDef, Asset, TypePath)]
-#[resolver(base_path = "game://lozo", extension = "lozo.ron", asset_type(Self))]
+#[asset_spec(base_path = "game://lozo", extension = "lozo.ron")]
 pub struct LozoAsset {
     pub width: u32,
     pub height: u32,
-    pub tile_grid: Vec<Option<Handle<TileAsset>>>,
+    pub tile_grid: Vec<Option<TileAsset>>,
     pub game_object_ids: Vec<String>,
 }
 

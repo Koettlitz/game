@@ -6,17 +6,15 @@ use syn::{Ident, LitStr, Token, parse::Parse};
 
 use crate::resolve_crate_name;
 
-pub struct ResolverArgs<'a> {
+pub struct SpecArgs<'a> {
     pub base_path: Cow<'a, LitStr>,
-    pub extension: Cow<'a, LitStr>,
-    pub asset_type: Cow<'a, syn::Path>,
+    pub extension: Option<Cow<'a, LitStr>>,
 }
 
-impl<'a> Parse for ResolverArgs<'a> {
+impl<'a> Parse for SpecArgs<'a> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut base_path: Option<LitStr> = None;
         let mut extension: Option<LitStr> = None;
-        let mut asset_type: Option<syn::Path> = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -32,16 +30,10 @@ impl<'a> Parse for ResolverArgs<'a> {
                     let lit: LitStr = input.parse()?;
                     extension = Some(lit);
                 }
-                "asset_type" => {
-                    let content;
-                    syn::parenthesized!(content in input);
-                    let ty: syn::Path = content.parse()?;
-                    asset_type = Some(ty);
-                }
                 _ => {
                     return Err(syn::Error::new(
                         ident.span(),
-                        "Unknown parameter. Expected `base_path`, `extension`, or `asset_type`.",
+                        "Unknown parameter. Expected `base_path`, or `extension`",
                     ));
                 }
             }
@@ -53,32 +45,29 @@ impl<'a> Parse for ResolverArgs<'a> {
 
         let base_path =
             base_path.ok_or_else(|| syn::Error::new(input.span(), "`base_path` is required"))?;
-        let asset_type =
-            asset_type.ok_or_else(|| syn::Error::new(input.span(), "`asset_type` is required"))?;
-        let extension =
-            extension.ok_or_else(|| syn::Error::new(input.span(), "`extension` is required"))?;
 
-        Ok(ResolverArgs {
+        Ok(SpecArgs {
             base_path: Cow::Owned(base_path),
-            asset_type: Cow::Owned(asset_type),
-            extension: Cow::Owned(extension),
+            extension: extension.map(|e| Cow::Owned(e)),
         })
     }
 }
 
-pub fn create_resolver_impl(
+pub fn create_spec_impl(
     type_ident: &impl ToTokens,
-    args: &ResolverArgs,
+    args: &SpecArgs,
 ) -> Result<TokenStream, syn::Error> {
     let engine_crate = resolve_crate_name("engine")?;
     let base_path = &args.base_path;
-    let extension = &args.extension;
-    let asset_type = &args.asset_type;
+    let extension = args
+        .extension
+        .as_ref()
+        .map(|e| quote!(Some(#e)))
+        .unwrap_or_else(|| quote!(None));
     Ok(quote! {
-        impl #engine_crate::assets::AssetResolver for #type_ident {
-            type Asset = #asset_type;
+        impl #engine_crate::asset::AssetPathSpec for #type_ident {
             const BASE_PATH: &'static str = #base_path;
-            const EXTENSION: &'static str = #extension;
+            const EXTENSION: Option<&'static str> = #extension;
         }
     })
 }

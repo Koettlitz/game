@@ -1,55 +1,50 @@
-use std::{collections::HashSet, fmt::Debug};
+use std::collections::HashSet;
 
 use bevy::prelude::*;
 use engine::{
-    animation::{Animated, SpriteAnimation},
-    assets::{animations::sprite::SpriteAnimationAsset, sprite_sheet::SpriteSheet},
-    overworld::tile::{GridPosition, GridSize, GridView, Neighbor, TileGrid},
+    animation::Animated,
+    asset::{
+        AssetRef, MissingAssetError, animations::sprite::SpriteAnimationAsset,
+        overworld::tile::TileSpriteSheet,
+    },
+    overworld::tile::{GridPosition, GridSize, TileGrid},
     progress::ProgressState,
 };
-use tracing::instrument;
 
 use super::spawn_ground_tile_grid;
 use crate::{
-    assets::tile::{
-        AdjacentRequirementConfig, AdjacentRequirementsConfig, GroundTileVisualLayersConfig,
-        TileKindVisualConfig,
-    },
-    tile::{GroundTileGrid, GroundTileKind, GroundTilesChanged, TileKindLoadingError},
+    asset::tile::{GroundTileVisual, GroundTileVisuals, TileKindAsset},
+    tile::{GroundTileGrid, GroundTilesChanged},
 };
-
-type Result<T> = std::result::Result<T, TileKindLoadingError>;
 
 pub struct TileVisualsPlugin;
 impl Plugin for TileVisualsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<UpdateTileSprites>()
-            .add_systems(
-                OnEnter(ProgressState::Finished),
-                init_sprite_grid.after(spawn_ground_tile_grid),
-            )
-            .add_observer(on_ground_tile_changed)
-            .add_systems(
-                PostUpdate,
-                update_sprites.run_if(in_state(ProgressState::Finished)),
-            );
+        app.add_systems(
+            OnEnter(ProgressState::Finished),
+            init_sprite_grid.after(spawn_ground_tile_grid),
+        )
+        .add_observer(on_ground_tile_changed)
+        .add_observer(update_sprites);
     }
 }
 
-fn init_sprite_grid(
-    mut commands: Commands,
-    grid_size: Res<GridSize>,
-    mut message_writer: MessageWriter<UpdateTileSprites>,
-) {
+#[derive(Resource)]
+struct TileSpriteGrid(TileGrid<Vec<Entity>>);
+
+#[derive(Event)]
+struct UpdateTileSprites(GridPosition);
+
+fn init_sprite_grid(mut commands: Commands, grid_size: Res<GridSize>) {
     commands.insert_resource(TileSpriteGrid(TileGrid::with_size(&grid_size)));
     for pos in grid_size.iter() {
-        message_writer.write(UpdateTileSprites(pos));
+        commands.trigger(UpdateTileSprites(pos));
     }
 }
 
 fn on_ground_tile_changed(
     event: On<GroundTilesChanged>,
-    mut message_writer: MessageWriter<UpdateTileSprites>,
+    mut commands: Commands,
     grid_size: Res<GridSize>,
 ) {
     let mut sprites_to_update: HashSet<GridPosition> = HashSet::new();
@@ -64,117 +59,109 @@ fn on_ground_tile_changed(
         }
     }
     for sprite_to_update in sprites_to_update {
-        message_writer.write(UpdateTileSprites(sprite_to_update));
+        commands.trigger(UpdateTileSprites(sprite_to_update));
     }
 }
 
 fn update_sprites(
+    event: On<UpdateTileSprites>,
     mut commands: Commands,
-    mut message_reader: MessageReader<UpdateTileSprites>,
     ground_tile_grid: Res<GroundTileGrid>,
     grid_size: Res<GridSize>,
-    visuals_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
-    animations: Query<&SpriteAnimation>,
-    animation_assets: Res<Assets<SpriteAnimationAsset>>,
+    tile_kinds: Res<Assets<TileKindAsset>>,
     mut sprites_grid: ResMut<TileSpriteGrid>,
-) {
-    for UpdateTileSprites(position) in message_reader.read() {
-        let surroundings = ground_tile_grid.0.view_of(position.adjacent(&grid_size));
-        let (visuals, sprite_sheet) = visuals_query
-            .get(*surroundings.center())
-            .expect("missing visual for ground tile");
-        let layers = &visuals
-            .0
-            .iter()
-            .find(|(req, _)| req.matches(&surroundings))
-            .expect("no adjacent requirement matched the current surroundings")
-            .1;
-        let old_sprites = &sprites_grid.0[&position.as_index(&grid_size)];
-        for old_sprite in old_sprites {
-            commands.entity(*old_sprite).despawn();
-        }
-        let mut new_sprites = Vec::new();
-        for (z, layer) in layers.iter() {
-            let entity = spawn_tile_visuals(
-                position,
-                layer,
-                z,
-                sprite_sheet,
-                &mut commands,
-                animations,
-                &animation_assets,
-                visuals_query,
-                &grid_size,
-                &ground_tile_grid.0,
-            );
-            if let Some(entity) = entity {
-                new_sprites.push(entity);
-            }
-        }
-        sprites_grid.0[&position.as_index(&grid_size)] = new_sprites;
+) -> Result<()> {
+    let position = event.0;
+    let surroundings = ground_tile_grid.0.view_of(position.adjacent(&grid_size));
+    let tile_kind_asset = tile_kinds
+        .get(surroundings.center().handle().id())
+        .expect("missing visual for ground tile");
+    let layers = &tile_kind_asset
+        .visuals
+        .config
+        .iter()
+        .find(|(req, _)| req.matches(&surroundings))
+        .expect("no adjacent requirement matched the current surroundings")
+        .1;
+    let old_sprites = &sprites_grid.0[&position.as_index(&grid_size)];
+    for old_sprite in old_sprites {
+        commands.entity(*old_sprite).despawn();
     }
+    let mut new_sprites = Vec::new();
+    for (z, layer) in layers.iter() {
+        let sprite_entity = spawn_tile_sprite(
+            &position,
+            layer,
+            &tile_kind_asset.visuals.spritesheet,
+            z,
+            &mut commands,
+            &tile_kinds,
+            &grid_size,
+            &ground_tile_grid.0,
+        )?;
+        if let Some(entity) = sprite_entity {
+            new_sprites.push(entity);
+        }
+    }
+    sprites_grid.0[&position.as_index(&grid_size)] = new_sprites;
+    Ok(())
 }
 
-fn spawn_tile_visuals(
+fn spawn_tile_sprite(
     position: &GridPosition,
     layer: &GroundTileVisual,
+    spritesheet: &TileSpriteSheet,
     z: f32,
-    sprite_sheet: &SpriteSheet,
     commands: &mut Commands,
-    animations: Query<&SpriteAnimation>,
-    animation_assets: &Assets<SpriteAnimationAsset>,
-    visuals_query: Query<(&GroundTileVisuals, &SpriteSheet), With<GroundTileKind>>,
+    tile_kinds: &Assets<TileKindAsset>,
     grid_size: &GridSize,
-    tile_grid: &TileGrid<Entity>,
-) -> Option<Entity> {
+    tile_grid: &TileGrid<AssetRef<TileKindAsset>>,
+) -> Result<Option<Entity>> {
     let transform = Transform::from_translation(grid_size.to_world_pos(position).extend(z));
     match layer {
         GroundTileVisual::Static(idx) => {
             let atlas = TextureAtlas {
-                layout: sprite_sheet.layout.clone(),
+                layout: spritesheet.layout()?.clone(),
                 index: *idx,
             };
             let entity = commands
                 .spawn((
-                    Sprite::from_atlas_image(sprite_sheet.image.clone(), atlas),
+                    Sprite::from_atlas_image(spritesheet.image().clone(), atlas),
                     transform,
                 ))
                 .id();
-            Some(entity)
+            Ok(Some(entity))
         }
-        GroundTileVisual::Animated(animation_entity) => {
-            let animation = animations
-                .get(*animation_entity)
-                .expect("missing tile sprite animation")
-                .with_asset(animation_assets)
-                .expect("missing sprite animation asset");
+        GroundTileVisual::Animated(animation_asset) => {
             let atlas = TextureAtlas {
-                layout: sprite_sheet.layout.clone(),
-                index: animation.current_idx(),
+                layout: spritesheet.layout()?.clone(),
+                index: 0,
             };
-            let sprite = Sprite::from_atlas_image(sprite_sheet.image.clone(), atlas);
+            let sprite = Sprite::from_atlas_image(spritesheet.image().clone(), atlas);
             let entity = commands
-                .spawn((sprite, Animated::by(*animation_entity), transform))
+                .spawn((
+                    sprite,
+                    Animated::by(animation_asset.handle().clone()),
+                    transform,
+                ))
                 .id();
-            Some(entity)
+            Ok(Some(entity))
         }
         GroundTileVisual::Neighbor(neighbor) => {
             let Some(neighbor_position) = position.neighbor(&neighbor, &grid_size) else {
-                return None;
+                return Ok(None);
             };
-            let neighbor_visual_entity = tile_grid[&neighbor_position.as_index(&grid_size)];
-            let (neighbor_visuals, sprite_sheet) = visuals_query
-                .get(neighbor_visual_entity)
-                .expect("invalid entity in tile grid");
-            return spawn_tile_visuals(
+            let neighbor = &tile_grid[&neighbor_position.as_index(&grid_size)];
+            let neighbor = tile_kinds
+                .get(neighbor.handle().id())
+                .ok_or_else(|| MissingAssetError::new(neighbor.handle().id()))?;
+            return spawn_tile_sprite(
                 &position,
-                &neighbor_visuals.get_default().base,
+                &neighbor.visuals.default_config().base(),
+                &neighbor.visuals.spritesheet,
                 z,
-                sprite_sheet,
                 commands,
-                animations,
-                animation_assets,
-                visuals_query,
+                tile_kinds,
                 grid_size,
                 tile_grid,
             );
@@ -184,341 +171,33 @@ fn spawn_tile_visuals(
 
 pub fn create_tile_sprite(
     visuals: &GroundTileVisuals,
-    sprite_sheet: &SpriteSheet,
-    animations: Query<&SpriteAnimation>,
-    animation_assets: &Assets<SpriteAnimationAsset>,
-) -> (Sprite, Option<Entity>) {
-    let visual = visuals.get_default();
-    match visual.base {
-        GroundTileVisual::Static(index) => (
+) -> Result<(Sprite, Option<Handle<SpriteAnimationAsset>>)> {
+    let visual = visuals.default_config();
+    Ok(match &visual.base() {
+        GroundTileVisual::Static(idx) => (
             Sprite {
-                image: sprite_sheet.image.clone(),
+                image: visuals.spritesheet.image().clone(),
                 texture_atlas: Some(TextureAtlas {
-                    layout: sprite_sheet.layout.clone(),
-                    index,
+                    layout: visuals.spritesheet.layout()?.clone(),
+                    index: *idx,
                 }),
                 ..Default::default()
             },
             None,
         ),
-        GroundTileVisual::Animated(animation_entity) => {
-            let animation = animations
-                .get(animation_entity)
-                .expect("missing sprite animation for ground tile kind")
-                .with_asset(animation_assets)
-                .unwrap();
-            (
-                Sprite {
-                    image: sprite_sheet.image.clone(),
-                    texture_atlas: Some(TextureAtlas {
-                        layout: sprite_sheet.layout.clone(),
-                        index: animation.current_idx(),
-                    }),
-                    ..Default::default()
-                },
-                Some(animation_entity),
-            )
-        }
+        GroundTileVisual::Animated(animation_asset) => (
+            Sprite {
+                image: visuals.spritesheet.image().clone(),
+                texture_atlas: Some(TextureAtlas {
+                    layout: visuals.spritesheet.layout()?.clone(),
+                    index: 0,
+                }),
+                ..Default::default()
+            },
+            Some(animation_asset.handle().clone()),
+        ),
         GroundTileVisual::Neighbor(_) => {
             panic!("GroundTileVisual cannot have neighbor sprite as default")
         }
-    }
-}
-
-#[derive(Message)]
-struct UpdateTileSprites(GridPosition);
-
-#[derive(Resource)]
-struct TileSpriteGrid(TileGrid<Vec<Entity>>);
-
-#[derive(Component, Default)]
-pub struct GroundTileVisuals(pub Vec<(AdjacentRequirements, GroundTileVisualLayers)>);
-
-impl GroundTileVisuals {
-    #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            skip(ground_tile_kind_lookup, sprite_animation_lookup)
-        )
-    )]
-    pub fn from_config<'a>(
-        config: impl Iterator<
-            Item = (
-                &'a AdjacentRequirementsConfig,
-                &'a GroundTileVisualLayersConfig,
-            ),
-        > + Debug,
-        ground_tile_kind_lookup: impl Fn(&str) -> Result<Entity>,
-        sprite_animation_lookup: impl Fn(&str) -> Result<Entity>,
-    ) -> Option<Self> {
-        let mut parsed_visuals = Vec::new();
-        for (req, visuals) in config {
-            let req = match AdjacentRequirements::from_config(req, &ground_tile_kind_lookup) {
-                Ok(req) => req,
-                Err(e) => {
-                    if req.is_default() {
-                        error!("could not link default tile kind visuals: {e}");
-                        return None;
-                    } else {
-                        error!("could not link adjacentrequirements {req:?}: {e}");
-                        continue;
-                    }
-                }
-            };
-            let visuals =
-                match GroundTileVisualLayers::from_config(visuals, &sprite_animation_lookup) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("could not link visual layers {visuals:?}: {e}");
-                        continue;
-                    }
-                };
-            parsed_visuals.push((req, visuals));
-        }
-        parsed_visuals.sort_by(|a, b| a.0.cmp(&b.0));
-        Some(Self(parsed_visuals))
-    }
-
-    pub fn get_default(&self) -> &GroundTileVisualLayers {
-        &self.0.last().expect("empty config").1
-    }
-}
-
-#[derive(Debug)]
-pub struct GroundTileVisualLayers {
-    below: Vec<GroundTileVisual>,
-    base: GroundTileVisual,
-    above: Vec<GroundTileVisual>,
-}
-
-impl GroundTileVisualLayers {
-    fn from_config(
-        config: &GroundTileVisualLayersConfig,
-        animation_lookup: impl Fn(&str) -> Result<Entity>,
-    ) -> Result<Self> {
-        Ok(Self {
-            below: config
-                .below
-                .iter()
-                .map(|c| GroundTileVisual::from_config(c, &animation_lookup))
-                .filter_map(|result| result.inspect_err(|e| bevy::log::error!("{e}")).ok())
-                .collect(),
-            base: GroundTileVisual::from_config(&config.base, &animation_lookup)?,
-            above: config
-                .above
-                .iter()
-                .map(|c| GroundTileVisual::from_config(c, &animation_lookup))
-                .filter_map(|result| result.inspect_err(|e| bevy::log::error!("{e}")).ok())
-                .collect(),
-        })
-    }
-
-    pub fn iter<'a>(&'a self) -> LayerIterator<'a> {
-        LayerIterator::from(self)
-    }
-}
-
-pub struct LayerIterator<'a> {
-    layers: &'a GroundTileVisualLayers,
-    current_layer: VisualLayer,
-    current_idx: usize,
-}
-impl<'a> From<&'a GroundTileVisualLayers> for LayerIterator<'a> {
-    fn from(value: &'a GroundTileVisualLayers) -> Self {
-        Self {
-            layers: value,
-            current_layer: VisualLayer::Below,
-            current_idx: 0,
-        }
-    }
-}
-impl<'a> Iterator for LayerIterator<'a> {
-    type Item = (f32, &'a GroundTileVisual);
-    fn next(&mut self) -> Option<Self::Item> {
-        if matches!(self.current_layer, VisualLayer::Below) {
-            if self.current_idx == self.layers.below.len() {
-                self.current_layer = VisualLayer::Above;
-                self.current_idx = 0;
-                Some((VisualLayer::Base.z(), &self.layers.base))
-            } else {
-                let visual = &self.layers.below[self.current_idx];
-                let z = VisualLayer::Below.z() + self.current_idx as f32;
-                self.current_idx += 1;
-                Some((z, visual))
-            }
-        } else if self.current_idx < self.layers.above.len() {
-            let visual = &self.layers.above[self.current_idx];
-            let z = VisualLayer::Above.z() + self.current_idx as f32;
-            self.current_idx += 1;
-            Some((z, visual))
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct AdjacentRequirements {
-    pub top_left: AdjacentRequirement,
-    pub top: AdjacentRequirement,
-    pub top_right: AdjacentRequirement,
-    pub left: AdjacentRequirement,
-    pub right: AdjacentRequirement,
-    pub bottom_left: AdjacentRequirement,
-    pub bottom: AdjacentRequirement,
-    pub bottom_right: AdjacentRequirement,
-}
-
-impl AdjacentRequirements {
-    fn from_config(
-        config: &AdjacentRequirementsConfig,
-        entity_lookup: impl Fn(&str) -> Result<Entity>,
-    ) -> Result<Self> {
-        Ok(Self {
-            top_left: AdjacentRequirement::from_config(&config.top_left, &entity_lookup)?,
-            top: AdjacentRequirement::from_config(&config.top, &entity_lookup)?,
-            top_right: AdjacentRequirement::from_config(&config.top_right, &entity_lookup)?,
-            left: AdjacentRequirement::from_config(&config.left, &entity_lookup)?,
-            right: AdjacentRequirement::from_config(&config.right, &entity_lookup)?,
-            bottom_left: AdjacentRequirement::from_config(&config.bottom_left, &entity_lookup)?,
-            bottom: AdjacentRequirement::from_config(&config.bottom, &entity_lookup)?,
-            bottom_right: AdjacentRequirement::from_config(&config.bottom_right, &entity_lookup)?,
-        })
-    }
-
-    fn matches(&self, surroundings: &GridView<Entity>) -> bool {
-        let center = *surroundings.center();
-        let result = self
-            .all()
-            .iter()
-            .zip(surroundings.iter_exclusive())
-            .all(|(req, neighbor)| req.matches(center, neighbor));
-        result
-    }
-
-    pub fn all(&self) -> [&AdjacentRequirement; 8] {
-        [
-            &self.top_left,
-            &self.top,
-            &self.top_right,
-            &self.left,
-            &self.right,
-            &self.bottom_left,
-            &self.bottom,
-            &self.bottom_right,
-        ]
-    }
-
-    fn prio(&self) -> usize {
-        self.all().into_iter().map(|n| n.prio()).sum()
-    }
-}
-
-impl Ord for AdjacentRequirements {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.prio().cmp(&self.prio())
-    }
-}
-
-impl PartialOrd for AdjacentRequirements {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
-pub enum AdjacentRequirement {
-    #[default]
-    Any,
-    Same,
-    Other,
-    Either(Vec<Entity>),
-}
-
-impl AdjacentRequirement {
-    fn from_config(
-        config: &AdjacentRequirementConfig,
-        entity_lookup: impl Fn(&str) -> Result<Entity>,
-    ) -> Result<Self> {
-        Ok(match config {
-            AdjacentRequirementConfig::Any => Self::Any,
-            AdjacentRequirementConfig::Same => Self::Same,
-            AdjacentRequirementConfig::Other => Self::Other,
-            AdjacentRequirementConfig::Either(ids) => {
-                let mut entities = Vec::with_capacity(ids.len());
-                for id in ids {
-                    entities.push(entity_lookup(id)?);
-                }
-                Self::Either(entities)
-            }
-        })
-    }
-
-    fn matches(&self, identity: Entity, other: Option<&Entity>) -> bool {
-        match self {
-            Self::Any => true,
-            Self::Same => other.map(|n| *n == identity).unwrap_or(false),
-            Self::Other => other.map(|n| *n != identity).unwrap_or(false),
-            Self::Either(e) => other.map(|o| e.contains(o)).unwrap_or(false),
-        }
-    }
-
-    fn prio(&self) -> usize {
-        match self {
-            Self::Any => 1,
-            Self::Same | Self::Other => 10,
-            Self::Either(_) => 100,
-        }
-    }
-}
-
-impl Ord for AdjacentRequirement {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.prio().cmp(&other.prio())
-    }
-}
-
-impl PartialOrd for AdjacentRequirement {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Debug)]
-pub enum GroundTileVisual {
-    Static(usize),
-    Animated(Entity),
-    Neighbor(Neighbor),
-}
-
-impl GroundTileVisual {
-    fn from_config(
-        config: &TileKindVisualConfig,
-        animation_lookup: impl Fn(&str) -> Result<Entity>,
-    ) -> Result<Self> {
-        Ok(match config {
-            TileKindVisualConfig::Static(idx) => Self::Static(*idx),
-            TileKindVisualConfig::Animated { animation_id } => {
-                Self::Animated(animation_lookup(&animation_id)?)
-            }
-            TileKindVisualConfig::Neighbor(neighbor) => Self::Neighbor(*neighbor),
-        })
-    }
-}
-
-enum VisualLayer {
-    Below,
-    Base,
-    Above,
-}
-
-impl VisualLayer {
-    fn z(&self) -> f32 {
-        match self {
-            Self::Below => 1.0,
-            Self::Base => 10.0,
-            Self::Above => 100.0,
-        }
-    }
+    })
 }

@@ -6,16 +6,19 @@ use serde::{Deserialize, Serialize};
 
 pub const TILE_SIZE: UVec2 = UVec2::splat(32);
 
-#[derive(
-    FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize,
-)]
+#[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Passability {
-    #[default]
     Always,
     Never,
     Bike,
     Surf,
     Waterfall,
+}
+
+impl Default for Passability {
+    fn default() -> Self {
+        Self::Always
+    }
 }
 
 impl ops::BitAnd for Passability {
@@ -484,7 +487,8 @@ impl GridPosition {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(FromDef, Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[def_type(Self)]
 pub enum Neighbor {
     TopLeft,
     Top,
