@@ -4,7 +4,7 @@ use engine::{
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
-use crate::{object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
+use crate::{io::IoPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
 
 mod asset;
 mod io;
@@ -26,6 +26,7 @@ fn main() {
             TilePlugin,
             GameObjectPlugin,
             AnimationPlugin,
+            IoPlugin,
         ))
         .add_systems(Startup, init)
         .add_systems(OnEnter(ProgressState::Finished), remove_progress_screen)

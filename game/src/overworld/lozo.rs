@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use engine::asset::overworld::lozo::LozoAsset;
+use engine::asset::{AssetResolver, overworld::lozo::LozoAsset};
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {

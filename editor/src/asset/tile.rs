@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 
 pub type TileKindMap = AssetMap<Tile, TileKindAsset>;
 
-pub struct GroundTileAssetsPlugin;
-impl Plugin for GroundTileAssetsPlugin {
+pub struct TileAssetPlugin;
+impl Plugin for TileAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             RonAssetPlugin::<TileKindAsset>::default(),
@@ -56,7 +56,7 @@ fn derive_layouts(
 #[derive(Asset, TypePath, Debug)]
 #[asset_set(base_path = "tiles", progress_name = "tiles")]
 pub struct TileKindAsset {
-    pub _passability: Passability,
+    pub passability: Passability,
     pub visuals: GroundTileVisuals,
 }
 
@@ -81,7 +81,7 @@ impl FromDef for TileKindAsset {
             )))
         } else {
             Ok(Self {
-                _passability: def.passability,
+                passability: def.passability,
                 visuals: GroundTileVisuals::from_def(def.visuals, ctx)?,
             })
         }

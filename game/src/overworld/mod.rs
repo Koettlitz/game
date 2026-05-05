@@ -4,7 +4,6 @@ use crate::overworld::{asset::AssetPlugin, lozo::LozoPlugin};
 
 pub mod asset;
 pub mod lozo;
-mod player;
 mod tile;
 
 pub struct OverworldPlugin;

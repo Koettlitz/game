@@ -5,7 +5,7 @@ use macros::{FromDef, asset_set};
 use serde::{Deserialize, Serialize};
 
 use super::{deserialize_duration_millis, serialize_duration_millis};
-use crate::asset::spawn::Spawn;
+use crate::asset::{AssetRef, spawn::Spawn};
 
 #[derive(FromDef, Asset, TypePath, Serialize, Deserialize, Debug)]
 #[def_type(Self)]
@@ -21,10 +21,10 @@ pub struct SpriteAnimationAsset {
 
 impl Spawn for SpriteAnimationAsset {
     type B = crate::animation::SpriteAnimation;
-    fn spawn(&self, handle: Handle<Self>) -> Self::B
+    fn spawn(&self, asset_ref: AssetRef<Self>) -> Self::B
     where
         Self: Sized,
     {
-        crate::animation::SpriteAnimation::new(self.frame_duration, handle)
+        crate::animation::SpriteAnimation::new(self.frame_duration, asset_ref)
     }
 }

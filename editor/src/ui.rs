@@ -13,6 +13,7 @@ use crate::{
         object::{GameObjectKindAsset, GameObjectKindMap},
         tile::{TileKindAsset, TileKindMap},
     },
+    io::export::ExportLozo,
     tile::visuals::create_tile_sprite,
 };
 
@@ -38,7 +39,11 @@ impl Plugin for UIPlugin {
                     .run_if(in_state(ProgressState::Finished)),
             )
             .add_systems(Update, on_cursor_changed.run_if(resource_changed::<Cursor>))
-            .add_systems(Update, update_cursor_sprite);
+            .add_systems(Update, update_cursor_sprite)
+            .add_systems(
+                PostUpdate,
+                save_lozo.run_if(in_state(ProgressState::Finished)),
+            );
     }
 }
 
@@ -146,10 +151,10 @@ fn on_cursor_changed(
             let tile_kind = tile_kinds
                 .get(tile_kind_handle.handle().id())
                 .expect("cursor contained missing tile kind id");
-            let (mut sprite, animation_handle) = create_tile_sprite(&tile_kind.visuals)?;
+            let (mut sprite, animation_ref) = create_tile_sprite(&tile_kind.visuals)?;
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
-            if let Some(animation_handle) = animation_handle {
+            if let Some(animation_handle) = animation_ref {
                 entity.insert(Animated::by(animation_handle));
             }
             if let Some(cursor_position) = window
@@ -278,6 +283,14 @@ fn write_place_object_message(
         pos: grid_position,
         object_kind: object_kind_handle.clone(),
     });
+}
+
+fn save_lozo(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
+    if (keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight))
+        && keys.just_pressed(KeyCode::KeyS)
+    {
+        commands.trigger(ExportLozo);
+    }
 }
 
 fn cursor_pos_to_world_pos(

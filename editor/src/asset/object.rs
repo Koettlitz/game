@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 pub type GameObjectKindMap = AssetMap<Object, GameObjectKindAsset>;
 
-pub struct ObjectKindAssetPlugin;
-impl Plugin for ObjectKindAssetPlugin {
+pub struct GameObjectAssetPlugin;
+impl Plugin for GameObjectAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             RonAssetPlugin::<GameObjectKindAsset>::default(),
@@ -23,13 +23,13 @@ impl Plugin for ObjectKindAssetPlugin {
 #[def_type(GameObjectDef)]
 #[asset_set(base_path = "objects")]
 pub struct GameObjectKindAsset {
-    pub _collision_box: Option<IRect>,
+    pub collision_box: Option<IRect>,
     pub sprite_sheet: ObjectSpritesheet,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct GameObjectDef {
     #[serde(skip_serializing_if = "Option::is_none")]
-    _collision_box: Option<IRect>,
+    collision_box: Option<IRect>,
     sprite_sheet: String,
 }

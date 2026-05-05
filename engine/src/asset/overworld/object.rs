@@ -1,17 +1,9 @@
 use std::ops::Deref;
 
 use bevy::prelude::*;
-use macros::{FromDef, asset_spec};
+use macros::asset_spec;
 
 use crate::asset::{AssetRef, AssetResolver, FromDef, FromDefError};
-
-#[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "game_objects", extension = "obj.ron")]
-pub struct GameObjectAsset {
-    pub x: u32,
-    pub y: u32,
-    pub sprite_sheet: ObjectSpritesheet,
-}
 
 #[asset_spec(base_path = "objects/spritesheets")]
 pub struct ObjectSpritesheet(pub AssetRef<Image>);

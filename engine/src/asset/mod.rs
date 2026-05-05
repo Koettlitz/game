@@ -295,3 +295,7 @@ impl<A: Asset> Clone for AssetRef<A> {
         }
     }
 }
+
+pub trait AsDef: FromDef {
+    fn as_def(&self) -> Result<Self::Def, Self::Error>;
+}

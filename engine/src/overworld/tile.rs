@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 pub const TILE_SIZE: UVec2 = UVec2::splat(32);
 
-#[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash)]
+#[def_type(Self)]
 pub enum Passability {
     Always,
     Never,
@@ -71,6 +72,10 @@ impl GridSize {
 
     pub fn as_vec2(&self) -> Vec2 {
         self.0.as_vec2()
+    }
+
+    pub fn tile_count(&self) -> u32 {
+        self.width() * self.height()
     }
 
     pub fn to_grid_pos(&self, world_position: impl Into<Vec2>) -> Option<GridPosition> {

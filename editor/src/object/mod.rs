@@ -30,7 +30,7 @@ fn place_object(
         })?;
         commands.spawn((
             GameObject {
-                _handle: object_kind.clone(),
+                kind_ref: object_kind.clone(),
             },
             Sprite::from_image(asset.sprite_sheet.handle().clone()),
             Transform::from_translation(grid_size.to_world_pos(pos).extend(OBJECT_LAYER)),
@@ -40,6 +40,12 @@ fn place_object(
 }
 
 #[derive(Component)]
-struct GameObject {
-    _handle: AssetRef<GameObjectKindAsset>,
+pub struct GameObject {
+    kind_ref: AssetRef<GameObjectKindAsset>,
+}
+
+impl GameObject {
+    pub fn kind_ref(&self) -> &AssetRef<GameObjectKindAsset> {
+        &self.kind_ref
+    }
 }

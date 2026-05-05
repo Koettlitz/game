@@ -3,27 +3,31 @@ use std::{fmt::Display, time::Duration};
 use bevy::prelude::*;
 use thiserror::Error;
 
-use crate::asset::animations::sprite::SpriteAnimationAsset;
+use crate::asset::{AssetRef, animations::sprite::SpriteAnimationAsset};
 
 #[derive(Component)]
-pub struct Animated(Handle<SpriteAnimationAsset>);
+pub struct Animated(AssetRef<SpriteAnimationAsset>);
 impl Animated {
-    pub fn by(animation: Handle<SpriteAnimationAsset>) -> Self {
+    pub fn by(animation: AssetRef<SpriteAnimationAsset>) -> Self {
         Self(animation)
+    }
+
+    pub fn id(&self) -> &str {
+        self.0.id()
     }
 }
 
 #[derive(Component)]
 pub struct SpriteAnimation {
-    handle: Handle<SpriteAnimationAsset>,
+    asset_ref: AssetRef<SpriteAnimationAsset>,
     current: usize,
     timer: Timer,
 }
 
 impl SpriteAnimation {
-    pub fn new(frame_duration: Duration, handle: Handle<SpriteAnimationAsset>) -> Self {
+    pub fn new(frame_duration: Duration, asset_ref: AssetRef<SpriteAnimationAsset>) -> Self {
         Self {
-            handle,
+            asset_ref,
             current: 0,
             timer: Timer::new(frame_duration, TimerMode::Repeating),
         }
@@ -46,11 +50,11 @@ fn on_insert(
 ) -> Result<()> {
     let (mut sprite, animated) = sprites.get_mut(on_insert.entity)?;
     let asset = assets
-        .get(animated.0.id())
+        .get(animated.0.handle().id())
         .ok_or_else(|| MissingAnimationAssetError)?;
     let animation = tile_animations
         .iter()
-        .find(|a| a.handle.id() == animated.0.id())
+        .find(|a| a.asset_ref.id() == animated.0.id())
         .ok_or_else(|| MissingAnimationError)?;
     let index = asset.indices[animation.current];
     if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
@@ -72,12 +76,12 @@ fn update_animations(
             continue;
         }
         let asset = assets
-            .get(animation.handle.id())
+            .get(animation.asset_ref.handle().id())
             .ok_or_else(|| MissingAnimationAssetError)?;
         animation.current = (animation.current + 1) % asset.indices.len();
         let index = asset.indices[animation.current];
         for (mut sprite, animated) in &mut sprites {
-            if animated.0 == animation.handle {
+            if animated.0 == animation.asset_ref {
                 if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
                     atlas.index = index;
                 } else {

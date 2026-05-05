@@ -3,13 +3,13 @@ use std::marker::PhantomData;
 use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::asset::{
-    LoadState, Phantom,
+    AssetRef, LoadState, Phantom,
     folder::{AsAssetPath, AssetMap, AssetSetPlugin, FillAssetMap, ProgressName, Set},
 };
 
 pub trait Spawn: Asset {
     type B: Bundle;
-    fn spawn(&self, handle: Handle<Self>) -> Self::B
+    fn spawn(&self, asset_ref: AssetRef<Self>) -> Self::B
     where
         Self: Sized;
 }
@@ -62,7 +62,9 @@ fn spawn_entites<S, A, B>(
         let Some(asset) = assets.get(handle.id()) else {
             panic!("missing asset {id} even though, it was inside the asset map")
         };
-        let entity = commands.spawn(asset.spawn(handle)).id();
+        let entity = commands
+            .spawn(asset.spawn(AssetRef::new(id.to_string(), handle)))
+            .id();
         entity_map.0.insert(id, entity);
     }
 }

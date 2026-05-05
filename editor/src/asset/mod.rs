@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::asset::{
-    animation::SpriteAnimationPlugin, object::ObjectKindAssetPlugin, tile::GroundTileAssetsPlugin,
+    animation::SpriteAnimationPlugin, object::GameObjectAssetPlugin, tile::TileAssetPlugin,
 };
 pub mod animation;
 pub mod object;
@@ -11,8 +11,8 @@ pub struct AssetPlugin;
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_plugins((
-            GroundTileAssetsPlugin,
-            ObjectKindAssetPlugin,
+            TileAssetPlugin,
+            GameObjectAssetPlugin,
             SpriteAnimationPlugin,
         ));
     }

@@ -1,5 +1,9 @@
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    hash::Hash,
+};
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -13,18 +17,32 @@ use macros::{FromDef, asset_spec};
 
 use crate::overworld::tile::TILE_SIZE;
 
-#[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "game://tile", extension = "tile.ron")]
+#[derive(FromDef)]
 pub struct TileAsset {
     pub passability: Passability,
-    pub sprite_stack: Vec<AssetRef<TileVisualsAsset>>,
+    pub sprite_stack: Vec<TileVisualsAsset>,
 }
 
-#[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "game://tile_visuals", extension = "ts.ron")]
+impl Default for TileDef {
+    fn default() -> Self {
+        Self {
+            passability: Passability::default(),
+            sprite_stack: Vec::default(),
+        }
+    }
+}
+
+#[derive(FromDef)]
+#[def_type(TileVisualsDef)]
 pub struct TileVisualsAsset {
-    pub kind: TileVisualKindAsset,
+    pub kind: TileVisualKind,
     pub image: TileSpriteSheet,
+}
+
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TileVisualsDef {
+    pub kind: TileVisualKindDef,
+    pub image: String,
 }
 
 #[derive(Debug)]
@@ -125,13 +143,26 @@ impl Display for TextureAtlasLayoutError {
 pub struct TileSpriteLayoutError(String);
 
 #[derive(FromDef)]
-pub enum TileVisualKindAsset {
+#[def_type(TileVisualKindDef)]
+pub enum TileVisualKind {
     Static {
         idx: usize,
     },
     Animated {
         animation: Handle<SpriteAnimationAsset>,
     },
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum TileVisualKindDef {
+    Static { idx: usize },
+    Animated { animation: String },
+}
+
+impl Default for TileVisualKindDef {
+    fn default() -> Self {
+        Self::Static { idx: 0 }
+    }
 }
 
 pub fn derive_texture_atlas_layout(image: &Image) -> Option<TextureAtlasLayout> {

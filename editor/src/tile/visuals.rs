@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Deref};
 
 use bevy::prelude::*;
 use engine::{
@@ -30,7 +30,14 @@ impl Plugin for TileVisualsPlugin {
 }
 
 #[derive(Resource)]
-struct TileSpriteGrid(TileGrid<Vec<Entity>>);
+pub struct TileSpriteGrid(TileGrid<Vec<Entity>>);
+impl Deref for TileSpriteGrid {
+    type Target = TileGrid<Vec<Entity>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Event)]
 struct UpdateTileSprites(GridPosition);
@@ -107,6 +114,14 @@ fn update_sprites(
     Ok(())
 }
 
+#[derive(Component)]
+pub struct TileSprite(String);
+impl TileSprite {
+    pub fn id(&self) -> &str {
+        &self.0
+    }
+}
+
 fn spawn_tile_sprite(
     position: &GridPosition,
     layer: &GroundTileVisual,
@@ -126,6 +141,7 @@ fn spawn_tile_sprite(
             };
             let entity = commands
                 .spawn((
+                    TileSprite(spritesheet.id().to_string()),
                     Sprite::from_atlas_image(spritesheet.image().clone(), atlas),
                     transform,
                 ))
@@ -140,8 +156,9 @@ fn spawn_tile_sprite(
             let sprite = Sprite::from_atlas_image(spritesheet.image().clone(), atlas);
             let entity = commands
                 .spawn((
+                    TileSprite(spritesheet.id().to_string()),
                     sprite,
-                    Animated::by(animation_asset.handle().clone()),
+                    Animated::by(animation_asset.clone()),
                     transform,
                 ))
                 .id();
@@ -171,7 +188,7 @@ fn spawn_tile_sprite(
 
 pub fn create_tile_sprite(
     visuals: &GroundTileVisuals,
-) -> Result<(Sprite, Option<Handle<SpriteAnimationAsset>>)> {
+) -> Result<(Sprite, Option<AssetRef<SpriteAnimationAsset>>)> {
     let visual = visuals.default_config();
     Ok(match &visual.base() {
         GroundTileVisual::Static(idx) => (
@@ -194,7 +211,7 @@ pub fn create_tile_sprite(
                 }),
                 ..Default::default()
             },
-            Some(animation_asset.handle().clone()),
+            Some(animation_asset.clone()),
         ),
         GroundTileVisual::Neighbor(_) => {
             panic!("GroundTileVisual cannot have neighbor sprite as default")
