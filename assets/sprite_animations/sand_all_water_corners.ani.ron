@@ -1,0 +1,12 @@
+SpriteAnimationAsset(
+    indices: [
+        2,
+        5,
+        8,
+        11,
+        14,
+        17,
+        20,
+    ],
+    frame_duration: 360,
+)

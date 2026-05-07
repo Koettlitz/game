@@ -1,8 +1,9 @@
 (
+    group: "water",
     passability: Always,
     visuals: (
         spritesheet: "water_calm.png",
-        config: {
+        edge_config: {
             (): (
                 base: Static(7),
             ),

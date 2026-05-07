@@ -12,15 +12,14 @@ pub use folder::{AssetMap, AssetSetPlugin, LoadState};
 use macros::from_def_self;
 use ron::de::SpannedError;
 use serde::de::DeserializeOwned;
-pub use spawn::{EntityFolderPlugin, EntityLookupMap};
 use thiserror::Error;
 
 use folder::InvalidAssetLinkError;
 
-pub mod animations;
+pub mod animation;
 pub mod folder;
 pub mod overworld;
-mod spawn;
+pub mod spritesheet;
 
 pub type Phantom<L> = PhantomData<fn() -> L>;
 
@@ -160,7 +159,23 @@ where
 }
 
 from_def_self![
-    u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, f32, f64, String, IRect, IVec2, Vec2
+    u8,
+    u16,
+    u32,
+    u64,
+    usize,
+    i8,
+    i16,
+    i32,
+    i64,
+    isize,
+    f32,
+    f64,
+    String,
+    IRect,
+    IVec2,
+    Vec2,
+    TextureAtlasLayout
 ];
 
 pub struct RonAssetPlugin<A>(Phantom<A>);
@@ -272,6 +287,29 @@ pub mod one_or_many {
         } else {
             value.serialize(serializer)
         }
+    }
+}
+
+pub mod implicit_option {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S, T>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        match value {
+            Some(v) => v.serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        Ok(Some(T::deserialize(deserializer)?))
     }
 }
 

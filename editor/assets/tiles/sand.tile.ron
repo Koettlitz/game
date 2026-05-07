@@ -1,25 +1,31 @@
 (
+    group: "land",
     passability: Always,
     visuals: (
         spritesheet: "sand.png",
-        config: {
+        edge_config: {
             (): (
                 base: Static(43),
             ),
             // single corners and edges
             // ========================
             ( // top left corner
-                top_left: Either("water_wild"),
+                right: SameGroup,
+                bottom: SameGroup,
+                bottom_right: SameGroup,
                 top: Either("water_wild"),
                 left: Either("water_wild"),
             ): (
                 below: [
-                    Neighbor(TopLeft),
+                    Neighbor(Top),
                 ],
                 base: Animated("sand_top_left_corner",), 
             ),
             ( // top edge
                 top: Either("water_wild"),
+                left: SameGroup, 
+                right: SameGroup, 
+                bottom: SameGroup, 
             ): (
                 below: [
                     Neighbor(Top),
@@ -27,12 +33,14 @@
                 base: Animated("sand_top_edge",), 
             ),
             ( // top right corner
+                left: SameGroup,
+                bottom_left: SameGroup,
+                bottom: SameGroup,
                 top: Either("water_wild"),
-                top_right: Either("water_wild"),
                 right: Either("water_wild"),
             ): (
                 below: [
-                    Neighbor(TopRight),
+                    Neighbor(Top),
                 ],
                 base: Animated("sand_top_right_corner",), 
             ),
@@ -45,7 +53,10 @@
                 base: Animated("sand_left_edge",), 
             ),
             ( // right edge
+                top: SameGroup,
+                left: SameGroup,
                 right: Either("water_wild"),
+                bottom: SameGroup,
             ): (
                 below: [
                     Neighbor(Right),
@@ -53,16 +64,21 @@
                 base: Animated("sand_right_edge",), 
             ),
             ( // bottom left corner
+                top: Same,
+                top_right: Same,
+                right: Same,
                 left: Either("water_wild"),
-                bot_left: Either("water_wild"),
                 bottom: Either("water_wild"),
             ): (
                 below: [
-                    Neighbor(BottomLeft),
+                    Neighbor(Bottom),
                 ],
                 base: Animated("sand_bot_left_corner",), 
             ),
             ( // bottom edge
+                top: SameGroup,
+                left: SameGroup,
+                right: SameGroup,
                 bottom: Either("water_wild"),
             ): (
                 below: [
@@ -71,12 +87,14 @@
                 base: Animated("sand_bot_edge",),
             ),
             ( // bottom right corner
+                top_left: SameGroup,
+                top: SameGroup,
+                left: SameGroup,
                 right: Either("water_wild"),
                 bottom: Either("water_wild"),
-                bottom_right: Either("water_wild"),
             ): (
                 below: [
-                    Neighbor(BottomRight),
+                    Neighbor(Bottom),
                 ],
                 base: Animated("sand_bot_right_corner",), 
             ),
@@ -105,40 +123,44 @@
             // triple edges
             // ============
             ( // top, left and bottom edge
-                top_left: Either("water_wild"),
+                // top_left: Either("water_wild"),
                 top: Either("water_wild"),
                 left: Either("water_wild"),
-                bottom_left: Either("water_wild"),
+                right: Same,
+                // bottom_left: Either("water_wild"),
                 bottom: Either("water_wild"),
             ): (
                 below: [Neighbor(Left)],
                 base: Animated("sand_top_left_bot_edge",),
             ),
             ( // left, right and top edge
-                top_left: Either("water_wild"),
+                // top_left: Either("water_wild"),
                 top: Either("water_wild"),
-                top_right: Either("water_wild"),
+                // top_right: Either("water_wild"),
                 left: Either("water_wild"),
                 right: Either("water_wild"),
+                bottom: Same,
             ): (
                 below: [Neighbor(Top)],
                 base: Animated("sand_left_top_right_edge",), 
             ),
             ( // top, right and bottom edge
                 top: Either("water_wild"),
-                top_right: Either("water_wild"),
+                // top_right: Either("water_wild"),
+                left: Same,
                 right: Either("water_wild"),
                 bottom: Either("water_wild"),
-                bottom_right: Either("water_wild"), 
+                // bottom_right: Either("water_wild"), 
             ): (
                 below: [Neighbor(Right)],
                 base: Animated("sand_top_right_bot_edge",),
             ),
             ( // left, bottom and right edge
+                top: Same,
                 left: Either("water_wild"),
-                bottom_left: Either("water_wild"),
+                // bottom_left: Either("water_wild"),
                 bottom: Either("water_wild"),
-                bottom_right: Either("water_wild"), 
+                // bottom_right: Either("water_wild"), 
                 right: Either("water_wild"),
             ): (
                 below: [Neighbor(Bottom)],
@@ -185,6 +207,37 @@
                 base: Static(43),
                 above: [
                     Animated("sand_bot_right_water_corner",),
+                ],
+            ),
+            // ==========================
+            // both opposite outer water corners
+            // ==========================
+            ( // top left and bottom right water corners
+                top_left: Either("water_wild"),
+                top: Same,
+                left: Same,
+                right: Same,
+                bottom: Same,
+                bottom_right: Either("water_wild"),
+            ): (
+                base: Static(43),
+                above: [
+                    Animated("sand_top_left_water_corner",),
+                    Animated("sand_bot_right_water_corner",),
+                ],
+            ),
+            ( // top right and bottom left water corners
+                top_right: Either("water_wild"),
+                top: Same,
+                left: Same,
+                right: Same,
+                bottom: Same,
+                bottom_left: Either("water_wild"),
+            ): (
+                base: Static(43),
+                above: [
+                    Animated("sand_top_right_water_corner",),
+                    Animated("sand_bot_left_water_corner",),
                 ],
             ),
             // =====================================
@@ -538,15 +591,23 @@
                     Animated("sand_top_left_water_corner",),
                 ],
             ),
-            ( // completely surrounded by water
+            ( // all water corners
+                top: Same,
+                left: Same,
+                right: Same,
+                bottom: Same,
                 top_left: Either("water_wild"),
-                top: Either("water_wild"),
                 top_right: Either("water_wild"),
+                bottom_left: Either("water_wild"),
+                bottom_right: Either("water_wild"),
+            ): (
+                base: Animated("sand_all_water_corners",),
+            ),
+            ( // surrounded by water
+                top: Either("water_wild"),
                 left: Either("water_wild"),
                 right: Either("water_wild"),
-                bottom_left: Either("water_wild"),
                 bottom: Either("water_wild"),
-                bottom_right: Either("water_wild"),
             ): (
                 base: Animated("sand_surrounded_by_water",),
             ),

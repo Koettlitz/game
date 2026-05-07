@@ -1,16 +1,14 @@
 use bevy::prelude::*;
-use engine::animation::SpriteAnimation;
-use engine::asset::animations::sprite::SpriteAnimationAsset;
-use engine::asset::{EntityFolderPlugin, HasResolver, RonAssetPlugin};
+use engine::asset::animation::sprite::SpriteAnimationAsset;
+use engine::asset::{AssetSetPlugin, HasResolver, RonAssetPlugin};
 
 pub struct SpriteAnimationPlugin;
 impl Plugin for SpriteAnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RonAssetPlugin::<SpriteAnimationAsset>::default())
-            .add_plugins(EntityFolderPlugin::<
+            .add_plugins(AssetSetPlugin::<
                 <SpriteAnimationAsset as HasResolver>::Resolver,
                 SpriteAnimationAsset,
-                SpriteAnimation,
             >::default());
     }
 }

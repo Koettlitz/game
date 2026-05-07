@@ -1,15 +1,16 @@
 use engine::{
     asset::{
         AssetMap, AssetRef, AssetSetPlugin, FromDef, FromDefError, LoadState, RonAssetPlugin,
-        animations::sprite::SpriteAnimationAsset, one_or_many, overworld::tile::TileSpriteSheet,
+        animation::sprite::SpriteAnimationAsset, one_or_many, overworld::tile::TileKindSpritesheet,
     },
-    overworld::tile::{GridView, Neighbor, Passability},
+    overworld::tile::{GridCursor, Neighbor, Passability},
     progress::{Progress, ProgressPanel},
 };
 use macros::{FromDef, asset_set};
 use std::{collections::HashMap, fmt::Debug, slice};
 
 use bevy::{asset::LoadContext, prelude::*};
+use engine::asset::implicit_option;
 use serde::{Deserialize, Serialize};
 
 pub type TileKindMap = AssetMap<Tile, TileKindAsset>;
@@ -56,12 +57,15 @@ fn derive_layouts(
 #[derive(Asset, TypePath, Debug)]
 #[asset_set(base_path = "tiles", progress_name = "tiles")]
 pub struct TileKindAsset {
+    pub group: Option<String>,
     pub passability: Passability,
     pub visuals: GroundTileVisuals,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TileKindDef {
+    #[serde(with = "implicit_option")]
+    pub group: Option<String>,
     pub passability: Passability,
     pub visuals: GroundTileVisualsDef,
 }
@@ -74,7 +78,7 @@ impl FromDef for TileKindAsset {
     where
         Self: Sized,
     {
-        if !def.visuals.config.keys().any(|k| k.is_default()) {
+        if !def.visuals.edge_config.keys().any(|k| k.is_default()) {
             let path = ctx.path().path().to_string_lossy();
             Err(FromDefError::InvalidDef(format!(
                 "missing default visuals for tile {path}"
@@ -83,6 +87,7 @@ impl FromDef for TileKindAsset {
             Ok(Self {
                 passability: def.passability,
                 visuals: GroundTileVisuals::from_def(def.visuals, ctx)?,
+                group: def.group,
             })
         }
     }
@@ -90,14 +95,14 @@ impl FromDef for TileKindAsset {
 
 #[derive(TypePath, Component, Debug)]
 pub struct GroundTileVisuals {
-    pub spritesheet: TileSpriteSheet,
-    pub config: Vec<(AdjacentRequirements, GroundTileVisualLayers)>,
+    pub spritesheet: TileKindSpritesheet,
+    pub edge_config: Vec<(AdjacentRequirements, GroundTileVisualLayers)>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct GroundTileVisualsDef {
     pub spritesheet: String,
-    pub config: HashMap<AdjacentRequirementsConfig, GroundTileVisualLayersDef>,
+    pub edge_config: HashMap<AdjacentRequirementsConfig, GroundTileVisualLayersDef>,
 }
 
 impl FromDef for GroundTileVisuals {
@@ -109,22 +114,22 @@ impl FromDef for GroundTileVisuals {
         load_context: &mut LoadContext,
     ) -> std::result::Result<Self, Self::Error> {
         let mut parsed_visuals = Vec::new();
-        for (req, visuals) in def.config {
+        for (req, visuals) in def.edge_config {
             let req = AdjacentRequirements::from_def(req, load_context)?;
             let visuals = GroundTileVisualLayers::from_def(visuals, load_context)?;
             parsed_visuals.push((req, visuals));
         }
         parsed_visuals.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(Self {
-            spritesheet: TileSpriteSheet::from_def(def.spritesheet, load_context)?,
-            config: parsed_visuals,
+            spritesheet: TileKindSpritesheet::from_def(def.spritesheet, load_context)?,
+            edge_config: parsed_visuals,
         })
     }
 }
 
 impl GroundTileVisuals {
     pub fn default_config(&self) -> &GroundTileVisualLayers {
-        &self.config.last().expect("empty config").1
+        &self.edge_config.last().expect("empty config").1
     }
 }
 
@@ -162,14 +167,12 @@ impl FromDef for AdjacentRequirements {
 }
 
 impl AdjacentRequirements {
-    pub fn matches(&self, surroundings: &GridView<AssetRef<TileKindAsset>>) -> bool {
-        let center = surroundings.center();
-        let result = self
-            .all()
+    pub fn matches(&self, cursor: &GridCursor<crate::tile::Tile>) -> bool {
+        let center = cursor.get();
+        self.all()
             .iter()
-            .zip(surroundings.iter_exclusive())
-            .all(|(req, neighbor)| req.matches(center.id(), neighbor.map(|l| l.id())));
-        result
+            .zip(cursor.iter_exclusive())
+            .all(|(req, neighbor)| req.matches(center, neighbor))
     }
 
     pub fn all(&self) -> [&AdjacentRequirement; 8] {
@@ -204,26 +207,26 @@ impl PartialOrd for AdjacentRequirements {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct AdjacentRequirementsConfig {
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub top_left: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub top: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub top_right: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub left: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub right: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub bottom_left: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub bottom: AdjacentRequirementConfig,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementConfig::is_any")]
-    pub bottom_right: AdjacentRequirementConfig,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub top_left: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub top: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub top_right: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub left: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub right: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub bottom_left: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub bottom: AdjacentRequirementDef,
+    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    pub bottom_right: AdjacentRequirementDef,
 }
 
 impl AdjacentRequirementsConfig {
-    fn all(&self) -> [&AdjacentRequirementConfig; 8] {
+    fn all(&self) -> [&AdjacentRequirementDef; 8] {
         [
             &self.top_left,
             &self.top,
@@ -247,7 +250,7 @@ impl AdjacentRequirementsConfig {
 
 impl Ord for AdjacentRequirementsConfig {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.prio().cmp(&other.prio())
+        other.prio().cmp(&self.prio())
     }
 }
 
@@ -258,30 +261,45 @@ impl PartialOrd for AdjacentRequirementsConfig {
 }
 
 #[derive(FromDef, Default, Clone, Debug)]
-#[def_type(AdjacentRequirementConfig)]
+#[def_type(AdjacentRequirementDef)]
 pub enum AdjacentRequirement {
     #[default]
     Any,
     Same,
     Other,
+    SameGroup,
+    OtherGroup,
     Either(Vec<String>),
 }
 
 impl AdjacentRequirement {
-    fn matches(&self, identity: &str, other: Option<&str>) -> bool {
+    fn matches(&self, identity: &crate::tile::Tile, other: Option<&crate::tile::Tile>) -> bool {
         match self {
             Self::Any => true,
-            Self::Same => other.map(|n| n == identity).unwrap_or(false),
-            Self::Other => other.map(|n| n != identity).unwrap_or(false),
-            Self::Either(e) => other.map(|o| e.iter().any(|e| e == o)).unwrap_or(false),
+            Self::Same => other
+                .map(|n| n.kind.id() == identity.kind.id())
+                .unwrap_or(false),
+            Self::Other => other
+                .map(|n| n.kind.id() != identity.kind.id())
+                .unwrap_or(false),
+            Self::SameGroup => other.map(|o| o.group == identity.group).unwrap_or(false),
+            Self::OtherGroup => other.map(|o| o.group != identity.group).unwrap_or(false),
+            Self::Either(e) => other
+                .map(|o| {
+                    e.iter().any(|e| {
+                        e == o.kind.id() || o.group.as_ref().map(|o| o == e).unwrap_or(false)
+                    })
+                })
+                .unwrap_or(false),
         }
     }
 
     fn prio(&self) -> usize {
         match self {
             Self::Any => 1,
-            Self::Same | Self::Other => 10,
-            Self::Either(_) => 100,
+            Self::SameGroup | Self::OtherGroup => 10,
+            Self::Same | Self::Other => 100,
+            Self::Either(_) => 1000,
         }
     }
 }
@@ -292,6 +310,8 @@ impl PartialEq for AdjacentRequirement {
             Self::Any => matches!(other, Self::Any),
             Self::Same => matches!(other, Self::Same),
             Self::Other => matches!(other, Self::Other),
+            Self::SameGroup => matches!(other, Self::SameGroup),
+            Self::OtherGroup => matches!(other, Self::OtherGroup),
             Self::Either(_) => matches!(other, Self::Either(_)),
         }
     }
@@ -300,7 +320,7 @@ impl Eq for AdjacentRequirement {}
 
 impl Ord for AdjacentRequirement {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.prio().cmp(&other.prio())
+        other.prio().cmp(&self.prio())
     }
 }
 
@@ -311,38 +331,41 @@ impl PartialOrd for AdjacentRequirement {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub enum AdjacentRequirementConfig {
+pub enum AdjacentRequirementDef {
     #[default]
     Any,
     Same,
+    SameGroup,
     Other,
+    OtherGroup,
     #[serde(with = "one_or_many")]
     Either(Vec<String>),
 }
 
-impl AdjacentRequirementConfig {
+impl AdjacentRequirementDef {
     fn prio(&self) -> usize {
         match self {
             Self::Any => 1,
-            Self::Same | Self::Other { .. } => 10,
-            Self::Either(_) => 100,
+            Self::SameGroup | Self::OtherGroup => 10,
+            Self::Same | Self::Other => 100,
+            Self::Either(_) => 1000,
         }
     }
 }
 
-impl Ord for AdjacentRequirementConfig {
+impl Ord for AdjacentRequirementDef {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.prio().cmp(&other.prio())
     }
 }
 
-impl PartialOrd for AdjacentRequirementConfig {
+impl PartialOrd for AdjacentRequirementDef {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl AdjacentRequirementConfig {
+impl AdjacentRequirementDef {
     fn is_any(&self) -> bool {
         matches!(self, Self::Any)
     }
@@ -405,8 +428,8 @@ impl VisualLayer {
     fn z(&self) -> f32 {
         match self {
             Self::Below => 1.0,
-            Self::Base => 10.0,
-            Self::Above => 100.0,
+            Self::Base => 20.0,
+            Self::Above => Self::Base.z() + 1.0,
         }
     }
 }
@@ -414,6 +437,8 @@ impl VisualLayer {
 struct LayerCursor {
     current_layer: VisualLayer,
     current_idx: usize,
+    below_len: usize,
+    above_len: usize,
 }
 
 enum LayerItem {
@@ -423,9 +448,9 @@ enum LayerItem {
 }
 
 impl LayerCursor {
-    fn next(&mut self, below_len: usize, above_len: usize) -> Option<(f32, LayerItem)> {
+    fn next(&mut self) -> Option<(f32, LayerItem)> {
         if matches!(self.current_layer, VisualLayer::Below) {
-            if self.current_idx < below_len {
+            if self.current_idx < self.below_len {
                 let z = VisualLayer::Below.z() + self.current_idx as f32;
                 self.current_idx += 1;
                 Some((z, LayerItem::Below))
@@ -434,7 +459,7 @@ impl LayerCursor {
                 self.current_idx = 0;
                 Some((VisualLayer::Base.z(), LayerItem::Base))
             }
-        } else if self.current_idx < above_len {
+        } else if self.current_idx < self.above_len {
             let z = VisualLayer::Above.z() + self.current_idx as f32;
             self.current_idx += 1;
             Some((z, LayerItem::Above))
@@ -460,6 +485,8 @@ impl<'a> From<&'a GroundTileVisualLayers> for LayerIterator<'a> {
             cursor: LayerCursor {
                 current_layer: VisualLayer::Below,
                 current_idx: 0,
+                below_len: value.below.len(),
+                above_len: value.above.len(),
             },
         }
     }
@@ -468,7 +495,7 @@ impl<'a> From<&'a GroundTileVisualLayers> for LayerIterator<'a> {
 impl<'a> Iterator for LayerIterator<'a> {
     type Item = (f32, &'a GroundTileVisual);
     fn next(&mut self) -> Option<Self::Item> {
-        let (z, layer_item) = self.cursor.next(self.below.len(), self.above.len())?;
+        let (z, layer_item) = self.cursor.next()?;
         match layer_item {
             LayerItem::Below => self.below.next().map(|v| (z, v)),
             LayerItem::Base => self.base.take().map(|v| (z, v)),
@@ -486,6 +513,8 @@ pub struct _LayerIteratorMut<'a> {
 
 impl<'a> From<&'a mut GroundTileVisualLayers> for _LayerIteratorMut<'a> {
     fn from(value: &'a mut GroundTileVisualLayers) -> Self {
+        let below_len = value.below.len();
+        let above_len = value.above.len();
         Self {
             below: value.below.iter_mut(),
             base: Some(&mut value.base),
@@ -493,6 +522,8 @@ impl<'a> From<&'a mut GroundTileVisualLayers> for _LayerIteratorMut<'a> {
             cursor: LayerCursor {
                 current_layer: VisualLayer::Below,
                 current_idx: 0,
+                below_len,
+                above_len,
             },
         }
     }
@@ -502,7 +533,7 @@ impl<'a> Iterator for _LayerIteratorMut<'a> {
     type Item = (f32, &'a mut GroundTileVisual);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (z, layer_item) = self.cursor.next(self.below.len(), self.above.len())?;
+        let (z, layer_item) = self.cursor.next()?;
         match layer_item {
             LayerItem::Below => self.below.next().map(|v| (z, v)),
             LayerItem::Base => self.base.take().map(|v| (z, v)),

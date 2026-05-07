@@ -1,8 +1,9 @@
 (
+    group: "land",
     passability: Always,
     visuals: (
         spritesheet: "grass.png",
-        config: {
+        edge_config: {
             (): (
                 base: Static(0),
             ),

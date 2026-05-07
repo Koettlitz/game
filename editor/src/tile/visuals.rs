@@ -1,20 +1,20 @@
-use std::{collections::HashSet, ops::Deref};
+use std::collections::HashSet;
 
 use bevy::prelude::*;
 use engine::{
     animation::Animated,
     asset::{
-        AssetRef, MissingAssetError, animations::sprite::SpriteAnimationAsset,
-        overworld::tile::TileSpriteSheet,
+        AssetRef, MissingAssetError, animation::sprite::SpriteAnimationAsset,
+        overworld::tile::TileKindSpritesheet,
     },
-    overworld::tile::{GridPosition, GridSize, TileGrid},
+    overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };
 
 use super::spawn_ground_tile_grid;
 use crate::{
     asset::tile::{GroundTileVisual, GroundTileVisuals, TileKindAsset},
-    tile::{GroundTileGrid, GroundTilesChanged},
+    tile::{GroundTilesChanged, InvalidGridPosition, Tile},
 };
 
 pub struct TileVisualsPlugin;
@@ -29,40 +29,28 @@ impl Plugin for TileVisualsPlugin {
     }
 }
 
-#[derive(Resource)]
-pub struct TileSpriteGrid(TileGrid<Vec<Entity>>);
-impl Deref for TileSpriteGrid {
-    type Target = TileGrid<Vec<Entity>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 #[derive(Event)]
-struct UpdateTileSprites(GridPosition);
+struct UpdateTileSprites(UVec2);
 
-fn init_sprite_grid(mut commands: Commands, grid_size: Res<GridSize>) {
-    commands.insert_resource(TileSpriteGrid(TileGrid::with_size(&grid_size)));
+fn init_sprite_grid(mut commands: Commands, grid_size: Single<&GridSize>) {
     for pos in grid_size.iter() {
-        commands.trigger(UpdateTileSprites(pos));
+        commands.trigger(UpdateTileSprites(*pos));
     }
 }
 
 fn on_ground_tile_changed(
     event: On<GroundTilesChanged>,
     mut commands: Commands,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
 ) {
-    let mut sprites_to_update: HashSet<GridPosition> = HashSet::new();
+    let mut sprites_to_update: HashSet<UVec2> = HashSet::new();
     for position in &event.0 {
-        for neighbor in position
-            .adjacent(&grid_size)
-            .iter_inclusive()
-            .into_iter()
-            .filter_map(|p| p)
-        {
-            sprites_to_update.insert(neighbor);
+        let Some(position) = GridPosition::new(*position, &grid_size) else {
+            error!("invalid position in GroundTilesChangedEvent: {position}");
+            continue;
+        };
+        for neighbor in position.around_inclusive().into_iter().filter_map(|p| p) {
+            sprites_to_update.insert(*neighbor);
         }
     }
     for sprite_to_update in sprites_to_update {
@@ -73,28 +61,25 @@ fn on_ground_tile_changed(
 fn update_sprites(
     event: On<UpdateTileSprites>,
     mut commands: Commands,
-    ground_tile_grid: Res<GroundTileGrid>,
-    grid_size: Res<GridSize>,
+    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
-    mut sprites_grid: ResMut<TileSpriteGrid>,
 ) -> Result<()> {
-    let position = event.0;
-    let surroundings = ground_tile_grid.0.view_of(position.adjacent(&grid_size));
+    let (mut tile_grid, grid_size) = ground_tile_grid.into_inner();
+    let position =
+        GridPosition::new(event.0, &grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
     let tile_kind_asset = tile_kinds
-        .get(surroundings.center().handle().id())
+        .get(tile_grid[position].kind.handle().id())
         .expect("missing visual for ground tile");
+    for old_sprite in tile_grid[position].sprite_stack.drain(..) {
+        commands.entity(old_sprite).despawn();
+    }
     let layers = &tile_kind_asset
         .visuals
-        .config
+        .edge_config
         .iter()
-        .find(|(req, _)| req.matches(&surroundings))
+        .find(|(req, _)| req.matches(&tile_grid.cursor_at(position)))
         .expect("no adjacent requirement matched the current surroundings")
         .1;
-    let old_sprites = &sprites_grid.0[&position.as_index(&grid_size)];
-    for old_sprite in old_sprites {
-        commands.entity(*old_sprite).despawn();
-    }
-    let mut new_sprites = Vec::new();
     for (z, layer) in layers.iter() {
         let sprite_entity = spawn_tile_sprite(
             &position,
@@ -104,13 +89,12 @@ fn update_sprites(
             &mut commands,
             &tile_kinds,
             &grid_size,
-            &ground_tile_grid.0,
+            &tile_grid,
         )?;
         if let Some(entity) = sprite_entity {
-            new_sprites.push(entity);
+            tile_grid[position].sprite_stack.push(entity);
         }
     }
-    sprites_grid.0[&position.as_index(&grid_size)] = new_sprites;
     Ok(())
 }
 
@@ -125,14 +109,14 @@ impl TileSprite {
 fn spawn_tile_sprite(
     position: &GridPosition,
     layer: &GroundTileVisual,
-    spritesheet: &TileSpriteSheet,
+    spritesheet: &TileKindSpritesheet,
     z: f32,
     commands: &mut Commands,
     tile_kinds: &Assets<TileKindAsset>,
     grid_size: &GridSize,
-    tile_grid: &TileGrid<AssetRef<TileKindAsset>>,
+    tile_grid: &Grid<Tile>,
 ) -> Result<Option<Entity>> {
-    let transform = Transform::from_translation(grid_size.to_world_pos(position).extend(z));
+    let transform = Transform::from_translation(grid_size.to_world_pos(**position).extend(z));
     match layer {
         GroundTileVisual::Static(idx) => {
             let atlas = TextureAtlas {
@@ -158,20 +142,21 @@ fn spawn_tile_sprite(
                 .spawn((
                     TileSprite(spritesheet.id().to_string()),
                     sprite,
-                    Animated::by(animation_asset.clone()),
+                    Animated::by(animation_asset.handle().clone()),
+                    AnimationId(animation_asset.id().to_string()),
                     transform,
                 ))
                 .id();
             Ok(Some(entity))
         }
         GroundTileVisual::Neighbor(neighbor) => {
-            let Some(neighbor_position) = position.neighbor(&neighbor, &grid_size) else {
+            let Some(neighbor_position) = position.neighbor(&neighbor) else {
                 return Ok(None);
             };
-            let neighbor = &tile_grid[&neighbor_position.as_index(&grid_size)];
+            let neighbor = &tile_grid[neighbor_position];
             let neighbor = tile_kinds
-                .get(neighbor.handle().id())
-                .ok_or_else(|| MissingAssetError::new(neighbor.handle().id()))?;
+                .get(neighbor.kind.handle().id())
+                .ok_or_else(|| MissingAssetError::new(neighbor.kind.handle().id()))?;
             return spawn_tile_sprite(
                 &position,
                 &neighbor.visuals.default_config().base(),
@@ -218,3 +203,6 @@ pub fn create_tile_sprite(
         }
     })
 }
+
+#[derive(Component)]
+pub struct AnimationId(pub String);

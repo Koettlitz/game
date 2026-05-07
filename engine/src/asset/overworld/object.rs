@@ -14,6 +14,7 @@ impl Deref for ObjectSpritesheet {
         &self.0
     }
 }
+
 impl FromDef for ObjectSpritesheet {
     type Def = String;
     type Error = FromDefError;

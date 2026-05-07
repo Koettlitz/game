@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use engine::asset::{
-    RonAssetPlugin, animations::sprite::SpriteAnimationAsset, overworld::lozo::LozoAsset,
+    RonAssetPlugin, animation::sprite::SpriteAnimationAsset, overworld::lozo::LozoAsset,
 };
 
 pub struct AssetPlugin;

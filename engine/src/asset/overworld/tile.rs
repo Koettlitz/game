@@ -8,7 +8,8 @@ use thiserror::Error;
 
 use crate::{
     asset::{
-        AssetRef, AssetResolver, FromDef, FromDefError, animations::sprite::SpriteAnimationAsset,
+        AssetRef, AssetResolver, FromDef, FromDefError, animation::sprite::SpriteAnimationAsset,
+        spritesheet::Spritesheet,
     },
     overworld::tile::Passability,
 };
@@ -33,33 +34,23 @@ impl Default for TileDef {
 }
 
 #[derive(FromDef)]
-#[def_type(TileVisualsDef)]
 pub struct TileVisualsAsset {
     pub kind: TileVisualKind,
-    pub image: TileSpriteSheet,
-}
-
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TileVisualsDef {
-    pub kind: TileVisualKindDef,
-    pub image: String,
+    pub spritesheet: Spritesheet,
 }
 
 #[derive(Debug)]
 #[asset_spec(base_path = "tiles/spritesheets")]
-pub struct TileSpriteSheet {
+pub struct TileKindSpritesheet {
     image: AssetRef<Image>,
     layout: Option<Handle<TextureAtlasLayout>>,
 }
 
-impl FromDef for TileSpriteSheet {
+impl FromDef for TileKindSpritesheet {
     type Def = String;
     type Error = FromDefError;
 
-    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
+    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error> {
         let handle = ctx.load(Self::resolve(&def)?);
         Ok(Self {
             image: AssetRef::new(def, handle),
@@ -68,7 +59,7 @@ impl FromDef for TileSpriteSheet {
     }
 }
 
-impl TileSpriteSheet {
+impl TileKindSpritesheet {
     pub fn id(&self) -> &str {
         self.image.id()
     }

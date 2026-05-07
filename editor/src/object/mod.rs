@@ -22,7 +22,7 @@ fn place_object(
     object_kinds: Res<Assets<GameObjectKindAsset>>,
     mut message_reader: MessageReader<PlaceObject>,
     mut commands: Commands,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
 ) -> Result<()> {
     for PlaceObject { pos, object_kind } in message_reader.read() {
         let asset = object_kinds.get(object_kind.handle().id()).ok_or_else(|| {
@@ -33,7 +33,7 @@ fn place_object(
                 kind_ref: object_kind.clone(),
             },
             Sprite::from_image(asset.sprite_sheet.handle().clone()),
-            Transform::from_translation(grid_size.to_world_pos(pos).extend(OBJECT_LAYER)),
+            Transform::from_translation(grid_size.to_world_pos(*pos).extend(OBJECT_LAYER)),
         ));
     }
     Ok(())

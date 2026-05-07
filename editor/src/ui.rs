@@ -4,7 +4,7 @@ use bevy::{
 use engine::{
     animation::Animated,
     asset::AssetRef,
-    overworld::tile::{GridPosition, GridSize, TILE_SIZE},
+    overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
 
@@ -60,13 +60,13 @@ struct CursorSprite;
 
 #[derive(Message)]
 pub struct PlaceTile {
-    pub pos: GridPosition,
+    pub pos: UVec2,
     pub tile_kind: AssetRef<TileKindAsset>,
 }
 
 #[derive(Message)]
 pub struct PlaceObject {
-    pub pos: GridPosition,
+    pub pos: UVec2,
     pub object_kind: AssetRef<GameObjectKindAsset>,
 }
 
@@ -137,7 +137,7 @@ fn on_cursor_changed(
     mut commands: Commands,
     cursor_sprite: Query<Entity, With<CursorSprite>>,
     cursor: Res<Cursor>,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     object_kinds: Res<Assets<GameObjectKindAsset>>,
     window: Single<&Window, With<PrimaryWindow>>,
@@ -154,8 +154,8 @@ fn on_cursor_changed(
             let (mut sprite, animation_ref) = create_tile_sprite(&tile_kind.visuals)?;
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
-            if let Some(animation_handle) = animation_ref {
-                entity.insert(Animated::by(animation_handle));
+            if let Some(animation_ref) = animation_ref {
+                entity.insert(Animated::by(animation_ref.handle().clone()));
             }
             if let Some(cursor_position) = window
                 .cursor_position()
@@ -193,7 +193,7 @@ fn on_cursor_changed(
 
 fn update_cursor_sprite(
     mut query: Query<&mut Transform, With<CursorSprite>>,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
@@ -216,7 +216,7 @@ fn write_place_tile_messages(
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Res<Cursor>,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
     mut message_writer: MessageWriter<PlaceTile>,
 ) {
     if !mouse_btn.pressed(MouseButton::Left) {
@@ -240,7 +240,7 @@ fn write_place_tile_messages(
             let world_position = cursor_pos_to_world_pos(starting_pos, camera.0, camera.1);
             if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
                 message_writer.write(PlaceTile {
-                    pos,
+                    pos: *pos,
                     tile_kind: tile_kind.clone(),
                 });
             }
@@ -250,7 +250,7 @@ fn write_place_tile_messages(
         let world_position = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
         if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
             message_writer.write(PlaceTile {
-                pos,
+                pos: *pos,
                 tile_kind: tile_kind.clone(),
             });
         }
@@ -262,7 +262,7 @@ fn write_place_object_message(
     mouse_btn: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window, With<PrimaryWindow>>,
-    grid_size: Res<GridSize>,
+    grid_size: Single<&GridSize>,
     mut message_writer: MessageWriter<PlaceObject>,
 ) {
     if !mouse_btn.pressed(MouseButton::Left) {
@@ -280,7 +280,7 @@ fn write_place_object_message(
         return;
     };
     message_writer.write(PlaceObject {
-        pos: grid_position,
+        pos: *grid_position,
         object_kind: object_kind_handle.clone(),
     });
 }

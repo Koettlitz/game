@@ -5,24 +5,22 @@ use thiserror::Error;
 
 use bevy::{prelude::*, tasks::IoTaskPool};
 use engine::{
-    animation::Animated,
     asset::{
         AssetPathSpec, MissingAssetError,
         overworld::{
             lozo::{LozoAsset, LozoDef},
             tile::{TileDef, TileVisualKindDef, TileVisualsDef},
         },
+        spritesheet::{SpritesheetDef, SpritesheetKind},
     },
-    overworld::tile::{GridPosition, GridSize, Passability},
+    overworld::tile::{Grid, GridPosition, GridSize, Passability},
 };
 
 use crate::{
     asset::{object::GameObjectKindAsset, tile::TileKindAsset},
     object::GameObject,
-    tile::{
-        GroundTileGrid,
-        visuals::{TileSprite, TileSpriteGrid},
-    },
+    tile::Tile,
+    tile::visuals::{AnimationId, TileSprite},
 };
 
 pub struct ExportPlugin;
@@ -37,28 +35,32 @@ pub struct ExportLozo;
 
 pub fn export_lozo(
     _: On<ExportLozo>,
-    tile_grid: Res<GroundTileGrid>,
-    grid_size: Res<GridSize>,
+    tile_grid: Single<(&Grid<Tile>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     game_objects: Res<Assets<GameObjectKindAsset>>,
-    sprite_grid: Res<TileSpriteGrid>,
-    sprites_query: Query<(&TileSprite, &Sprite, Option<&Animated>)>,
+    layouts: Res<Assets<TextureAtlasLayout>>,
+    sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>)>,
     object_query: Query<(&GameObject, &Transform)>,
 ) -> Result<()> {
+    let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
     for pos in grid_size.iter() {
-        let tile_kind_handle = tile_grid.0[&pos.as_index(&grid_size)].handle();
+        let tile_kind_handle = tile_grid[pos].kind.handle();
         let tile_kind = tile_kinds
             .get(tile_kind_handle.id())
             .ok_or_else(|| MissingAssetError::new(tile_kind_handle.id()))?;
-        let tile_def = create_tile_def(&tile_kind, &pos, &grid_size, &sprite_grid, &sprites_query)?;
+        let tile_def = create_tile_def(
+            &tile_kind,
+            &tile_grid[pos].sprite_stack,
+            &sprites_query,
+            &layouts,
+        )?;
         grid.push(Some(tile_def));
     }
     let mut lozo_def = LozoDef {
         width: grid_size.width(),
         height: grid_size.height(),
         tile_grid: grid,
-        game_object_ids: Vec::new(),
     };
 
     for (game_object, transform) in &object_query {
@@ -69,19 +71,24 @@ pub fn export_lozo(
         let object_pos = grid_size
             .to_grid_pos(transform.translation.truncate())
             .ok_or_else(|| PositionOutOfGridBoundsError::new(transform.translation.truncate()))?;
-        let tile_def = lozo_def.tile_grid[*object_pos.as_index(&grid_size)]
-            .get_or_insert_with(|| TileDef::default());
+        let tile_def =
+            lozo_def.tile_grid[*object_pos.as_index()].get_or_insert_with(|| TileDef::default());
+        let spritesheet = SpritesheetDef {
+            image: object_kind.sprite_sheet.id().to_string(),
+            layout: None,
+            kind: SpritesheetKind::Object,
+        };
         tile_def.sprite_stack.push(TileVisualsDef {
             kind: Default::default(),
-            image: object_kind.sprite_sheet.id().to_string(),
+            spritesheet,
         });
         if let Some(ref collision_box) = object_kind.collision_box {
             for pos in CollisionBoxIter::from(collision_box) {
-                let pos = (object_pos.as_uvec2().as_ivec2() + pos).as_vec2();
-                let pos = GridPosition::new(pos, &grid_size)
-                    .ok_or_else(|| PositionOutOfGridBoundsError::new(pos))?;
-                let tile_def = lozo_def.tile_grid[*pos.as_index(&grid_size)]
-                    .get_or_insert_with(|| TileDef::default());
+                let pos = object_pos.as_ivec2() + pos;
+                let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
+                    .ok_or_else(|| PositionOutOfGridBoundsError::new(pos.as_vec2()))?;
+                let tile_def =
+                    lozo_def.tile_grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
                 tile_def.passability &= Passability::Never;
             }
         }
@@ -122,30 +129,29 @@ fn save_lozo(id: &str, lozo: LozoDef) -> Result<()> {
 
 fn create_tile_def(
     tile_kind: &TileKindAsset,
-    pos: &GridPosition,
-    grid_size: &GridSize,
-    sprite_grid: &TileSpriteGrid,
-    sprites_query: &Query<(&TileSprite, &Sprite, Option<&Animated>)>,
+    sprite_stack: &Vec<Entity>,
+    sprites_query: &Query<(&TileSprite, &Sprite, Option<&AnimationId>)>,
+    layouts: &Assets<TextureAtlasLayout>,
 ) -> Result<TileDef> {
     let mut visuals = Vec::new();
-    for tile_sprite in &sprite_grid[&pos.as_index(&grid_size)] {
+    for tile_sprite in sprite_stack {
         let (tile_sprite, sprite, animated) = sprites_query.get(*tile_sprite)?;
-        let kind = match animated {
-            Some(animated) => TileVisualKindDef::Animated {
-                animation: animated.id().to_string(),
-            },
-            None => TileVisualKindDef::Static {
-                idx: sprite
-                    .texture_atlas
-                    .as_ref()
-                    .map(|atlas| atlas.index)
-                    .unwrap_or(0),
-            },
-        };
-        let visual = TileVisualsDef {
-            kind,
+        let atlas = sprite
+            .texture_atlas
+            .as_ref()
+            .ok_or_else(|| "missing texture atlas on tile sprite")?;
+        let spritesheet = SpritesheetDef {
             image: tile_sprite.id().to_string(),
+            layout: layouts.get(atlas.layout.id()).cloned(),
+            kind: SpritesheetKind::Tile,
         };
+        let kind = match animated {
+            Some(animation_id) => TileVisualKindDef::Animated {
+                animation: animation_id.0.clone(),
+            },
+            None => TileVisualKindDef::Static { idx: atlas.index },
+        };
+        let visual = TileVisualsDef { kind, spritesheet };
         visuals.push(visual);
     }
     let tile_def = TileDef {

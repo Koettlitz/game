@@ -1,8 +1,9 @@
 (
+    group: "water",
     passability: Surf,
     visuals: (
         spritesheet: "water_wild.png",
-        config: {
+        edge_config: {
             (): (
                 base: Animated("water_wild",),
             ),
