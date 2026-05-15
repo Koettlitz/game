@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use build::{
+    CratePath,
     asset_enum::{derive_enum_file_name, derive_enum_type_name},
     asset_set::AssetSetArgs,
     from_def::{derive_def_type_name, from_def_trait, generate_conversion_for, generate_def_for},
@@ -106,18 +107,29 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
         Ok(enum_type) => enum_type,
         Err(e) => return e.to_compile_error().into(),
     };
-    let engine_crate = match resolve_crate_name("engine") {
-        Ok(engine_crate) => engine_crate,
+    let asset_module = match CratePath::try_from("engine::asset") {
+        Ok(asset_module) => asset_module,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let asset_set_module = match CratePath::try_from("engine::asset::folder") {
+        Ok(asset_set_module) => asset_set_module,
         Err(e) => return e.to_compile_error().into(),
     };
     let struct_ident = &input_struct.ident;
     let (impl_generics, ty_generics, where_clause) = input_struct.generics.split_for_impl();
     let has_resolver_impl = quote! {
-        impl #impl_generics #engine_crate::asset::HasResolver for #struct_ident #ty_generics
+        impl #impl_generics #asset_module::HasResolver for #struct_ident #ty_generics
             #where_clause
         {
             type Resolver = #enum_type;
 
+        }
+    };
+    let has_resolver_set_impl = quote! {
+        impl #asset_set_module::HasResolverSet for #struct_ident #ty_generics
+            #where_clause
+        {
+            type ResolverSet = #enum_type;
         }
     };
     quote! {
@@ -126,6 +138,8 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
         #resolver_enum_include
 
         #has_resolver_impl
+
+        #has_resolver_set_impl
     }
     .into()
 }

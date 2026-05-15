@@ -1,9 +1,9 @@
 use std::{fmt::Display, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{asset::AssetEventSystems, prelude::*};
 use thiserror::Error;
 
-use crate::asset::{MissingAssetError, animation::sprite::SpriteAnimationAsset};
+use crate::asset::{AssetsExt, animation::sprite::SpriteAnimationAsset};
 
 #[derive(Component)]
 pub struct Animated(Handle<SpriteAnimationAsset>);
@@ -35,7 +35,10 @@ impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, update_animations)
             .add_observer(on_insert)
-            .add_systems(PreUpdate, sync_entities_with_assets);
+            .add_systems(
+                PreUpdate,
+                sync_entities_with_assets.after(AssetEventSystems),
+            );
     }
 }
 
@@ -65,17 +68,22 @@ fn on_insert(
 fn sync_entities_with_assets(
     mut message_reader: MessageReader<AssetEvent<SpriteAnimationAsset>>,
     assets: Res<Assets<SpriteAnimationAsset>>,
-    entities: Query<(Entity, &SpriteAnimation)>,
+    mut query: Query<(Entity, &mut SpriteAnimation)>,
     mut commands: Commands,
 ) -> Result<()> {
     for msg in message_reader.read() {
         match msg {
             AssetEvent::LoadedWithDependencies { id } => {
-                let asset = assets.get(*id).ok_or_else(|| MissingAssetError::new(*id))?;
-                commands.spawn(SpriteAnimation::new(asset.frame_duration, *id));
+                let asset = assets.require(*id)?;
+                if let Some((_, mut animation)) = query.iter_mut().find(|(_, a)| &a.asset_id == id)
+                {
+                    animation.timer.set_duration(asset.frame_duration);
+                } else {
+                    commands.spawn(SpriteAnimation::new(asset.frame_duration, *id));
+                }
             }
             AssetEvent::Removed { id } => {
-                if let Some((entity, _)) = entities.iter().find(|(_, a)| a.asset_id == *id) {
+                if let Some((entity, _)) = query.iter().find(|(_, a)| a.asset_id == *id) {
                     commands.entity(entity).despawn();
                 }
             }

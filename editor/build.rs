@@ -17,6 +17,10 @@ fn main() -> Result<(), BsError> {
 
 fn write_out(path: &Path, content: &impl AsRef<[u8]>) -> Result<(), BsError> {
     let out_dir = std::env::var("OUT_DIR")?;
-    fs::write(Path::new(&out_dir).join(path), content)?;
-    Ok(())
+    let path = Path::new(&out_dir).join(path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&path, content)
+        .map_err(|e| BsError::io(e, format!("failed to write to {}", path.display())))
 }

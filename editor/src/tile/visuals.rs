@@ -13,8 +13,8 @@ use engine::{
 
 use super::spawn_ground_tile_grid;
 use crate::{
-    asset::tile::{GroundTileVisual, GroundTileVisuals, TileKindAsset},
-    tile::{GroundTilesChanged, InvalidGridPosition, Tile},
+    asset::tile::{GroundTileVisual, TileEdgeConfig, TileKindAsset},
+    tile::{InvalidGridPosition, Tile, TilesChanged},
 };
 
 pub struct TileVisualsPlugin;
@@ -39,7 +39,7 @@ fn init_sprite_grid(mut commands: Commands, grid_size: Single<&GridSize>) {
 }
 
 fn on_ground_tile_changed(
-    event: On<GroundTilesChanged>,
+    event: On<TilesChanged>,
     mut commands: Commands,
     grid_size: Single<&GridSize>,
 ) {
@@ -63,6 +63,7 @@ fn update_sprites(
     mut commands: Commands,
     ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
 ) -> Result<()> {
     let (mut tile_grid, grid_size) = ground_tile_grid.into_inner();
     let position =
@@ -73,9 +74,10 @@ fn update_sprites(
     for old_sprite in tile_grid[position].sprite_stack.drain(..) {
         commands.entity(old_sprite).despawn();
     }
-    let layers = &tile_kind_asset
-        .visuals
-        .edge_config
+    let layers = &edge_configs
+        .get(tile_kind_asset.edge_config.id())
+        .ok_or_else(|| MissingAssetError::new(tile_kind_asset.edge_config.id()))?
+        .edge_cases
         .iter()
         .find(|(req, _)| req.matches(&tile_grid.cursor_at(position)))
         .expect("no adjacent requirement matched the current surroundings")
@@ -84,10 +86,11 @@ fn update_sprites(
         let sprite_entity = spawn_tile_sprite(
             &position,
             layer,
-            &tile_kind_asset.visuals.spritesheet,
+            &tile_kind_asset.spritesheet,
             z,
             &mut commands,
             &tile_kinds,
+            &edge_configs,
             &grid_size,
             &tile_grid,
         )?;
@@ -113,6 +116,7 @@ fn spawn_tile_sprite(
     z: f32,
     commands: &mut Commands,
     tile_kinds: &Assets<TileKindAsset>,
+    edge_configs: &Assets<TileEdgeConfig>,
     grid_size: &GridSize,
     tile_grid: &Grid<Tile>,
 ) -> Result<Option<Entity>> {
@@ -157,13 +161,19 @@ fn spawn_tile_sprite(
             let neighbor = tile_kinds
                 .get(neighbor.kind.handle().id())
                 .ok_or_else(|| MissingAssetError::new(neighbor.kind.handle().id()))?;
+            let layer = edge_configs
+                .get(neighbor.edge_config.id())
+                .ok_or_else(|| MissingAssetError::new(neighbor.edge_config.id()))?
+                .get_default()
+                .base();
             return spawn_tile_sprite(
                 &position,
-                &neighbor.visuals.default_config().base(),
-                &neighbor.visuals.spritesheet,
+                layer,
+                &neighbor.spritesheet,
                 z,
                 commands,
                 tile_kinds,
+                edge_configs,
                 grid_size,
                 tile_grid,
             );
@@ -172,15 +182,16 @@ fn spawn_tile_sprite(
 }
 
 pub fn create_tile_sprite(
-    visuals: &GroundTileVisuals,
+    spritesheet: &TileKindSpritesheet,
+    visuals: &TileEdgeConfig,
 ) -> Result<(Sprite, Option<AssetRef<SpriteAnimationAsset>>)> {
-    let visual = visuals.default_config();
+    let visual = visuals.get_default();
     Ok(match &visual.base() {
         GroundTileVisual::Static(idx) => (
             Sprite {
-                image: visuals.spritesheet.image().clone(),
+                image: spritesheet.image().clone(),
                 texture_atlas: Some(TextureAtlas {
-                    layout: visuals.spritesheet.layout()?.clone(),
+                    layout: spritesheet.layout()?.clone(),
                     index: *idx,
                 }),
                 ..Default::default()
@@ -189,9 +200,9 @@ pub fn create_tile_sprite(
         ),
         GroundTileVisual::Animated(animation_asset) => (
             Sprite {
-                image: visuals.spritesheet.image().clone(),
+                image: spritesheet.image().clone(),
                 texture_atlas: Some(TextureAtlas {
-                    layout: visuals.spritesheet.layout()?.clone(),
+                    layout: spritesheet.layout()?.clone(),
                     index: 0,
                 }),
                 ..Default::default()

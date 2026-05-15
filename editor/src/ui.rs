@@ -3,7 +3,7 @@ use bevy::{
 };
 use engine::{
     animation::Animated,
-    asset::AssetRef,
+    asset::{AssetRef, MissingAssetError},
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
@@ -11,7 +11,7 @@ use engine::{
 use crate::{
     asset::{
         object::{GameObjectKindAsset, GameObjectKindMap},
-        tile::{TileKindAsset, TileKindMap},
+        tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
     },
     io::export::ExportLozo,
     tile::visuals::create_tile_sprite,
@@ -139,6 +139,7 @@ fn on_cursor_changed(
     cursor: Res<Cursor>,
     grid_size: Single<&GridSize>,
     tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
     object_kinds: Res<Assets<GameObjectKindAsset>>,
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform)>,
@@ -151,7 +152,11 @@ fn on_cursor_changed(
             let tile_kind = tile_kinds
                 .get(tile_kind_handle.handle().id())
                 .expect("cursor contained missing tile kind id");
-            let (mut sprite, animation_ref) = create_tile_sprite(&tile_kind.visuals)?;
+            let edge_config = edge_configs
+                .get(tile_kind.edge_config.id())
+                .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
+            let (mut sprite, animation_ref) =
+                create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
             if let Some(animation_ref) = animation_ref {

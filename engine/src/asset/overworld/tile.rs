@@ -39,7 +39,7 @@ pub struct TileVisualsAsset {
     pub spritesheet: Spritesheet,
 }
 
-#[derive(Debug)]
+#[derive(TypePath, Debug)]
 #[asset_spec(base_path = "tiles/spritesheets")]
 pub struct TileKindSpritesheet {
     image: AssetRef<Image>,

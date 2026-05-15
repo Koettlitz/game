@@ -1,20 +1,5 @@
 (
-    group: "land",
     passability: Always,
-    visuals: (
-        spritesheet: "grass.png",
-        edge_config: {
-            (): (
-                base: Static(0),
-            ),
-            (
-                top: Either(["water_calm", "water_wild"]),
-            ): (
-                base: Static(0),
-                above: [
-                    Static(1)
-                ],
-            ),
-        }
-    ),
+    spritesheet: "grass.png",
+    edge_config: "grass",
 )

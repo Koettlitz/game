@@ -2,13 +2,17 @@ use std::fmt::Display;
 
 use bevy::prelude::*;
 use engine::{
-    asset::{AssetMap, AssetRef, LoadState, MissingAssetError},
+    asset::{AssetMap, AssetRef, AssetsExt, LoadState, MissingAssetError},
     overworld::tile::{Grid, GridCommands, GridPosition, GridSize},
     progress::{Progress, ProgressPanel, ProgressState},
 };
 use thiserror::Error;
 
-use crate::{asset::tile::TileKindAsset, tile::visuals::TileVisualsPlugin, ui::PlaceTile};
+use crate::{
+    asset::tile::{TileEdgeConfig, TileKindAsset},
+    tile::visuals::TileVisualsPlugin,
+    ui::PlaceTile,
+};
 
 pub mod visuals;
 
@@ -26,7 +30,12 @@ impl Plugin for TilePlugin {
                 OnEnter(LoadState::<crate::asset::tile::Tile>::finished()),
                 spawn_ground_tile_grid.in_set(GroundTileGridInit),
             )
-            .add_systems(Update, place_tile.run_if(in_state(ProgressState::Finished)));
+            .add_systems(Update, place_tile.run_if(in_state(ProgressState::Finished)))
+            .add_systems(
+                Update,
+                (on_tile_kind_changed, on_edge_config_changed)
+                    .run_if(in_state(ProgressState::Finished)),
+            );
     }
 }
 
@@ -37,7 +46,7 @@ struct GroundTileGridInit;
 struct TileGridProgress;
 
 #[derive(Event)]
-struct GroundTilesChanged(Vec<UVec2>);
+struct TilesChanged(Vec<UVec2>);
 
 #[derive(Component)]
 pub struct Tile {
@@ -58,6 +67,7 @@ fn spawn_ground_tile_grid(
     mut commands: GridCommands,
     tile_kind_map: Res<TileKindMap>,
     tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
     mut progress: Single<&mut Progress, With<TileGridProgress>>,
 ) -> Result<()> {
     let (id, tile_kind_handle) = tile_kind_map
@@ -66,14 +76,16 @@ fn spawn_ground_tile_grid(
         .next()
         .expect("missing ground tile kind \"grass\"");
     commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
+        let tile_kind = tile_kinds
+            .get(tile_kind_handle.id())
+            .ok_or_else(|| MissingAssetError::new(tile_kind_handle.id()))?;
+        let edge_config = edge_configs
+            .get(tile_kind.edge_config.id())
+            .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
         Ok(Tile {
             kind: AssetRef::new(id.clone(), tile_kind_handle.clone()),
             sprite_stack: Vec::default(),
-            group: tile_kinds
-                .get(tile_kind_handle.id())
-                .ok_or_else(|| MissingAssetError::new(tile_kind_handle.id()))?
-                .group
-                .clone(),
+            group: edge_config.group.clone(),
         })
     })?;
     progress.add(1);
@@ -85,6 +97,7 @@ fn place_tile(
     mut commands: Commands,
     ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
 ) -> Result<()> {
     let (mut grid, grid_size) = ground_tile_grid.into_inner();
     let mut changed = Vec::new();
@@ -96,15 +109,79 @@ fn place_tile(
         let tile = &grid[pos];
         if tile.kind.id() != m.tile_kind.id() {
             grid[pos].kind = m.tile_kind.clone();
-            grid[pos].group = tile_kinds
+            let tile_kind = tile_kinds
                 .get(m.tile_kind.handle().id())
-                .ok_or_else(|| MissingAssetError::new(m.tile_kind.handle().id()))?
-                .group
-                .clone();
+                .ok_or_else(|| MissingAssetError::new(m.tile_kind.handle().id()))?;
+            let edge_config = edge_configs
+                .get(tile_kind.edge_config.id())
+                .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
+            grid[pos].group = edge_config.group.clone();
             changed.push(m.pos);
         }
     }
-    commands.trigger(GroundTilesChanged(changed));
+    commands.trigger(TilesChanged(changed));
+    Ok(())
+}
+
+fn on_tile_kind_changed(
+    mut message_reader: MessageReader<AssetEvent<TileKindAsset>>,
+    mut tile_kinds: ResMut<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
+    images: Res<Assets<Image>>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    mut commands: Commands,
+) -> Result<()> {
+    let (mut grid, grid_size) = ground_tile_grid.into_inner();
+    let mut changed = Vec::new();
+    for msg in message_reader.read() {
+        let AssetEvent::LoadedWithDependencies { id } = msg else {
+            continue;
+        };
+        let tile_kind = tile_kinds.require_mut(*id)?;
+        let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+        tile_kind
+            .spritesheet
+            .derive_layout(&images, &mut layouts)
+            .ok();
+        for pos in grid_size.iter() {
+            if &grid[pos].kind.handle().id() == id {
+                grid[pos].group = edge_config.group.clone();
+                changed.push(*pos);
+            }
+        }
+    }
+    if !changed.is_empty() {
+        commands.trigger(TilesChanged(changed));
+    }
+    Ok(())
+}
+
+fn on_edge_config_changed(
+    mut message_reader: MessageReader<AssetEvent<TileEdgeConfig>>,
+    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
+    mut commands: Commands,
+) -> Result<()> {
+    let (mut grid, grid_size) = ground_tile_grid.into_inner();
+    let mut changed = Vec::new();
+    for msg in message_reader.read() {
+        let AssetEvent::LoadedWithDependencies { id } = msg else {
+            continue;
+        };
+        let edge_config = edge_configs.require(*id)?;
+        for pos in grid_size.iter() {
+            let tile_kind = tile_kinds.require_handle(grid[pos].kind.handle())?;
+            if &tile_kind.edge_config.id() == id {
+                grid[pos].group = edge_config.group.clone();
+                changed.push(*pos);
+            }
+        }
+    }
+    if !changed.is_empty() {
+        commands.trigger(TilesChanged(changed));
+    }
     Ok(())
 }
 

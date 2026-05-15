@@ -14,7 +14,7 @@ impl Plugin for GameObjectAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             RonAssetPlugin::<GameObjectKindAsset>::default(),
-            AssetSetPlugin::<Object, GameObjectKindAsset>::default(),
+            AssetSetPlugin::<GameObjectKindAsset>::default(),
         ));
     }
 }

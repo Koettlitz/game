@@ -334,6 +334,24 @@ impl<A: Asset> Clone for AssetRef<A> {
     }
 }
 
-pub trait AsDef: FromDef {
-    fn as_def(&self) -> Result<Self::Def, Self::Error>;
+pub trait AssetsExt<A: Asset> {
+    fn require(&self, id: AssetId<A>) -> Result<&A>;
+    fn require_handle(&self, handle: &Handle<A>) -> Result<&A> {
+        self.require(handle.id())
+    }
+
+    fn require_mut(&mut self, id: AssetId<A>) -> Result<&mut A>;
+    fn require_handle_mut(&mut self, handle: &Handle<A>) -> Result<&mut A> {
+        self.require_mut(handle.id())
+    }
+}
+
+impl<A: Asset> AssetsExt<A> for Assets<A> {
+    fn require(&self, id: AssetId<A>) -> Result<&A> {
+        Ok(self.get(id).ok_or_else(|| MissingAssetError::new(id))?)
+    }
+
+    fn require_mut(&mut self, id: AssetId<A>) -> Result<&mut A> {
+        Ok(self.get_mut(id).ok_or_else(|| MissingAssetError::new(id))?)
+    }
 }

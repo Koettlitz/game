@@ -1,15 +1,18 @@
 use engine::{
     asset::{
-        AssetMap, AssetRef, AssetSetPlugin, FromDef, FromDefError, LoadState, RonAssetPlugin,
-        animation::sprite::SpriteAnimationAsset, one_or_many, overworld::tile::TileKindSpritesheet,
+        AssetMap, AssetRef, AssetResolver, AssetSetPlugin, AssetsExt, FromDef, FromDefError,
+        RonAssetPlugin, animation::sprite::SpriteAnimationAsset, one_or_many,
+        overworld::tile::TileKindSpritesheet,
     },
     overworld::tile::{GridCursor, Neighbor, Passability},
-    progress::{Progress, ProgressPanel},
 };
-use macros::{FromDef, asset_set};
+use macros::{FromDef, asset_set, asset_spec};
 use std::{collections::HashMap, fmt::Debug, slice};
 
-use bevy::{asset::LoadContext, prelude::*};
+use bevy::{
+    asset::{AssetEventSystems, LoadContext},
+    prelude::*,
+};
 use engine::asset::implicit_option;
 use serde::{Deserialize, Serialize};
 
@@ -20,54 +23,48 @@ impl Plugin for TileAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             RonAssetPlugin::<TileKindAsset>::default(),
-            AssetSetPlugin::<Tile, TileKindAsset>::default(),
+            RonAssetPlugin::<TileEdgeConfig>::default(),
+            AssetSetPlugin::<TileKindAsset>::default(),
         ))
-        .add_systems(Startup, init_progress)
-        .add_systems(OnEnter(LoadState::<Tile>::finished()), derive_layouts);
+        .add_systems(PreUpdate, derive_layouts.after(AssetEventSystems));
     }
-}
-
-#[derive(Component)]
-struct DeriveLayoutsProgress;
-
-fn init_progress(mut commands: Commands) {
-    commands.spawn((
-        Progress::new(0, 1),
-        ProgressPanel::new("tile spritesheet layouts".to_string()),
-        DeriveLayoutsProgress,
-    ));
 }
 
 fn derive_layouts(
+    mut message_reader: MessageReader<AssetEvent<Image>>,
+    tile_kind_map: Res<TileKindMap>,
     mut tile_kinds: ResMut<Assets<TileKindAsset>>,
     images: Res<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut progress: Single<&mut Progress, With<DeriveLayoutsProgress>>,
 ) -> Result<()> {
-    for spritesheet in tile_kinds
-        .iter_mut()
-        .map(|(_, tile_kind)| &mut tile_kind.visuals.spritesheet)
-    {
-        spritesheet.derive_layout(&images, &mut layouts)?;
+    for msg in message_reader.read() {
+        let AssetEvent::LoadedWithDependencies { id } = msg else {
+            continue;
+        };
+        for tile_kind in tile_kind_map.0.values() {
+            let tile_kind = tile_kinds.require_handle_mut(tile_kind)?;
+            if &tile_kind.spritesheet.image().id() != id {
+                continue;
+            }
+            tile_kind.spritesheet.derive_layout(&images, &mut layouts)?;
+        }
     }
-    progress.add(1);
     Ok(())
 }
 
 #[derive(Asset, TypePath, Debug)]
 #[asset_set(base_path = "tiles", progress_name = "tiles")]
 pub struct TileKindAsset {
-    pub group: Option<String>,
     pub passability: Passability,
-    pub visuals: GroundTileVisuals,
+    pub spritesheet: TileKindSpritesheet,
+    pub edge_config: Handle<TileEdgeConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TileKindDef {
-    #[serde(with = "implicit_option")]
-    pub group: Option<String>,
     pub passability: Passability,
-    pub visuals: GroundTileVisualsDef,
+    pub spritesheet: String,
+    pub edge_config: String,
 }
 
 impl FromDef for TileKindAsset {
@@ -78,58 +75,59 @@ impl FromDef for TileKindAsset {
     where
         Self: Sized,
     {
-        if !def.visuals.edge_config.keys().any(|k| k.is_default()) {
-            let path = ctx.path().path().to_string_lossy();
-            Err(FromDefError::InvalidDef(format!(
-                "missing default visuals for tile {path}"
-            )))
-        } else {
-            Ok(Self {
-                passability: def.passability,
-                visuals: GroundTileVisuals::from_def(def.visuals, ctx)?,
-                group: def.group,
-            })
-        }
+        Ok(Self {
+            passability: def.passability,
+            spritesheet: TileKindSpritesheet::from_def(def.spritesheet, ctx)?,
+            edge_config: ctx.load(TileEdgeConfig::resolve(&def.edge_config)?),
+        })
     }
 }
 
-#[derive(TypePath, Component, Debug)]
-pub struct GroundTileVisuals {
-    pub spritesheet: TileKindSpritesheet,
-    pub edge_config: Vec<(AdjacentRequirements, GroundTileVisualLayers)>,
+#[derive(Asset, TypePath, Debug)]
+#[asset_spec(base_path = "editor://tiles/edge_config", extension = "edge.ron")]
+pub struct TileEdgeConfig {
+    pub group: Option<String>,
+    pub edge_cases: Vec<(AdjacentRequirements, GroundTileVisualLayers)>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct GroundTileVisualsDef {
-    pub spritesheet: String,
-    pub edge_config: HashMap<AdjacentRequirementsConfig, GroundTileVisualLayersDef>,
+pub struct TileEdgeConfigDef {
+    #[serde(default, with = "implicit_option")]
+    group: Option<String>,
+    edge_cases: HashMap<AdjacentRequirementsDef, GroundTileVisualLayersDef>,
 }
 
-impl FromDef for GroundTileVisuals {
-    type Def = GroundTileVisualsDef;
+impl FromDef for TileEdgeConfig {
+    type Def = TileEdgeConfigDef;
     type Error = FromDefError;
 
     fn from_def(
         def: Self::Def,
         load_context: &mut LoadContext,
     ) -> std::result::Result<Self, Self::Error> {
-        let mut parsed_visuals = Vec::new();
-        for (req, visuals) in def.edge_config {
+        if !def.edge_cases.keys().any(|k| k.is_default()) {
+            let path = load_context.path().path().to_string_lossy();
+            return Err(FromDefError::InvalidDef(format!(
+                "missing default visuals for tile {path}"
+            )));
+        }
+        let mut edge_cases = Vec::new();
+        for (req, visuals) in def.edge_cases {
             let req = AdjacentRequirements::from_def(req, load_context)?;
             let visuals = GroundTileVisualLayers::from_def(visuals, load_context)?;
-            parsed_visuals.push((req, visuals));
+            edge_cases.push((req, visuals));
         }
-        parsed_visuals.sort_by(|a, b| a.0.cmp(&b.0));
+        edge_cases.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(Self {
-            spritesheet: TileKindSpritesheet::from_def(def.spritesheet, load_context)?,
-            edge_config: parsed_visuals,
+            group: def.group,
+            edge_cases,
         })
     }
 }
 
-impl GroundTileVisuals {
-    pub fn default_config(&self) -> &GroundTileVisualLayers {
-        &self.edge_config.last().expect("empty config").1
+impl TileEdgeConfig {
+    pub fn get_default(&self) -> &GroundTileVisualLayers {
+        &self.edge_cases.last().expect("empty config").1
     }
 }
 
@@ -146,7 +144,7 @@ pub struct AdjacentRequirements {
 }
 
 impl FromDef for AdjacentRequirements {
-    type Def = AdjacentRequirementsConfig;
+    type Def = AdjacentRequirementsDef;
     type Error = FromDefError;
 
     fn from_def(
@@ -206,7 +204,7 @@ impl PartialOrd for AdjacentRequirements {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub struct AdjacentRequirementsConfig {
+pub struct AdjacentRequirementsDef {
     #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
     pub top_left: AdjacentRequirementDef,
     #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
@@ -225,7 +223,7 @@ pub struct AdjacentRequirementsConfig {
     pub bottom_right: AdjacentRequirementDef,
 }
 
-impl AdjacentRequirementsConfig {
+impl AdjacentRequirementsDef {
     fn all(&self) -> [&AdjacentRequirementDef; 8] {
         [
             &self.top_left,
@@ -248,13 +246,13 @@ impl AdjacentRequirementsConfig {
     }
 }
 
-impl Ord for AdjacentRequirementsConfig {
+impl Ord for AdjacentRequirementsDef {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         other.prio().cmp(&self.prio())
     }
 }
 
-impl PartialOrd for AdjacentRequirementsConfig {
+impl PartialOrd for AdjacentRequirementsDef {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

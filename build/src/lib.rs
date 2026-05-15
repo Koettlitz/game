@@ -54,6 +54,7 @@ pub fn resolve_crate_name(orig_name: &str) -> syn::Result<proc_macro2::TokenStre
 /// [`proc_macro_crate::crate_name`].
 #[derive(Clone)]
 pub struct CratePath(syn::Path);
+
 impl TryFrom<&'static str> for CratePath {
     type Error = syn::Error;
 
@@ -62,6 +63,7 @@ impl TryFrom<&'static str> for CratePath {
         Self::try_from(path)
     }
 }
+
 impl TryFrom<syn::Path> for CratePath {
     type Error = syn::Error;
 
@@ -90,6 +92,7 @@ impl TryFrom<syn::Path> for CratePath {
         Ok(Self(path))
     }
 }
+
 impl ops::Deref for CratePath {
     type Target = syn::Path;
 
@@ -97,16 +100,19 @@ impl ops::Deref for CratePath {
         &self.0
     }
 }
+
 impl AsRef<syn::Path> for CratePath {
     fn as_ref(&self) -> &syn::Path {
         &self.0
     }
 }
+
 impl From<CratePath> for syn::Path {
     fn from(p: CratePath) -> Self {
         p.0
     }
 }
+
 impl ToTokens for CratePath {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.0.to_tokens(tokens);

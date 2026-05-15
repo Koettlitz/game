@@ -1,4 +1,4 @@
-use std::{borrow::Cow, hash::Hash, marker::PhantomData, str::FromStr};
+use std::{borrow::Cow, hash::Hash, marker::PhantomData};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
@@ -10,16 +10,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 
 use crate::{
-    asset::{AssetResolver, FromDefError, Phantom},
+    asset::Phantom,
     progress::{Progress, ProgressPanel},
 };
-
-pub struct AssetSetResolver<T>(Phantom<T>);
-impl<T> Default for AssetSetResolver<T> {
-    fn default() -> Self {
-        Self(PhantomData::default())
-    }
-}
 
 pub trait Set {
     type Iter: Iterator<Item = Self>;
@@ -38,16 +31,6 @@ where
     }
 }
 
-impl<A> AssetResolver for AssetSetResolver<A>
-where
-    A: AsAssetPath + FromStr,
-    FromDefError: From<<A as FromStr>::Err>,
-{
-    fn resolve(asset_id: &str) -> Result<AssetPath<'static>, FromDefError> {
-        Ok(A::from_str(asset_id)?.as_asset_path())
-    }
-}
-
 pub trait AsAssetPath {
     fn as_asset_path(&self) -> AssetPath<'static>;
 }
@@ -57,29 +40,83 @@ pub trait ProgressName {
     fn name<'a>() -> &'a str;
 }
 
+pub trait HasResolverSet {
+    type ResolverSet: AsAssetPath + Set + ProgressName + 'static;
+}
+
+impl<T> HasResolverSet for T
+where
+    T: AsAssetPath + Set + ProgressName + 'static,
+{
+    type ResolverSet = Self;
+}
+
+pub struct AssetSetPlugin<A> {
+    params: AssetSetPluginParams,
+    _asset_marker: Phantom<A>,
+}
+
+impl<A> Default for AssetSetPlugin<A>
+where
+    A: Asset + HasResolverSet,
+{
+    fn default() -> Self {
+        Self {
+            params: AssetSetPluginParams::default(),
+            _asset_marker: Phantom::<A>::default(),
+        }
+    }
+}
+
+impl<A> Plugin for AssetSetPlugin<A>
+where
+    A: Asset + HasResolverSet,
+{
+    fn build(&self, app: &mut App) {
+        app.add_plugins(AssetSetLoadPlugin::<A::ResolverSet, A> {
+            params: self.params.clone(),
+            _set_marker: Phantom::<A::ResolverSet>::default(),
+            _asset_marker: Phantom::<A>::default(),
+        });
+    }
+}
+
 #[derive(Error, Debug)]
 #[error("invalid asset link: \"{0}\"")]
 pub struct InvalidAssetLinkError(pub String);
 
-pub struct AssetSetPlugin<S, A> {
-    load_on_startup: bool,
-    show_progress: bool,
+#[derive(Clone)]
+pub struct AssetSetPluginParams {
+    pub load_on_startup: bool,
+    pub show_progress: bool,
+}
+
+impl Default for AssetSetPluginParams {
+    fn default() -> Self {
+        Self {
+            load_on_startup: true,
+            show_progress: true,
+        }
+    }
+}
+
+pub struct AssetSetLoadPlugin<S, A> {
+    params: AssetSetPluginParams,
     _set_marker: Phantom<S>,
     _asset_marker: Phantom<A>,
 }
 
-impl<S, A> Default for AssetSetPlugin<S, A> {
+impl<S, A> Default for AssetSetLoadPlugin<S, A> {
     fn default() -> Self {
         Self {
-            show_progress: true,
-            load_on_startup: true,
+            params: AssetSetPluginParams::default(),
             _set_marker: PhantomData::default(),
             _asset_marker: PhantomData::default(),
         }
     }
 }
 
-impl<S, A> Plugin for AssetSetPlugin<S, A>
+impl<S, A> Plugin for AssetSetLoadPlugin<S, A>
 where
     S: AsAssetPath + Set + ProgressName + 'static,
     A: Asset,
@@ -111,11 +148,11 @@ where
             )
             .add_systems(OnEnter(LoadState::<S>::finished()), cleanup_handles::<S, A>);
 
-        if self.load_on_startup {
+        if self.params.load_on_startup {
             app.add_systems(Startup, trigger_loading::<S>);
         }
 
-        if self.show_progress {
+        if self.params.show_progress {
             app.add_systems(
                 Update,
                 init_progress::<S, A>
