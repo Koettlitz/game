@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use build::{
-    CratePath,
+    ASSET_MODULE_PATH, CratePath,
     asset_enum::{derive_enum_file_name, derive_enum_type_name},
     asset_set::AssetSetArgs,
     from_def::{derive_def_type_name, from_def_trait, generate_conversion_for, generate_def_for},
@@ -111,7 +111,7 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
         Ok(asset_module) => asset_module,
         Err(e) => return e.to_compile_error().into(),
     };
-    let asset_set_module = match CratePath::try_from("engine::asset::folder") {
+    let asset_set_module = match CratePath::try_from("engine::asset::set") {
         Ok(asset_set_module) => asset_set_module,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -160,8 +160,8 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_derive(FromDef, attributes(def_type))]
 pub fn from_def(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let engine_crate = match resolve_crate_name("engine") {
-        Ok(engine_crate) => engine_crate,
+    let asset_module = match CratePath::try_from(ASSET_MODULE_PATH) {
+        Ok(asset_module) => asset_module,
         Err(e) => return e.into_compile_error().into(),
     };
     let bevy_crate = match resolve_crate_name("bevy") {
@@ -170,7 +170,10 @@ pub fn from_def(item: TokenStream) -> TokenStream {
     };
     let load_context_var_ident = Ident::new("ctx", Span::call_site());
     let input_ident = &input.ident;
-    let from_def_trait = from_def_trait(&engine_crate);
+    let from_def_trait = match from_def_trait() {
+        Ok(from_def_trait) => from_def_trait,
+        Err(e) => return e.into_compile_error().into(),
+    };
     let def_var_ident = Ident::new("def", Span::call_site());
 
     let mut def_type: Option<syn::Type> = None;
@@ -189,13 +192,12 @@ pub fn from_def(item: TokenStream) -> TokenStream {
                 Ok(def_type) => def_type,
                 Err(e) => return e.to_compile_error().into(),
             };
-            let generated_def = match generate_def_for(&input, &engine_crate, &def_type) {
+            let generated_def = match generate_def_for(&input, &def_type) {
                 Ok(def) => def,
                 Err(e) => return e.to_compile_error().into(),
             };
             let conversion_impl = match generate_conversion_for(
                 &input,
-                &engine_crate,
                 &def_type,
                 &def_var_ident,
                 &load_context_var_ident,
@@ -209,7 +211,6 @@ pub fn from_def(item: TokenStream) -> TokenStream {
         Some(def_type) => {
             let conversion_impl = match generate_conversion_for(
                 &input,
-                &engine_crate,
                 &def_type,
                 &def_var_ident,
                 &load_context_var_ident,
@@ -225,7 +226,7 @@ pub fn from_def(item: TokenStream) -> TokenStream {
 
         impl #from_def_trait for #input_ident {
             type Def = #def_type;
-            type Error = #engine_crate::asset::FromDefError;
+            type Error = #asset_module::FromDefError;
 
             fn from_def(
                 #def_var_ident: Self::Def,
@@ -242,21 +243,24 @@ pub fn from_def(item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn from_def_self(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input with Punctuated<Type, Token![,]>::parse_terminated);
-    let engine_crate = match resolve_crate_name("engine") {
+    let bevy_crate = match resolve_crate_name("bevy") {
         Ok(c) => c,
         Err(e) => return e.to_compile_error().into(),
     };
-    let bevy_crate = match resolve_crate_name("engine") {
-        Ok(c) => c,
-        Err(e) => return e.to_compile_error().into(),
+    let from_def_trait = match from_def_trait() {
+        Ok(from_def_trait) => from_def_trait,
+        Err(e) => return e.into_compile_error().into(),
     };
-    let from_def_trait = from_def_trait(&engine_crate);
+    let asset_module = match CratePath::try_from(ASSET_MODULE_PATH) {
+        Ok(asset_module) => asset_module,
+        Err(e) => return e.into_compile_error().into(),
+    };
     let mut impls = Vec::with_capacity(input.len());
     for ident in input {
         let impl_block = quote! {
             impl #from_def_trait for #ident {
                 type Def = Self;
-                type Error = #engine_crate::asset::FromDefError;
+                type Error = #asset_module::FromDefError;
 
                 fn from_def(
                     def: Self::Def,

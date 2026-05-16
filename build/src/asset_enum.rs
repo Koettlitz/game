@@ -8,7 +8,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{AssetSource, resolve_crate_name};
+use crate::{ASSET_MODULE_PATH, ASSET_SET_MODULE_PATH, AssetSource, CratePath, resolve_crate_name};
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
@@ -94,7 +94,8 @@ fn generate_resolver_enum(
     let default_variant_string = variant_strings.remove(0);
     let enum_type: syn::Type = syn::parse_str(&enum_name)?;
     let bevy_crate = resolve_crate_name("bevy")?;
-    let engine_crate = resolve_crate_name("engine")?;
+    let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+    let asset_set_module = CratePath::try_from(ASSET_SET_MODULE_PATH)?;
     Ok(quote! {
         #[derive(Default, Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
         pub enum #enum_type {
@@ -104,17 +105,17 @@ fn generate_resolver_enum(
         }
 
         impl std::str::FromStr for #enum_type {
-            type Err = #engine_crate::asset::folder::InvalidAssetLinkError;
+            type Err = #asset_set_module::InvalidAssetLinkError;
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     #default_variant_string => Ok(Self::#default_variant_ident),
                     #(#variant_strings => Ok(Self::#variant_idents),)*
-                    _ => Err(#engine_crate::asset::folder::InvalidAssetLinkError(s.to_string())),
+                    _ => Err(#asset_set_module::InvalidAssetLinkError(s.to_string())),
                 }
             }
         }
 
-        impl #engine_crate::asset::folder::AsAssetPath for #enum_type {
+        impl #asset_set_module::AsAssetPath for #enum_type {
             fn as_asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
                 match self {
                     Self::#default_variant_ident => #bevy_crate::asset::AssetPath::from(#default_variant_path),
@@ -123,16 +124,16 @@ fn generate_resolver_enum(
             }
         }
 
-        impl #engine_crate::asset::folder::ProgressName for #enum_type {
+        impl #asset_set_module::ProgressName for #enum_type {
             fn name<'a>() -> &'a str {
                 #progress_name
             }
         }
 
-        impl #engine_crate::asset::AssetResolver for #enum_type {
-            fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #engine_crate::asset::FromDefError> {
+        impl #asset_module::AssetResolver for #enum_type {
+            fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #asset_module::FromDefError> {
                 let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
-                Ok(<Self as #engine_crate::asset::folder::AsAssetPath>::as_asset_path(&instance))
+                Ok(<Self as #asset_set_module::AsAssetPath>::as_asset_path(&instance))
             }
         }
     })

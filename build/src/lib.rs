@@ -13,6 +13,9 @@ pub mod asset_set;
 pub mod from_def;
 pub mod spec;
 
+pub const ASSET_MODULE_PATH: &'static str = "engine::asset";
+pub const ASSET_SET_MODULE_PATH: &'static str = "engine::asset::set";
+
 #[derive(Clone, Copy, Debug)]
 pub enum AssetSource {
     Workspace,
@@ -55,10 +58,10 @@ pub fn resolve_crate_name(orig_name: &str) -> syn::Result<proc_macro2::TokenStre
 #[derive(Clone)]
 pub struct CratePath(syn::Path);
 
-impl TryFrom<&'static str> for CratePath {
+impl TryFrom<&str> for CratePath {
     type Error = syn::Error;
 
-    fn try_from(path: &'static str) -> Result<Self, Self::Error> {
+    fn try_from(path: &str) -> Result<Self, Self::Error> {
         let path: syn::Path = syn::parse_str(path)?;
         Self::try_from(path)
     }

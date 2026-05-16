@@ -8,17 +8,17 @@ use std::marker::PhantomData;
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, AssetPath, LoadContext, ParseAssetPathError};
 use bevy::prelude::*;
-pub use folder::{AssetMap, AssetSetPlugin, LoadState};
 use macros::from_def_self;
 use ron::de::SpannedError;
 use serde::de::DeserializeOwned;
+pub use set::{AssetMap, AssetSetPlugin, LoadState};
 use thiserror::Error;
 
-use folder::InvalidAssetLinkError;
+use set::InvalidAssetLinkError;
 
 pub mod animation;
-pub mod folder;
 pub mod overworld;
+pub mod set;
 pub mod spritesheet;
 
 pub type Phantom<L> = PhantomData<fn() -> L>;

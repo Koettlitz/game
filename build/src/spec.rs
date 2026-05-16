@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{Ident, LitStr, Token, parse::Parse};
 
-use crate::resolve_crate_name;
+use crate::{ASSET_MODULE_PATH, CratePath};
 
 pub struct SpecArgs<'a> {
     pub base_path: Cow<'a, LitStr>,
@@ -57,7 +57,7 @@ pub fn create_spec_impl(
     type_ident: &impl ToTokens,
     args: &SpecArgs,
 ) -> Result<TokenStream, syn::Error> {
-    let engine_crate = resolve_crate_name("engine")?;
+    let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
     let base_path = &args.base_path;
     let extension = args
         .extension
@@ -65,7 +65,7 @@ pub fn create_spec_impl(
         .map(|e| quote!(Some(#e)))
         .unwrap_or_else(|| quote!(None));
     Ok(quote! {
-        impl #engine_crate::asset::AssetPathSpec for #type_ident {
+        impl #asset_module::AssetPathSpec for #type_ident {
             const BASE_PATH: &'static str = #base_path;
             const EXTENSION: Option<&'static str> = #extension;
         }
