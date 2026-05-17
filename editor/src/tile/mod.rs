@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use bevy::prelude::*;
 use engine::{
-    asset::{AssetMap, AssetRef, AssetsExt, LoadState, MissingAssetError},
+    asset::{AssetMap, AssetRef, AssetsExt, LoadState},
     overworld::tile::{Grid, GridCommands, GridPosition, GridSize},
     progress::{Progress, ProgressPanel, ProgressState},
 };
@@ -11,7 +11,7 @@ use thiserror::Error;
 use crate::{
     asset::tile::{TileEdgeConfig, TileKindAsset},
     tile::visuals::TileVisualsPlugin,
-    ui::PlaceTile,
+    ui::{PlaceTile, RemoveTile},
 };
 
 pub mod visuals;
@@ -28,9 +28,12 @@ impl Plugin for TilePlugin {
             .add_systems(Startup, init_tile_grid_progress)
             .add_systems(
                 OnEnter(LoadState::<crate::asset::tile::Tile>::finished()),
-                spawn_ground_tile_grid.in_set(GroundTileGridInit),
+                spawn_tile_grid.in_set(GroundTileGridInit),
             )
-            .add_systems(Update, place_tile.run_if(in_state(ProgressState::Finished)))
+            .add_systems(
+                Update,
+                (place_tile, remove_tile).run_if(in_state(ProgressState::Finished)),
+            )
             .add_systems(
                 Update,
                 (on_tile_kind_changed, on_edge_config_changed)
@@ -48,7 +51,6 @@ struct TileGridProgress;
 #[derive(Event)]
 struct TilesChanged(Vec<UVec2>);
 
-#[derive(Component)]
 pub struct Tile {
     pub kind: AssetRef<TileKindAsset>,
     pub sprite_stack: Vec<Entity>,
@@ -63,7 +65,7 @@ fn init_tile_grid_progress(mut commands: Commands) {
     ));
 }
 
-fn spawn_ground_tile_grid(
+fn spawn_tile_grid(
     mut commands: GridCommands,
     tile_kind_map: Res<TileKindMap>,
     tile_kinds: Res<Assets<TileKindAsset>>,
@@ -76,17 +78,13 @@ fn spawn_ground_tile_grid(
         .next()
         .expect("missing ground tile kind \"grass\"");
     commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
-        let tile_kind = tile_kinds
-            .get(tile_kind_handle.id())
-            .ok_or_else(|| MissingAssetError::new(tile_kind_handle.id()))?;
-        let edge_config = edge_configs
-            .get(tile_kind.edge_config.id())
-            .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
-        Ok(Tile {
+        let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
+        let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+        Ok(Some(Tile {
             kind: AssetRef::new(id.clone(), tile_kind_handle.clone()),
             sprite_stack: Vec::default(),
             group: edge_config.group.clone(),
-        })
+        }))
     })?;
     progress.add(1);
     Ok(())
@@ -95,32 +93,58 @@ fn spawn_ground_tile_grid(
 fn place_tile(
     mut event_reader: MessageReader<PlaceTile>,
     mut commands: Commands,
-    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
 ) -> Result<()> {
-    let (mut grid, grid_size) = ground_tile_grid.into_inner();
+    let (mut grid, grid_size) = tile_grid.into_inner();
     let mut changed = Vec::new();
     for m in event_reader.read() {
         let Some(pos) = GridPosition::new(m.pos, &grid_size) else {
             error!("invalid position in PlaceTile message");
             continue;
         };
-        let tile = &grid[pos];
-        if tile.kind.id() != m.tile_kind.id() {
-            grid[pos].kind = m.tile_kind.clone();
-            let tile_kind = tile_kinds
-                .get(m.tile_kind.handle().id())
-                .ok_or_else(|| MissingAssetError::new(m.tile_kind.handle().id()))?;
-            let edge_config = edge_configs
-                .get(tile_kind.edge_config.id())
-                .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
-            grid[pos].group = edge_config.group.clone();
-            changed.push(m.pos);
+        if let Some(tile) = &mut grid[pos] {
+            if tile.kind.id() != m.tile_kind.id() {
+                tile.kind = m.tile_kind.clone();
+                let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
+                let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+                tile.group = edge_config.group.clone();
+                changed.push(m.pos);
+            }
+        } else {
+            let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
+            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+            grid[pos] = Some(Tile {
+                kind: m.tile_kind.clone(),
+                group: edge_config.group.clone(),
+                sprite_stack: Vec::default(),
+            });
         }
     }
     commands.trigger(TilesChanged(changed));
     Ok(())
+}
+
+fn remove_tile(
+    mut message_reader: MessageReader<RemoveTile>,
+    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+    mut commands: Commands,
+) {
+    let (mut grid, grid_size) = tile_grid.into_inner();
+    for msg in message_reader.read() {
+        let Some(pos) = GridPosition::new(msg.pos, &grid_size) else {
+            error!("invalid position in PlaceTile message");
+            continue;
+        };
+        let Some(tile) = &grid[pos] else {
+            continue;
+        };
+        for sprite in &tile.sprite_stack {
+            commands.entity(*sprite).despawn();
+        }
+        grid[pos] = None;
+    }
 }
 
 fn on_tile_kind_changed(

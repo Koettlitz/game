@@ -165,12 +165,12 @@ impl FromDef for AdjacentRequirements {
 }
 
 impl AdjacentRequirements {
-    pub fn matches(&self, cursor: &GridCursor<crate::tile::Tile>) -> bool {
-        let center = cursor.get();
+    pub fn matches(&self, cursor: &GridCursor<Option<crate::tile::Tile>>) -> bool {
+        let center = cursor.get().as_ref().unwrap();
         self.all()
             .iter()
-            .zip(cursor.iter_exclusive())
-            .all(|(req, neighbor)| req.matches(center, neighbor))
+            .zip(cursor.iter_exclusive().iter().flatten())
+            .all(|(req, neighbor)| req.matches(center, neighbor.as_ref()))
     }
 
     pub fn all(&self) -> [&AdjacentRequirement; 8] {

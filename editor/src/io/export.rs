@@ -1,12 +1,11 @@
 use ron::ser::PrettyConfig;
-use serde::Serialize;
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
 use bevy::{prelude::*, tasks::IoTaskPool};
 use engine::{
     asset::{
-        AssetPathSpec, MissingAssetError,
+        AssetPathSpec, AssetsExt,
         overworld::{
             lozo::{LozoAsset, LozoDef},
             tile::{TileDef, TileVisualKindDef, TileVisualsDef},
@@ -35,7 +34,7 @@ pub struct ExportLozo;
 
 pub fn export_lozo(
     _: On<ExportLozo>,
-    tile_grid: Single<(&Grid<Tile>, &GridSize)>,
+    tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     game_objects: Res<Assets<GameObjectKindAsset>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
@@ -45,16 +44,13 @@ pub fn export_lozo(
     let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
     for pos in grid_size.iter() {
-        let tile_kind_handle = tile_grid[pos].kind.handle();
-        let tile_kind = tile_kinds
-            .get(tile_kind_handle.id())
-            .ok_or_else(|| MissingAssetError::new(tile_kind_handle.id()))?;
-        let tile_def = create_tile_def(
-            &tile_kind,
-            &tile_grid[pos].sprite_stack,
-            &sprites_query,
-            &layouts,
-        )?;
+        let Some(tile) = &tile_grid[pos] else {
+            grid.push(None);
+            continue;
+        };
+        let tile_kind_handle = tile.kind.handle();
+        let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
+        let tile_def = create_tile_def(&tile_kind, &tile.sprite_stack, &sprites_query, &layouts)?;
         grid.push(Some(tile_def));
     }
     let mut lozo_def = LozoDef {
@@ -65,9 +61,7 @@ pub fn export_lozo(
 
     for (game_object, transform) in &object_query {
         let object_kind_id = game_object.kind_ref().handle().id();
-        let object_kind = game_objects
-            .get(object_kind_id)
-            .ok_or_else(|| MissingAssetError::new(object_kind_id))?;
+        let object_kind = game_objects.require(object_kind_id)?;
         let object_pos = grid_size
             .to_grid_pos(transform.translation.truncate())
             .ok_or_else(|| PositionOutOfGridBoundsError::new(transform.translation.truncate()))?;
@@ -159,10 +153,6 @@ fn create_tile_def(
         sprite_stack: visuals,
     };
     Ok(tile_def)
-}
-
-fn _save_def<D: Serialize, S: AssetPathSpec>(_id: &str, _def: &D) -> io::Result<()> {
-    todo!()
 }
 
 struct CollisionBoxIter<'a> {

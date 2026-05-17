@@ -1,9 +1,9 @@
-use bevy::{
-    input::mouse::MouseMotion, platform::collections::HashMap, prelude::*, window::PrimaryWindow,
-};
+use std::collections::HashMap;
+
+use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
 use engine::{
     animation::Animated,
-    asset::{AssetRef, MissingAssetError},
+    asset::{AssetRef, AssetsExt},
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
@@ -19,11 +19,12 @@ use crate::{
 
 const CURSOR_SPRITE_ALPHA: f32 = 0.5;
 
-pub struct UIPlugin;
-impl Plugin for UIPlugin {
+pub struct InputPlugin;
+impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PlaceTile>()
             .add_message::<PlaceObject>()
+            .add_message::<RemoveTile>()
             .init_resource::<Cursor>()
             .init_resource::<TileKindKeyMap>()
             .init_resource::<GameObjectKindKeyMap>()
@@ -31,15 +32,12 @@ impl Plugin for UIPlugin {
             .add_systems(OnEnter(ProgressState::Finished), init_object_kind_keymap)
             .add_systems(
                 PreUpdate,
-                (
-                    write_place_tile_messages,
-                    write_place_object_message,
-                    switch_cursor,
-                )
+                (place_tiles, place_object, switch_cursor)
                     .run_if(in_state(ProgressState::Finished)),
             )
             .add_systems(Update, on_cursor_changed.run_if(resource_changed::<Cursor>))
             .add_systems(Update, update_cursor_sprite)
+            .add_systems(Update, move_camera)
             .add_systems(
                 PostUpdate,
                 save_lozo.run_if(in_state(ProgressState::Finished)),
@@ -51,7 +49,7 @@ impl Plugin for UIPlugin {
 pub enum Cursor {
     #[default]
     Default,
-    GroundTile(AssetRef<TileKindAsset>),
+    GroundTile(Option<AssetRef<TileKindAsset>>),
     Object(AssetRef<GameObjectKindAsset>),
 }
 
@@ -62,6 +60,11 @@ struct CursorSprite;
 pub struct PlaceTile {
     pub pos: UVec2,
     pub tile_kind: AssetRef<TileKindAsset>,
+}
+
+#[derive(Message)]
+pub struct RemoveTile {
+    pub pos: UVec2,
 }
 
 #[derive(Message)]
@@ -127,7 +130,9 @@ fn switch_cursor(
     } else {
         for key in keys.get_just_pressed() {
             if let Some(handle) = tilekind_keymap.0.get(key) {
-                *cursor = Cursor::GroundTile(handle.clone());
+                *cursor = Cursor::GroundTile(Some(handle.clone()));
+            } else if *key == KeyCode::KeyX {
+                *cursor = Cursor::GroundTile(None);
             }
         }
     }
@@ -149,14 +154,21 @@ fn on_cursor_changed(
     }
     match &*cursor {
         Cursor::GroundTile(tile_kind_handle) => {
-            let tile_kind = tile_kinds
-                .get(tile_kind_handle.handle().id())
-                .expect("cursor contained missing tile kind id");
-            let edge_config = edge_configs
-                .get(tile_kind.edge_config.id())
-                .ok_or_else(|| MissingAssetError::new(tile_kind.edge_config.id()))?;
-            let (mut sprite, animation_ref) =
-                create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
+            let (mut sprite, animation_ref) = match tile_kind_handle {
+                Some(tile_kind_handle) => {
+                    let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
+                    let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+                    create_tile_sprite(&tile_kind.spritesheet, edge_config)?
+                }
+                None => (
+                    Sprite {
+                        color: Color::BLACK,
+                        custom_size: Some(TILE_SIZE.as_vec2()),
+                        ..Default::default()
+                    },
+                    None,
+                ),
+            };
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
             if let Some(animation_ref) = animation_ref {
@@ -215,14 +227,15 @@ fn update_cursor_sprite(
     sprite_pos.translation = translation;
 }
 
-fn write_place_tile_messages(
+fn place_tiles(
     mut mouse_motion: MessageReader<MouseMotion>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Res<Cursor>,
     grid_size: Single<&GridSize>,
-    mut message_writer: MessageWriter<PlaceTile>,
+    mut place_tile_writer: MessageWriter<PlaceTile>,
+    mut remove_tile_writer: MessageWriter<RemoveTile>,
 ) {
     if !mouse_btn.pressed(MouseButton::Left) {
         return;
@@ -244,25 +257,33 @@ fn write_place_tile_messages(
         for _ in 0..step_count {
             let world_position = cursor_pos_to_world_pos(starting_pos, camera.0, camera.1);
             if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-                message_writer.write(PlaceTile {
-                    pos: *pos,
-                    tile_kind: tile_kind.clone(),
-                });
+                if let Some(tile_kind) = tile_kind.as_ref() {
+                    place_tile_writer.write(PlaceTile {
+                        pos: *pos,
+                        tile_kind: tile_kind.clone(),
+                    });
+                } else {
+                    remove_tile_writer.write(RemoveTile { pos: *pos });
+                }
             }
             starting_pos += tile_step;
         }
     } else if mouse_btn.just_pressed(MouseButton::Left) {
         let world_position = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
         if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-            message_writer.write(PlaceTile {
-                pos: *pos,
-                tile_kind: tile_kind.clone(),
-            });
+            if let Some(tile_kind) = tile_kind.as_ref() {
+                place_tile_writer.write(PlaceTile {
+                    pos: *pos,
+                    tile_kind: tile_kind.clone(),
+                });
+            } else {
+                remove_tile_writer.write(RemoveTile { pos: *pos });
+            }
         }
     }
 }
 
-fn write_place_object_message(
+fn place_object(
     cursor: Res<Cursor>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
@@ -288,6 +309,21 @@ fn write_place_object_message(
         pos: *grid_position,
         object_kind: object_kind_handle.clone(),
     });
+}
+
+fn move_camera(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut camera: Single<&mut Transform, With<Camera2d>>,
+) {
+    if keys.pressed(KeyCode::ArrowUp) {
+        camera.translation.y += 4.0;
+    } else if keys.pressed(KeyCode::ArrowLeft) {
+        camera.translation.x -= 4.0;
+    } else if keys.pressed(KeyCode::ArrowRight) {
+        camera.translation.x += 4.0;
+    } else if keys.pressed(KeyCode::ArrowDown) {
+        camera.translation.y -= 4.0;
+    }
 }
 
 fn save_lozo(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands) {

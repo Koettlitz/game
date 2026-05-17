@@ -4,14 +4,14 @@ use bevy::prelude::*;
 use engine::{
     animation::Animated,
     asset::{
-        AssetRef, MissingAssetError, animation::sprite::SpriteAnimationAsset,
+        AssetRef, AssetsExt, MissingAssetError, animation::sprite::SpriteAnimationAsset,
         overworld::tile::TileKindSpritesheet,
     },
     overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };
 
-use super::spawn_ground_tile_grid;
+use super::spawn_tile_grid;
 use crate::{
     asset::tile::{GroundTileVisual, TileEdgeConfig, TileKindAsset},
     tile::{InvalidGridPosition, Tile, TilesChanged},
@@ -22,7 +22,7 @@ impl Plugin for TileVisualsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(ProgressState::Finished),
-            init_sprite_grid.after(spawn_ground_tile_grid),
+            init_sprite_grid.after(spawn_tile_grid),
         )
         .add_observer(on_ground_tile_changed)
         .add_observer(update_sprites);
@@ -61,19 +61,21 @@ fn on_ground_tile_changed(
 fn update_sprites(
     event: On<UpdateTileSprites>,
     mut commands: Commands,
-    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
 ) -> Result<()> {
-    let (mut tile_grid, grid_size) = ground_tile_grid.into_inner();
+    let (mut tile_grid, grid_size) = tile_grid.into_inner();
     let position =
         GridPosition::new(event.0, &grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
-    let tile_kind_asset = tile_kinds
-        .get(tile_grid[position].kind.handle().id())
-        .expect("missing visual for ground tile");
-    for old_sprite in tile_grid[position].sprite_stack.drain(..) {
-        commands.entity(old_sprite).despawn();
-    }
+    let tile_kind_asset = if let Some(tile) = &mut tile_grid[position] {
+        for old_sprite in tile.sprite_stack.drain(..) {
+            commands.entity(old_sprite).despawn();
+        }
+        tile_kinds.require_handle(tile.kind.handle())?
+    } else {
+        return Ok(());
+    };
     let layers = &edge_configs
         .get(tile_kind_asset.edge_config.id())
         .ok_or_else(|| MissingAssetError::new(tile_kind_asset.edge_config.id()))?
@@ -95,7 +97,11 @@ fn update_sprites(
             &tile_grid,
         )?;
         if let Some(entity) = sprite_entity {
-            tile_grid[position].sprite_stack.push(entity);
+            tile_grid[position]
+                .as_mut()
+                .unwrap()
+                .sprite_stack
+                .push(entity);
         }
     }
     Ok(())
@@ -118,7 +124,7 @@ fn spawn_tile_sprite(
     tile_kinds: &Assets<TileKindAsset>,
     edge_configs: &Assets<TileEdgeConfig>,
     grid_size: &GridSize,
-    tile_grid: &Grid<Tile>,
+    tile_grid: &Grid<Option<Tile>>,
 ) -> Result<Option<Entity>> {
     let transform = Transform::from_translation(grid_size.to_world_pos(**position).extend(z));
     match layer {
@@ -157,13 +163,12 @@ fn spawn_tile_sprite(
             let Some(neighbor_position) = position.neighbor(&neighbor) else {
                 return Ok(None);
             };
-            let neighbor = &tile_grid[neighbor_position];
-            let neighbor = tile_kinds
-                .get(neighbor.kind.handle().id())
-                .ok_or_else(|| MissingAssetError::new(neighbor.kind.handle().id()))?;
+            let Some(neighbor) = &tile_grid[neighbor_position] else {
+                return Ok(None);
+            };
+            let neighbor = tile_kinds.require_handle(neighbor.kind.handle())?;
             let layer = edge_configs
-                .get(neighbor.edge_config.id())
-                .ok_or_else(|| MissingAssetError::new(neighbor.edge_config.id()))?
+                .require_handle(&neighbor.edge_config)?
                 .get_default()
                 .base();
             return spawn_tile_sprite(
