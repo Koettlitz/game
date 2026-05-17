@@ -15,6 +15,7 @@ use crate::{
     },
     io::export::ExportLozo,
     tile::visuals::create_tile_sprite,
+    ui::camera::{CameraMovement, CameraPlugin},
 };
 
 const CURSOR_SPRITE_ALPHA: f32 = 0.5;
@@ -22,7 +23,8 @@ const CURSOR_SPRITE_ALPHA: f32 = 0.5;
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<PlaceTile>()
+        app.add_plugins(CameraPlugin)
+            .add_message::<PlaceTile>()
             .add_message::<PlaceObject>()
             .add_message::<RemoveTile>()
             .init_resource::<Cursor>()
@@ -313,16 +315,28 @@ fn place_object(
 
 fn move_camera(
     keys: Res<ButtonInput<KeyCode>>,
-    mut camera: Single<&mut Transform, With<Camera2d>>,
+    camera: Single<&mut CameraMovement, With<Camera2d>>,
 ) {
-    if keys.pressed(KeyCode::ArrowUp) {
-        camera.translation.y += 4.0;
-    } else if keys.pressed(KeyCode::ArrowLeft) {
-        camera.translation.x -= 4.0;
-    } else if keys.pressed(KeyCode::ArrowRight) {
-        camera.translation.x += 4.0;
-    } else if keys.pressed(KeyCode::ArrowDown) {
-        camera.translation.y -= 4.0;
+    let mut movement = camera.into_inner();
+    if keys.just_pressed(KeyCode::ArrowUp) {
+        movement.up = true;
+    } else if keys.just_released(KeyCode::ArrowUp) {
+        movement.up = false;
+    }
+    if keys.just_pressed(KeyCode::ArrowLeft) {
+        movement.left = true;
+    } else if keys.just_released(KeyCode::ArrowLeft) {
+        movement.left = false;
+    }
+    if keys.just_pressed(KeyCode::ArrowRight) {
+        movement.right = true;
+    } else if keys.just_released(KeyCode::ArrowRight) {
+        movement.right = false;
+    }
+    if keys.just_pressed(KeyCode::ArrowDown) {
+        movement.down = true;
+    } else if keys.just_released(KeyCode::ArrowDown) {
+        movement.down = false;
     }
 }
 

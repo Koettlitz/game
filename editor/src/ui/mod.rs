@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use input::InputPlugin;
 
 pub use input::{PlaceObject, PlaceTile, RemoveTile};
+mod camera;
 mod input;
 
 pub struct UIPlugin;
