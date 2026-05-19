@@ -33,7 +33,9 @@ fn place_object(
                 kind_ref: object_kind.clone(),
             },
             Sprite::from_image(asset.sprite_sheet.handle().clone()),
-            Transform::from_translation(grid_size.to_world_pos(*pos).extend(OBJECT_LAYER)),
+            Transform::from_translation(
+                grid_size.grid_to_world(pos.as_vec2()).extend(OBJECT_LAYER),
+            ),
         ));
     }
     Ok(())

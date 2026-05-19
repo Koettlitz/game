@@ -3,19 +3,20 @@ use std::fmt::Display;
 use bevy::prelude::*;
 use engine::{
     asset::{AssetMap, AssetRef, AssetsExt, LoadState},
-    overworld::tile::{Grid, GridCommands, GridPosition, GridSize},
+    overworld::tile::{Grid, GridCommands, GridSize},
     progress::{Progress, ProgressPanel, ProgressState},
 };
 use thiserror::Error;
 
 use crate::{
     asset::tile::{TileEdgeConfig, TileKindAsset},
-    tile::visuals::TileVisualsPlugin,
+    tile::edge::TileVisualsPlugin,
     ui::{PlaceTile, RemoveTile},
 };
 
-pub mod visuals;
+pub mod edge;
 
+pub const DEFAULT_TILE_KIND: &'static str = "grass";
 const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
 
 type TileKindMap = AssetMap<crate::asset::tile::Tile, TileKindAsset>;
@@ -28,11 +29,12 @@ impl Plugin for TilePlugin {
             .add_systems(Startup, init_tile_grid_progress)
             .add_systems(
                 OnEnter(LoadState::<crate::asset::tile::Tile>::finished()),
-                spawn_tile_grid.in_set(GroundTileGridInit),
+                spawn_tile_grid,
             )
             .add_systems(
                 Update,
-                (place_tile, remove_tile).run_if(in_state(ProgressState::Finished)),
+                ((grow_grid_to_place_tiles, place_tile).chain(), remove_tile)
+                    .run_if(in_state(ProgressState::Finished)),
             )
             .add_systems(
                 Update,
@@ -41,9 +43,6 @@ impl Plugin for TilePlugin {
             );
     }
 }
-
-#[derive(SystemSet, Clone, Copy, PartialEq, Eq, Debug, Hash)]
-struct GroundTileGridInit;
 
 #[derive(Component)]
 struct TileGridProgress;
@@ -74,9 +73,9 @@ fn spawn_tile_grid(
 ) -> Result<()> {
     let (id, tile_kind_handle) = tile_kind_map
         .iter()
-        .filter(|(id, _)| *id == "grass")
+        .filter(|(id, _)| *id == DEFAULT_TILE_KIND)
         .next()
-        .expect("missing ground tile kind \"grass\"");
+        .expect(&format!("missing ground tile kind \"{DEFAULT_TILE_KIND}\""));
     commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
         let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
         let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
@@ -90,6 +89,19 @@ fn spawn_tile_grid(
     Ok(())
 }
 
+fn grow_grid_to_place_tiles(
+    mut event_reader: MessageReader<PlaceTile>,
+    tile_grid: Single<(&mut Grid<Option<Tile>>, &mut GridSize)>,
+) {
+    let (mut grid, mut grid_size) = tile_grid.into_inner();
+    if !event_reader.is_empty() {
+        grid.grow_to_fit(
+            &mut grid_size,
+            event_reader.read().map(|msg| msg.world_position),
+        );
+    }
+}
+
 fn place_tile(
     mut event_reader: MessageReader<PlaceTile>,
     mut commands: Commands,
@@ -100,8 +112,11 @@ fn place_tile(
     let (mut grid, grid_size) = tile_grid.into_inner();
     let mut changed = Vec::new();
     for m in event_reader.read() {
-        let Some(pos) = GridPosition::new(m.pos, &grid_size) else {
-            error!("invalid position in PlaceTile message");
+        let Some(pos) = grid_size.world_to_grid(m.world_position) else {
+            error!(
+                "world position {} in PlaceTile message out of bounds",
+                m.world_position
+            );
             continue;
         };
         if let Some(tile) = &mut grid[pos] {
@@ -110,7 +125,7 @@ fn place_tile(
                 let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
                 let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
                 tile.group = edge_config.group.clone();
-                changed.push(m.pos);
+                changed.push(*pos);
             }
         } else {
             let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
@@ -120,9 +135,12 @@ fn place_tile(
                 group: edge_config.group.clone(),
                 sprite_stack: Vec::default(),
             });
+            changed.push(*pos);
         }
     }
-    commands.trigger(TilesChanged(changed));
+    if !changed.is_empty() {
+        commands.trigger(TilesChanged(changed));
+    }
     Ok(())
 }
 
@@ -133,7 +151,7 @@ fn remove_tile(
 ) {
     let (mut grid, grid_size) = tile_grid.into_inner();
     for msg in message_reader.read() {
-        let Some(pos) = GridPosition::new(msg.pos, &grid_size) else {
+        let Some(pos) = grid_size.world_to_grid(msg.world_position) else {
             error!("invalid position in PlaceTile message");
             continue;
         };
@@ -168,7 +186,7 @@ fn on_tile_kind_changed(
             .spritesheet
             .derive_layout(&images, &mut layouts)
             .ok();
-        for pos in grid_size.iter() {
+        for pos in grid_size.iter_all() {
             if &grid[pos].kind.handle().id() == id {
                 grid[pos].group = edge_config.group.clone();
                 changed.push(*pos);
@@ -195,7 +213,7 @@ fn on_edge_config_changed(
             continue;
         };
         let edge_config = edge_configs.require(*id)?;
-        for pos in grid_size.iter() {
+        for pos in grid_size.iter_all() {
             let tile_kind = tile_kinds.require_handle(grid[pos].kind.handle())?;
             if &tile_kind.edge_config.id() == id {
                 grid[pos].group = edge_config.group.clone();

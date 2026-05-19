@@ -19,7 +19,7 @@ use crate::{
     asset::{object::GameObjectKindAsset, tile::TileKindAsset},
     object::GameObject,
     tile::Tile,
-    tile::visuals::{AnimationId, TileSprite},
+    tile::edge::{AnimationId, TileSprite},
 };
 
 pub struct ExportPlugin;
@@ -43,7 +43,7 @@ pub fn export_lozo(
 ) -> Result<()> {
     let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
-    for pos in grid_size.iter() {
+    for pos in grid_size.iter_all() {
         let Some(tile) = &tile_grid[pos] else {
             grid.push(None);
             continue;
@@ -63,7 +63,7 @@ pub fn export_lozo(
         let object_kind_id = game_object.kind_ref().handle().id();
         let object_kind = game_objects.require(object_kind_id)?;
         let object_pos = grid_size
-            .to_grid_pos(transform.translation.truncate())
+            .world_to_grid(transform.translation.truncate())
             .ok_or_else(|| PositionOutOfGridBoundsError::new(transform.translation.truncate()))?;
         let tile_def =
             lozo_def.tile_grid[*object_pos.as_index()].get_or_insert_with(|| TileDef::default());

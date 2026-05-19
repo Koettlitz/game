@@ -14,7 +14,7 @@ use crate::{
         tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
     },
     io::export::ExportLozo,
-    tile::visuals::create_tile_sprite,
+    tile::edge::create_tile_sprite,
     ui::camera::{CameraMovement, CameraPlugin},
 };
 
@@ -60,13 +60,13 @@ struct CursorSprite;
 
 #[derive(Message)]
 pub struct PlaceTile {
-    pub pos: UVec2,
+    pub world_position: Vec2,
     pub tile_kind: AssetRef<TileKindAsset>,
 }
 
 #[derive(Message)]
 pub struct RemoveTile {
-    pub pos: UVec2,
+    pub world_position: Vec2,
 }
 
 #[derive(Message)]
@@ -181,7 +181,7 @@ fn on_cursor_changed(
                 .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
             {
                 let translation = grid_size
-                    .center_on_tile(cursor_position.truncate())
+                    .snap_to_tile(cursor_position.truncate())
                     .extend(128.0);
                 entity.insert(Transform::from_translation(translation));
             }
@@ -200,7 +200,7 @@ fn on_cursor_changed(
                 .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
             {
                 let translation = grid_size
-                    .center_on_tile(cursor_position.truncate())
+                    .snap_to_tile(cursor_position.truncate())
                     .extend(128.0);
                 entity.insert(Transform::from_translation(translation));
             }
@@ -224,7 +224,7 @@ fn update_cursor_sprite(
     };
     let translation = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
     let translation = grid_size
-        .center_on_tile(translation.truncate())
+        .snap_to_tile(translation.truncate())
         .extend(translation.z);
     sprite_pos.translation = translation;
 }
@@ -235,7 +235,6 @@ fn place_tiles(
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Res<Cursor>,
-    grid_size: Single<&GridSize>,
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
 ) {
@@ -257,30 +256,29 @@ fn place_tiles(
             .clamp_length(tile_step_size, tile_step_size);
         let step_count = (delta.length() / tile_step.length()).ceil() as usize;
         for _ in 0..step_count {
-            let world_position = cursor_pos_to_world_pos(starting_pos, camera.0, camera.1);
-            if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-                if let Some(tile_kind) = tile_kind.as_ref() {
-                    place_tile_writer.write(PlaceTile {
-                        pos: *pos,
-                        tile_kind: tile_kind.clone(),
-                    });
-                } else {
-                    remove_tile_writer.write(RemoveTile { pos: *pos });
-                }
+            let world_position =
+                cursor_pos_to_world_pos(starting_pos, camera.0, camera.1).truncate();
+            if let Some(tile_kind) = tile_kind.as_ref() {
+                place_tile_writer.write(PlaceTile {
+                    world_position,
+                    tile_kind: tile_kind.clone(),
+                });
+            } else {
+                remove_tile_writer.write(RemoveTile { world_position });
             }
             starting_pos += tile_step;
         }
     } else if mouse_btn.just_pressed(MouseButton::Left) {
-        let world_position = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
-        if let Some(pos) = grid_size.to_grid_pos(world_position.truncate()) {
-            if let Some(tile_kind) = tile_kind.as_ref() {
-                place_tile_writer.write(PlaceTile {
-                    pos: *pos,
-                    tile_kind: tile_kind.clone(),
-                });
-            } else {
-                remove_tile_writer.write(RemoveTile { pos: *pos });
-            }
+        let world_position =
+            cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate();
+
+        if let Some(tile_kind) = tile_kind.as_ref() {
+            place_tile_writer.write(PlaceTile {
+                world_position,
+                tile_kind: tile_kind.clone(),
+            });
+        } else {
+            remove_tile_writer.write(RemoveTile { world_position });
         }
     }
 }
@@ -303,7 +301,7 @@ fn place_object(
         return;
     };
     let Some(grid_position) = grid_size
-        .to_grid_pos(cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate())
+        .world_to_grid(cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate())
     else {
         return;
     };

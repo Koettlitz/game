@@ -33,7 +33,7 @@ impl Plugin for TileVisualsPlugin {
 struct UpdateTileSprites(UVec2);
 
 fn init_sprite_grid(mut commands: Commands, grid_size: Single<&GridSize>) {
-    for pos in grid_size.iter() {
+    for pos in grid_size.iter_all() {
         commands.trigger(UpdateTileSprites(*pos));
     }
 }
@@ -126,7 +126,8 @@ fn spawn_tile_sprite(
     grid_size: &GridSize,
     tile_grid: &Grid<Option<Tile>>,
 ) -> Result<Option<Entity>> {
-    let transform = Transform::from_translation(grid_size.to_world_pos(**position).extend(z));
+    let transform =
+        Transform::from_translation(grid_size.grid_to_world(position.as_vec2()).extend(z));
     match layer {
         GroundTileVisual::Static(idx) => {
             let atlas = TextureAtlas {
