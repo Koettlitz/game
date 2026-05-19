@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
 use engine::{
-    animation::Animated,
-    asset::{AssetRef, AssetsExt},
+    asset::AssetRef,
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
@@ -11,14 +10,15 @@ use engine::{
 use crate::{
     asset::{
         object::{GameObjectKindAsset, GameObjectKindMap},
-        tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
+        tile::{TileKindAsset, TileKindMap},
     },
     io::export::ExportLozo,
-    tile::edge::create_tile_sprite,
-    ui::camera::{CameraMovement, CameraPlugin},
+    ui::{
+        Cursor, ShowGridLines,
+        camera::{CameraMovement, CameraPlugin},
+        cursor_pos_to_world_pos,
+    },
 };
-
-const CURSOR_SPRITE_ALPHA: f32 = 0.5;
 
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
@@ -34,29 +34,16 @@ impl Plugin for InputPlugin {
             .add_systems(OnEnter(ProgressState::Finished), init_object_kind_keymap)
             .add_systems(
                 PreUpdate,
-                (place_tiles, place_object, switch_cursor)
+                (switch_cursor, place_tiles, place_object, toggle_grid_lines)
                     .run_if(in_state(ProgressState::Finished)),
             )
-            .add_systems(Update, on_cursor_changed.run_if(resource_changed::<Cursor>))
-            .add_systems(Update, update_cursor_sprite)
-            .add_systems(Update, move_camera)
+            .add_systems(PreUpdate, move_camera)
             .add_systems(
                 PostUpdate,
                 save_lozo.run_if(in_state(ProgressState::Finished)),
             );
     }
 }
-
-#[derive(Resource, Default)]
-pub enum Cursor {
-    #[default]
-    Default,
-    GroundTile(Option<AssetRef<TileKindAsset>>),
-    Object(AssetRef<GameObjectKindAsset>),
-}
-
-#[derive(Component)]
-struct CursorSprite;
 
 #[derive(Message)]
 pub struct PlaceTile {
@@ -138,95 +125,6 @@ fn switch_cursor(
             }
         }
     }
-}
-
-fn on_cursor_changed(
-    mut commands: Commands,
-    cursor_sprite: Query<Entity, With<CursorSprite>>,
-    cursor: Res<Cursor>,
-    grid_size: Single<&GridSize>,
-    tile_kinds: Res<Assets<TileKindAsset>>,
-    edge_configs: Res<Assets<TileEdgeConfig>>,
-    object_kinds: Res<Assets<GameObjectKindAsset>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-) -> Result<()> {
-    if let Ok(entity) = cursor_sprite.single() {
-        commands.entity(entity).despawn();
-    }
-    match &*cursor {
-        Cursor::GroundTile(tile_kind_handle) => {
-            let (mut sprite, animation_ref) = match tile_kind_handle {
-                Some(tile_kind_handle) => {
-                    let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
-                    let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-                    create_tile_sprite(&tile_kind.spritesheet, edge_config)?
-                }
-                None => (
-                    Sprite {
-                        color: Color::BLACK,
-                        custom_size: Some(TILE_SIZE.as_vec2()),
-                        ..Default::default()
-                    },
-                    None,
-                ),
-            };
-            sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
-            let mut entity = commands.spawn((CursorSprite, sprite));
-            if let Some(animation_ref) = animation_ref {
-                entity.insert(Animated::by(animation_ref.handle().clone()));
-            }
-            if let Some(cursor_position) = window
-                .cursor_position()
-                .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
-            {
-                let translation = grid_size
-                    .snap_to_tile(cursor_position.truncate())
-                    .extend(128.0);
-                entity.insert(Transform::from_translation(translation));
-            }
-        }
-        Cursor::Object(object_handle) => {
-            let object_kind = object_kinds
-                .get(object_handle.handle().id())
-                .expect("cursor contained missing game object kind entity");
-            let sprite = Sprite {
-                image: object_kind.sprite_sheet.handle().clone(),
-                ..Default::default()
-            };
-            let mut entity = commands.spawn((sprite, CursorSprite));
-            if let Some(cursor_position) = window
-                .cursor_position()
-                .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
-            {
-                let translation = grid_size
-                    .snap_to_tile(cursor_position.truncate())
-                    .extend(128.0);
-                entity.insert(Transform::from_translation(translation));
-            }
-        }
-        Cursor::Default => {}
-    }
-    Ok(())
-}
-
-fn update_cursor_sprite(
-    mut query: Query<&mut Transform, With<CursorSprite>>,
-    grid_size: Single<&GridSize>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    window: Single<&Window, With<PrimaryWindow>>,
-) {
-    let Ok(mut sprite_pos) = query.single_mut() else {
-        return;
-    };
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
-    };
-    let translation = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
-    let translation = grid_size
-        .snap_to_tile(translation.truncate())
-        .extend(translation.z);
-    sprite_pos.translation = translation;
 }
 
 fn place_tiles(
@@ -316,25 +214,17 @@ fn move_camera(
     camera: Single<&mut CameraMovement, With<Camera2d>>,
 ) {
     let mut movement = camera.into_inner();
-    if keys.just_pressed(KeyCode::ArrowUp) {
-        movement.up = true;
-    } else if keys.just_released(KeyCode::ArrowUp) {
-        movement.up = false;
-    }
-    if keys.just_pressed(KeyCode::ArrowLeft) {
-        movement.left = true;
-    } else if keys.just_released(KeyCode::ArrowLeft) {
-        movement.left = false;
-    }
-    if keys.just_pressed(KeyCode::ArrowRight) {
-        movement.right = true;
-    } else if keys.just_released(KeyCode::ArrowRight) {
-        movement.right = false;
-    }
-    if keys.just_pressed(KeyCode::ArrowDown) {
-        movement.down = true;
-    } else if keys.just_released(KeyCode::ArrowDown) {
-        movement.down = false;
+    movement.up = keys.pressed(KeyCode::ArrowUp);
+    movement.left = keys.pressed(KeyCode::ArrowLeft);
+    movement.right = keys.pressed(KeyCode::ArrowRight);
+    movement.down = keys.pressed(KeyCode::ArrowDown);
+}
+
+fn toggle_grid_lines(keys: Res<ButtonInput<KeyCode>>, mut grid_lines: Single<&mut ShowGridLines>) {
+    if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
+        if keys.just_pressed(KeyCode::KeyG) {
+            grid_lines.toggle();
+        }
     }
 }
 
@@ -343,16 +233,5 @@ fn save_lozo(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
         && keys.just_pressed(KeyCode::KeyS)
     {
         commands.trigger(ExportLozo);
-    }
-}
-
-fn cursor_pos_to_world_pos(
-    cursor_pos: Vec2,
-    camera: &Camera,
-    camera_transform: &GlobalTransform,
-) -> Vec3 {
-    match camera.viewport_to_world_2d(camera_transform, cursor_pos) {
-        Ok(world_pos) => world_pos.extend(128.0),
-        Err(e) => panic!("could not get world coords from mouse coords - {e}"),
     }
 }

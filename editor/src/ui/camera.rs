@@ -1,11 +1,15 @@
-use bevy::{math::FloatPow, prelude::*};
+use bevy::{input::mouse::MouseWheel, math::FloatPow, prelude::*};
+
+const MIN_ZOOM: f32 = 0.08;
+const MAX_ZOOM: f32 = 10.0;
+const ZOOM_SPEED: f32 = 0.1;
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init)
-            .add_systems(Update, (update_movement, apply_movement).chain());
+            .add_systems(Update, (update_movement, apply_movement, scroll).chain());
     }
 }
 
@@ -82,5 +86,18 @@ fn apply_movement(mut query: Query<(&mut Transform, &CameraMovement)>) {
         if movement.moving() {
             transform.translation += movement.translation();
         }
+    }
+}
+
+fn scroll(
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
+    camera: Single<&mut Projection, With<Camera2d>>,
+) {
+    let Projection::Orthographic(ref mut projection) = *camera.into_inner() else {
+        error!("scrolling not implemented for non orthographic projection");
+        return;
+    };
+    for msg in mouse_wheel_reader.read() {
+        projection.scale = (projection.scale - msg.y * ZOOM_SPEED).clamp(MIN_ZOOM, MAX_ZOOM);
     }
 }
