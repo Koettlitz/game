@@ -1,5 +1,7 @@
+use std::ops::Deref;
+
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
-use engine::animation::AnimationPlugin;
+use engine::{animation::SpriteAnimationPlugin, asset::animation::sprite::AnimationTimersAsset};
 
 use crate::overworld::OverworldPlugin;
 
@@ -14,12 +16,25 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             OverworldPlugin,
-            AnimationPlugin,
+            SpriteAnimationPlugin,
         ))
         .add_systems(Startup, init)
         .run();
 }
 
-fn init(mut commands: Commands) {
+#[derive(Resource)]
+pub struct AnimationTimers(Handle<AnimationTimersAsset>);
+
+impl Deref for AnimationTimers {
+    type Target = Handle<AnimationTimersAsset>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+fn init(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+    let handle = asset_server.load("animation_timers.ron");
+    commands.insert_resource(AnimationTimers(handle));
 }

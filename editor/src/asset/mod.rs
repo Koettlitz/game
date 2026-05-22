@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-use crate::asset::{
+use self::{
     animation::SpriteAnimationPlugin, object::GameObjectAssetPlugin, tile::TileAssetPlugin,
 };
+
 pub mod animation;
 pub mod object;
 pub mod tile;

@@ -3,7 +3,7 @@ use std::ops::Deref;
 use bevy::prelude::*;
 use macros::asset_spec;
 
-use crate::asset::{AssetRef, AssetResolver, FromDef, FromDefError};
+use crate::asset::{AssetRef, AssetResolver, FromDef, FromDefError, HasResolver};
 
 #[asset_spec(base_path = "objects/spritesheets")]
 pub struct ObjectSpritesheet(pub AssetRef<Image>);
@@ -23,7 +23,7 @@ impl FromDef for ObjectSpritesheet {
     where
         Self: Sized,
     {
-        let handle = ctx.load(Self::resolve(&def)?);
+        let handle = ctx.load(<Self as HasResolver>::resolver().resolve(&def)?);
         Ok(Self(AssetRef::new(def, handle)))
     }
 }

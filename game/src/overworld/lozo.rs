@@ -4,7 +4,7 @@ use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, prelud
 use engine::{
     animation::Animated,
     asset::{
-        AssetResolver, MissingAssetError,
+        AssetResolver, HasResolver, MissingAssetError,
         overworld::{lozo::LozoAsset, tile::TileVisualKind},
     },
     overworld::tile::create_grid_bundle,
@@ -83,7 +83,7 @@ fn detect_lozo_transition(
         return Ok(());
     };
 
-    let asset_path = LozoAsset::resolve(&next_lozo)?;
+    let asset_path = <LozoAsset as HasResolver>::resolver().resolve(&next_lozo)?;
     commands.insert_resource(LozoTransition {
         next_lozo: next_lozo,
         asset_handle: asset_server.load(asset_path),
@@ -96,10 +96,16 @@ fn detect_lozo_loaded(
     asset_server: Res<AssetServer>,
     transition: Res<LozoTransition>,
     mut next_state: ResMut<NextState<LozoState>>,
+
+    mut commands: Commands,
 ) {
     match asset_server.recursive_dependency_load_state(transition.asset_handle.id()) {
         RecursiveDependencyLoadState::Loaded => next_state.set(LozoState::Switching),
-        RecursiveDependencyLoadState::Failed(e) => error!("failed to load lozo: \"{e}\""),
+        RecursiveDependencyLoadState::Failed(e) => {
+            error!("failed to load lozo: \"{e}\"");
+            commands.remove_resource::<LozoTransition>();
+            next_state.set(LozoState::Default);
+        }
         _ => {}
     }
 }

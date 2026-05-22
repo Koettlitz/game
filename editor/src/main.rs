@@ -1,6 +1,6 @@
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use engine::{
-    animation::AnimationPlugin,
+    animation::SpriteAnimationPlugin,
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
@@ -25,7 +25,7 @@ fn main() {
             UIPlugin,
             TilePlugin,
             GameObjectPlugin,
-            AnimationPlugin,
+            SpriteAnimationPlugin,
             IoPlugin,
         ))
         .add_systems(Startup, init)

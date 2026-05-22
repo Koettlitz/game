@@ -1,8 +1,8 @@
 use build::AssetSource;
 use build::asset_enum::BsError;
 use build::asset_enum::generate_resolver_enums;
-use std::fs;
-use std::path::{Path, PathBuf};
+use build::write_out;
+use std::path::PathBuf;
 
 fn main() -> Result<(), BsError> {
     let editor_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -13,14 +13,4 @@ fn main() -> Result<(), BsError> {
         write_out(&path, &resolver_enum.to_string())?;
     }
     Ok(())
-}
-
-fn write_out(path: &Path, content: &impl AsRef<[u8]>) -> Result<(), BsError> {
-    let out_dir = std::env::var("OUT_DIR")?;
-    let path = Path::new(&out_dir).join(path);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(&path, content)
-        .map_err(|e| BsError::io(e, format!("failed to write to {}", path.display())))
 }

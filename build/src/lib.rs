@@ -1,5 +1,5 @@
 use std::{
-    ops,
+    fs, ops,
     path::{Path, PathBuf},
 };
 
@@ -7,6 +7,8 @@ use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::Span;
 use quote::{ToTokens, quote};
 use syn::{Ident, TypePath, spanned::Spanned};
+
+use crate::asset_enum::BsError;
 
 pub mod asset_enum;
 pub mod asset_set;
@@ -49,6 +51,16 @@ pub fn resolve_crate_name(orig_name: &str) -> syn::Result<proc_macro2::TokenStre
             format!("could not resolve crate {orig_name} - {e}"),
         )),
     }
+}
+
+pub fn write_out(path: &Path, content: &impl AsRef<[u8]>) -> Result<(), BsError> {
+    let out_dir = std::env::var("OUT_DIR")?;
+    let path = Path::new(&out_dir).join(path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&path, content)
+        .map_err(|e| BsError::io(e, format!("failed to write to {}", path.display())))
 }
 
 /// A [`syn::Path`] whose first segment is rewritten to the correct crate name.

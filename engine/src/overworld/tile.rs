@@ -405,7 +405,7 @@ impl<'a, T: Debug> Debug for GridCursor<'a, T> {
 }
 
 impl<'a, T> GridCursor<'a, T> {
-    pub fn iter_exclusive(&self) -> [Option<&T>; 8] {
+    pub fn around_exclusive(&self) -> [Option<&T>; 8] {
         [
             self.top_left(),
             self.top(),
@@ -418,7 +418,7 @@ impl<'a, T> GridCursor<'a, T> {
         ]
     }
 
-    pub fn iter_inclusive(&self) -> [Option<&T>; 9] {
+    pub fn around_inclusive(&self) -> [Option<&T>; 9] {
         [
             self.top_left(),
             self.top(),

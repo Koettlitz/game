@@ -3,10 +3,9 @@ use crate::ui::PlaceObject;
 use bevy::prelude::*;
 use engine::asset::AssetRef;
 use engine::asset::MissingAssetError;
+use engine::asset::overworld::OBJECT_LAYER;
 use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
-
-const OBJECT_LAYER: f32 = 128.0;
 
 pub struct GameObjectPlugin;
 impl Plugin for GameObjectPlugin {

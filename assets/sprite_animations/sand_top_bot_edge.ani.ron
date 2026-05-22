@@ -1,5 +1,6 @@
-SpriteAnimationAsset(
-    indices: [
+(
+    timer: "sand_tiles",
+    frames: [
         127,
         130,
         133,
@@ -8,5 +9,4 @@ SpriteAnimationAsset(
         142,
         145,
     ],
-    frame_duration: 360,
 )

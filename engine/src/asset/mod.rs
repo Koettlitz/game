@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::io;
 use std::marker::PhantomData;
+use std::time::Duration;
 
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, AssetPath, LoadContext, ParseAssetPathError};
@@ -25,7 +26,13 @@ pub type Phantom<L> = PhantomData<fn() -> L>;
 
 pub trait AssetResolver {
     // TODO: error type sollte nicht FromDefError sein hier
+    fn resolve(&self, asset_id: &str) -> Result<AssetPath<'static>, FromDefError>;
+    fn to_id(&self, asset_path: AssetPath) -> String;
+}
+
+pub trait StaticAssetResolver {
     fn resolve(asset_id: &str) -> Result<AssetPath<'static>, FromDefError>;
+    fn to_id(asset_path: AssetPath) -> String;
 }
 
 #[derive(Error, Debug)]
@@ -38,30 +45,169 @@ pub enum FromDefError {
     InvalidDef(String),
 }
 
-pub trait HasResolver {
-    type Resolver: AssetResolver;
+pub struct StaticResolverAdapter<S>(Phantom<S>);
+
+impl<S> Default for StaticResolverAdapter<S> {
+    fn default() -> Self {
+        Self(PhantomData::default())
+    }
 }
 
-impl<T: AssetResolver> HasResolver for T {
+impl<S: StaticAssetResolver> AssetResolver for StaticResolverAdapter<S> {
+    fn resolve(&self, asset_id: &str) -> Result<AssetPath<'static>, FromDefError> {
+        S::resolve(asset_id)
+    }
+
+    fn to_id(&self, asset_path: AssetPath) -> String {
+        S::to_id(asset_path)
+    }
+}
+
+pub trait HasResolver {
+    type Resolver: AssetResolver;
+
+    fn resolver() -> Self::Resolver;
+}
+
+impl<T: AssetResolver + Default> HasResolver for T {
     type Resolver = Self;
+
+    fn resolver() -> Self::Resolver {
+        Self::default()
+    }
 }
 
 pub trait AssetPathSpec {
     const BASE_PATH: &'static str;
-    const EXTENSION: Option<&'static str>;
+    const EXTENSION: Option<&'static str> = None;
 }
 
-impl<R> AssetResolver for R
+pub struct ResolverSpec<S>(Phantom<S>);
+
+impl<S> Default for ResolverSpec<S> {
+    fn default() -> Self {
+        Self(PhantomData::default())
+    }
+}
+
+impl<S: AssetPathSpec> AssetPathSpecProvider for ResolverSpec<S> {
+    fn base_path(&self) -> Cow<'static, str> {
+        Cow::Borrowed(S::BASE_PATH)
+    }
+
+    fn extension(&self) -> Option<&'static str> {
+        S::EXTENSION
+    }
+}
+
+pub struct DynamicPathResolver {
+    pub base_path: String,
+    pub extension: Option<&'static str>,
+}
+
+impl DynamicPathResolver {
+    pub fn resolve_sub_path(
+        load_context: &mut LoadContext,
+        sub_path: &str,
+        extension: Option<&'static str>,
+    ) -> Result<Self, ParseAssetPathError> {
+        let base_path = load_context
+            .path()
+            .parent()
+            .map(|p| p.resolve(sub_path))
+            .transpose()?
+            .unwrap_or_else(|| AssetPath::parse(sub_path))
+            .to_string();
+        Ok(Self {
+            base_path,
+            extension,
+        })
+    }
+}
+
+impl AssetPathSpecProvider for DynamicPathResolver {
+    fn base_path(&self) -> Cow<'static, str> {
+        Cow::Owned(self.base_path.clone())
+    }
+
+    fn extension(&self) -> Option<&'static str> {
+        self.extension
+    }
+}
+
+pub struct SpecResolver<S>(Phantom<S>);
+
+impl<S> Default for SpecResolver<S> {
+    fn default() -> Self {
+        Self(PhantomData::default())
+    }
+}
+
+impl<S: HasSpecProvider> AssetPathSpecProvider for SpecResolver<S> {
+    fn base_path(&self) -> Cow<'static, str> {
+        S::provider().base_path()
+    }
+
+    fn extension(&self) -> Option<&'static str> {
+        S::provider().extension()
+    }
+}
+
+pub trait AssetPathSpecProvider {
+    fn base_path(&self) -> Cow<'static, str>;
+    fn extension(&self) -> Option<&'static str> {
+        None
+    }
+}
+
+pub trait HasSpecProvider {
+    type Provider: AssetPathSpecProvider;
+
+    fn provider() -> Self::Provider;
+}
+
+impl<T> HasSpecProvider for T
 where
-    R: AssetPathSpec,
+    T: AssetPathSpecProvider + Default,
 {
-    fn resolve(asset_id: &str) -> Result<AssetPath<'static>, FromDefError> {
-        let file_name = if let Some(ext) = Self::EXTENSION {
+    type Provider = Self;
+
+    fn provider() -> Self::Provider {
+        Self::default()
+    }
+}
+
+impl<T> AssetResolver for T
+where
+    T: AssetPathSpecProvider,
+{
+    fn resolve(&self, asset_id: &str) -> Result<AssetPath<'static>, FromDefError> {
+        let file_name = if let Some(ext) = self.extension() {
             Cow::Owned(asset_id.to_string() + "." + ext)
         } else {
             Cow::Borrowed(asset_id)
         };
-        Ok(AssetPath::from(Self::BASE_PATH).resolve(file_name.as_ref())?)
+        Ok(AssetPath::from(self.base_path().to_string()).resolve(file_name.as_ref())?)
+    }
+
+    fn to_id(&self, asset_path: AssetPath) -> String {
+        if let Some(extension) = self.extension() {
+            let id = asset_path
+                .path()
+                .file_name()
+                .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
+                .to_string_lossy();
+            id.strip_suffix(&(".".to_string() + extension))
+                .unwrap_or(id.as_ref())
+                .to_string()
+        } else {
+            asset_path
+                .path()
+                .file_prefix()
+                .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
+                .to_string_lossy()
+                .to_string()
+        }
     }
 }
 
@@ -70,6 +216,19 @@ pub trait FromDef {
     type Error: Into<FromDefError>;
 
     fn from_def(def: Self::Def, ctx: &mut LoadContext) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+}
+
+pub trait FromDefWithResolver {
+    type Def: DeserializeOwned;
+    type Error: Into<FromDefError>;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
@@ -102,8 +261,24 @@ impl<A: Asset + HasResolver> FromDef for AssetRef<A> {
     where
         Self: Sized,
     {
-        let handle = ctx.load(A::Resolver::resolve(&def)?);
+        let handle = ctx.load(A::resolver().resolve(&def)?);
         Ok(Self { id: def, handle })
+    }
+}
+
+impl<A: Asset> FromDefWithResolver for AssetRef<A> {
+    type Def = String;
+    type Error = FromDefError;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            handle: ctx.load(resolver.resolve(&def)?),
+            id: def,
+        })
     }
 }
 
@@ -112,7 +287,20 @@ impl<A: Asset + HasResolver> FromDef for Handle<A> {
     type Error = FromDefError;
 
     fn from_def(def: Self::Def, ctx: &mut LoadContext) -> Result<Self, Self::Error> {
-        Ok(ctx.load(A::Resolver::resolve(&def)?))
+        Ok(ctx.load(A::resolver().resolve(&def)?))
+    }
+}
+
+impl<A: Asset> FromDefWithResolver for Handle<A> {
+    type Def = String;
+    type Error = FromDefError;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error> {
+        Ok(ctx.load(resolver.resolve(&def)?))
     }
 }
 
@@ -129,6 +317,25 @@ where
     }
 }
 
+impl<T, D> FromDefWithResolver for Option<T>
+where
+    T: FromDefWithResolver<Def = D>,
+    D: DeserializeOwned,
+{
+    type Def = Option<D>;
+    type Error = T::Error;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error> {
+        Ok(def
+            .map(|d| T::from_def_with_resolver(d, resolver, ctx))
+            .transpose()?)
+    }
+}
+
 impl<T, D> FromDef for Vec<T>
 where
     T: FromDef<Def = D>,
@@ -139,6 +346,25 @@ where
 
     fn from_def(def: Self::Def, ctx: &mut LoadContext) -> Result<Self, Self::Error> {
         def.into_iter().map(|d| T::from_def(d, ctx)).collect()
+    }
+}
+
+impl<T, D> FromDefWithResolver for Vec<T>
+where
+    T: FromDefWithResolver<Def = D>,
+    D: DeserializeOwned,
+{
+    type Def = Vec<D>;
+    type Error = T::Error;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error> {
+        def.into_iter()
+            .map(|d| T::from_def_with_resolver(d, resolver, ctx))
+            .collect()
     }
 }
 
@@ -154,6 +380,26 @@ where
     fn from_def(def: Self::Def, ctx: &mut LoadContext) -> Result<Self, Self::Error> {
         def.into_iter()
             .map(|(k, d)| Ok((k, A::from_def(d, ctx)?)))
+            .collect()
+    }
+}
+
+impl<A, K, D> FromDefWithResolver for HashMap<K, A>
+where
+    A: FromDefWithResolver<Def = D>,
+    K: DeserializeOwned + Eq + Hash,
+    D: DeserializeOwned,
+{
+    type Def = HashMap<K, D>;
+    type Error = A::Error;
+
+    fn from_def_with_resolver<R: AssetResolver>(
+        def: Self::Def,
+        resolver: &R,
+        ctx: &mut LoadContext,
+    ) -> Result<Self, Self::Error> {
+        def.into_iter()
+            .map(|(k, d)| Ok((k, A::from_def_with_resolver(d, resolver, ctx)?)))
             .collect()
     }
 }
@@ -175,7 +421,8 @@ from_def_self![
     IRect,
     IVec2,
     Vec2,
-    TextureAtlasLayout
+    TextureAtlasLayout,
+    Duration
 ];
 
 pub struct RonAssetPlugin<A>(Phantom<A>);
@@ -187,7 +434,7 @@ impl<A> Default for RonAssetPlugin<A> {
 
 impl<A> Plugin for RonAssetPlugin<A>
 where
-    A: Asset + FromDef + HasResolver + 'static,
+    A: Asset + FromDef + 'static,
     RonAssetLoadError: From<<A as FromDef>::Error>,
 {
     fn build(&self, app: &mut App) {
@@ -353,5 +600,26 @@ impl<A: Asset> AssetsExt<A> for Assets<A> {
 
     fn require_mut(&mut self, id: AssetId<A>) -> Result<&mut A> {
         Ok(self.get_mut(id).ok_or_else(|| MissingAssetError::new(id))?)
+    }
+}
+
+pub mod duration_millis {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    use super::*;
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(duration.as_millis() as u64)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let millis = u64::deserialize(deserializer)?;
+        Ok(Duration::from_millis(millis))
     }
 }

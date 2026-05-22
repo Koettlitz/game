@@ -1,5 +1,3 @@
 (
     passability: Always,
-    spritesheet: "grass.png",
-    edge_config: "grass",
 )

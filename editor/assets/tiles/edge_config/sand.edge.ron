@@ -20,9 +20,6 @@
         ),
         ( // top edge
             top: Either("water_wild"),
-            left: SameGroup, 
-            right: SameGroup, 
-            bottom: SameGroup, 
         ): (
             below: [
                 Neighbor(Top),
@@ -50,10 +47,7 @@
             base: Animated("sand_left_edge",), 
         ),
         ( // right edge
-            top: SameGroup,
-            left: SameGroup,
             right: Either("water_wild"),
-            bottom: SameGroup,
         ): (
             below: [
                 Neighbor(Right),

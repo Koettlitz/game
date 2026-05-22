@@ -9,7 +9,7 @@ use engine::{
 use thiserror::Error;
 
 use crate::{
-    asset::tile::{TileEdgeConfig, TileKindAsset},
+    asset::tile::{TileEdgeConfig, TileKindAsset, TileResolverSet},
     tile::edge::TileVisualsPlugin,
     ui::{PlaceTile, RemoveTile},
 };
@@ -19,7 +19,7 @@ pub mod edge;
 pub const DEFAULT_TILE_KIND: &'static str = "grass";
 const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
 
-type TileKindMap = AssetMap<crate::asset::tile::Tile, TileKindAsset>;
+type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
 
 pub struct TilePlugin;
 
@@ -28,7 +28,7 @@ impl Plugin for TilePlugin {
         app.add_plugins(TileVisualsPlugin)
             .add_systems(Startup, init_tile_grid_progress)
             .add_systems(
-                OnEnter(LoadState::<crate::asset::tile::Tile>::finished()),
+                OnEnter(LoadState::<TileResolverSet>::finished()),
                 spawn_tile_grid,
             )
             .add_systems(
@@ -171,7 +171,7 @@ fn on_tile_kind_changed(
     edge_configs: Res<Assets<TileEdgeConfig>>,
     images: Res<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    ground_tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     mut commands: Commands,
 ) -> Result<()> {
     let (mut grid, grid_size) = ground_tile_grid.into_inner();
@@ -187,8 +187,11 @@ fn on_tile_kind_changed(
             .derive_layout(&images, &mut layouts)
             .ok();
         for pos in grid_size.iter_all() {
-            if &grid[pos].kind.handle().id() == id {
-                grid[pos].group = edge_config.group.clone();
+            let Some(tile) = &mut grid[pos] else {
+                continue;
+            };
+            if tile.kind.handle().id() == *id {
+                tile.group = edge_config.group.clone();
                 changed.push(*pos);
             }
         }
@@ -201,7 +204,7 @@ fn on_tile_kind_changed(
 
 fn on_edge_config_changed(
     mut message_reader: MessageReader<AssetEvent<TileEdgeConfig>>,
-    ground_tile_grid: Single<(&mut Grid<Tile>, &GridSize)>,
+    ground_tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
     mut commands: Commands,
@@ -214,9 +217,12 @@ fn on_edge_config_changed(
         };
         let edge_config = edge_configs.require(*id)?;
         for pos in grid_size.iter_all() {
-            let tile_kind = tile_kinds.require_handle(grid[pos].kind.handle())?;
+            let Some(tile) = &mut grid[pos] else {
+                continue;
+            };
+            let tile_kind = tile_kinds.require_handle(tile.kind.handle())?;
             if &tile_kind.edge_config.id() == id {
-                grid[pos].group = edge_config.group.clone();
+                tile.group = edge_config.group.clone();
                 changed.push(*pos);
             }
         }

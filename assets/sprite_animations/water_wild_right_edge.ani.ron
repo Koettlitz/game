@@ -1,5 +1,6 @@
-SpriteAnimationAsset(
-    indices: [
+(
+    timer: "water_wild_tiles",
+    frames: [
         26,
         29,
         32,
@@ -9,5 +10,4 @@ SpriteAnimationAsset(
         44,
         47,
     ],
-    frame_duration: 256,
 )

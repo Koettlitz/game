@@ -130,10 +130,19 @@ fn generate_resolver_enum(
             }
         }
 
-        impl #asset_module::AssetResolver for #enum_type {
+        impl #asset_module::StaticAssetResolver for #enum_type {
             fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #asset_module::FromDefError> {
                 let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
                 Ok(<Self as #asset_set_module::AsAssetPath>::as_asset_path(&instance))
+            }
+
+            fn to_id(asset_path: #bevy_crate::asset::AssetPath) -> String {
+                asset_path
+                    .path()
+                    .file_prefix()
+                    .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
+                    .to_string_lossy()
+                    .to_string()
             }
         }
     })
@@ -150,8 +159,8 @@ pub fn derive_enum_file_name(base_path: &Path) -> io::Result<PathBuf> {
 }
 
 pub fn derive_enum_type_name(base_path: &Path) -> io::Result<String> {
-    let base_name = stripped_file_name(base_path)?;
-    Ok(base_name.to_case(Case::UpperCamel))
+    let base_name = stripped_file_name(base_path)?.to_case(Case::UpperCamel) + "ResolverSet";
+    Ok(base_name)
 }
 
 pub fn derive_progress_name(base_path: &Path) -> io::Result<String> {

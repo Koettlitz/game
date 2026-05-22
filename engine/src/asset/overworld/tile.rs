@@ -8,8 +8,8 @@ use thiserror::Error;
 
 use crate::{
     asset::{
-        AssetRef, AssetResolver, FromDef, FromDefError, animation::sprite::SpriteAnimationAsset,
-        spritesheet::Spritesheet,
+        AssetRef, AssetResolver, FromDef, FromDefError, HasResolver,
+        animation::sprite::SpriteAnimationAsset, spritesheet::Spritesheet,
     },
     overworld::tile::Passability,
 };
@@ -40,7 +40,7 @@ pub struct TileVisualsAsset {
 }
 
 #[derive(TypePath, Debug)]
-#[asset_spec(base_path = "tiles/spritesheets")]
+#[asset_spec(base_path = "tiles/spritesheets", extension = "png")]
 pub struct TileKindSpritesheet {
     image: AssetRef<Image>,
     layout: Option<Handle<TextureAtlasLayout>>,
@@ -51,7 +51,7 @@ impl FromDef for TileKindSpritesheet {
     type Error = FromDefError;
 
     fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error> {
-        let handle = ctx.load(Self::resolve(&def)?);
+        let handle = ctx.load(<Self as HasResolver>::resolver().resolve(&def)?);
         Ok(Self {
             image: AssetRef::new(def, handle),
             layout: None,

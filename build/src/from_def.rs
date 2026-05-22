@@ -1,18 +1,191 @@
+use std::fmt::Debug;
+
 pub use def_generation::*;
 pub use game_asset_impl::*;
+use proc_macro2::Span;
+use syn::{Attribute, Ident, LitStr, Token, parenthesized, parse::Parse, spanned::Spanned};
 
 use crate::{ASSET_MODULE_PATH, CratePath};
 
+#[derive(Debug)]
+struct FieldAttr {
+    implicit: bool,
+    spec: Option<FieldSpec>,
+}
+
+impl FieldAttr {
+    fn validate(&self, span: Span) -> syn::Result<()> {
+        if !self.implicit && self.spec.is_none() {
+            Err(syn::Error::new(
+                span,
+                "expected at least one of `implicit` or `with_spec`",
+            ))
+        } else if self.implicit
+            && self
+                .spec
+                .as_ref()
+                .is_some_and(|spec| spec.extension.is_none())
+        {
+            Err(syn::Error::new(
+                span,
+                "expected `extension` on implicit field",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl Parse for FieldAttr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut implicit = false;
+        let mut spec: Option<FieldSpec> = None;
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+
+            match ident.to_string().as_str() {
+                "implicit" => {
+                    implicit = true;
+                }
+                "with_spec" => {
+                    let spec_args;
+                    parenthesized!(spec_args in input);
+                    spec = Some(FieldSpec::parse(&spec_args)?);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "Unknown parameter. Expected `base_path`, or `extension`",
+                    ));
+                }
+            }
+            // optional trailing comma
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(Self { implicit, spec })
+    }
+}
+
+impl FieldAttr {
+    fn parse<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> syn::Result<Option<Self>> {
+        for attr in attrs {
+            if attr.path().is_ident("from_def") {
+                let field_attr: Self = attr.parse_args()?;
+                field_attr.validate(attr.path().span())?;
+                return Ok(Some(field_attr));
+            }
+        }
+        Ok(None)
+    }
+}
+
+struct FieldSpec {
+    path_kind: PathKind,
+    extension: Option<LitStr>,
+}
+
+impl Debug for FieldSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ref extension) = self.extension {
+            write!(
+                f,
+                "({:?}, extension = \"{}\")",
+                self.path_kind,
+                extension.value()
+            )
+        } else {
+            write!(f, "({:?})", self.path_kind)
+        }
+    }
+}
+
+enum PathKind {
+    Root(LitStr),
+    Child(Option<LitStr>),
+}
+
+impl Debug for PathKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Root(base_path) => write!(f, "base_path = \"{}\"", base_path.value()),
+            Self::Child(sub_path) => match sub_path {
+                Some(sub_path) => write!(f, "sub_path = \"{}\"", sub_path.value()),
+                None => write!(f, "sub_path"),
+            },
+        }
+    }
+}
+
+impl Parse for FieldSpec {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut path_kind: Option<PathKind> = None;
+        let mut extension: Option<LitStr> = None;
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+
+            match ident.to_string().as_str() {
+                "base_path" => {
+                    input.parse::<Token![=]>()?;
+                    let lit: LitStr = input.parse()?;
+                    path_kind = Some(PathKind::Root(lit));
+                }
+                "sub_path" => {
+                    let path = if input.peek(Token![=]) {
+                        input.parse::<Token![=]>()?;
+                        let lit: LitStr = input.parse()?;
+                        Some(lit)
+                    } else {
+                        None
+                    };
+                    path_kind = Some(PathKind::Child(path));
+                }
+                "extension" => {
+                    input.parse::<Token![=]>()?;
+                    let lit: LitStr = input.parse()?;
+                    extension = Some(lit);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "Unknown parameter. Expected `base_path`, or `extension`",
+                    ));
+                }
+            }
+            // optional trailing comma
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        if path_kind.is_none() {
+            return Err(syn::Error::new(
+                input.span(),
+                "either `base_path = \"base/path\"` or `sub_path [= \"sub/path\"]` is required",
+            ));
+        }
+
+        Ok(Self {
+            path_kind: path_kind.unwrap(),
+            extension,
+        })
+    }
+}
+
 mod def_generation {
-    use proc_macro2::{Span, TokenStream};
+    use proc_macro2::TokenStream;
     use quote::quote;
     use syn::{
-        AngleBracketedGenericArguments, Data, DataEnum, DataStruct, DeriveInput, Field, Fields,
-        FieldsNamed, FieldsUnnamed, GenericArgument, Generics, Ident, PathArguments, PathSegment,
-        Type, TypePath, Visibility, parse2,
+        Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Generics, Visibility, parse2,
+        punctuated::Punctuated, token::Comma,
     };
 
-    use super::from_def_trait;
+    use crate::{ASSET_MODULE_PATH, CratePath, from_def::FieldAttr};
+
     pub fn generate_def_for(
         derive_input: &DeriveInput,
         def_type: &syn::Type,
@@ -47,11 +220,16 @@ mod def_generation {
         def_type: &syn::Type,
         generics: &Generics,
     ) -> Result<TokenStream, syn::Error> {
-        let mut fields = input_struct.fields.clone();
-        match &mut fields {
-            Fields::Named(FieldsNamed { named, .. }) => substitute_handles(named)?,
-            Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => substitute_handles(unnamed)?,
-            Fields::Unit => {}
+        let fields = match input_struct.fields.clone() {
+            Fields::Named(mut named) => {
+                named.named = generate_def_fields(named.named)?;
+                Fields::Named(named)
+            }
+            Fields::Unnamed(mut unnamed) => {
+                unnamed.unnamed = generate_def_fields(unnamed.unnamed)?;
+                Fields::Unnamed(unnamed)
+            }
+            Fields::Unit => Fields::Unit,
         };
         let semi_token = input_struct.semi_token;
         Ok(quote! {
@@ -67,7 +245,17 @@ mod def_generation {
     ) -> Result<TokenStream, syn::Error> {
         let mut variants = input_enum.variants.clone();
         for variant in &mut variants {
-            substitute_handles(&mut variant.fields)?;
+            variant.fields = match variant.fields.clone() {
+                Fields::Named(mut named) => {
+                    named.named = generate_def_fields(named.named)?;
+                    Fields::Named(named)
+                }
+                Fields::Unnamed(mut unnamed) => {
+                    unnamed.unnamed = generate_def_fields(unnamed.unnamed)?;
+                    Fields::Unnamed(unnamed)
+                }
+                Fields::Unit => Fields::Unit,
+            };
         }
         let variants = variants.into_iter();
         Ok(quote! {
@@ -77,53 +265,34 @@ mod def_generation {
         })
     }
 
-    fn substitute_handles<'a>(
-        fields: impl IntoIterator<Item = &'a mut Field>,
-    ) -> Result<(), syn::Error> {
-        for field in fields {
-            if let Type::Path(TypePath { ref mut path, .. }) = field.ty {
-                substitute_handle(path)?;
-            }
-            let field_type = &field.ty;
-            let from_def_trait = from_def_trait()?;
-            field.ty = parse2(quote!(<#field_type as #from_def_trait>::Def))?;
-        }
-        Ok(())
+    fn generate_def_fields(
+        fields: Punctuated<Field, Comma>,
+    ) -> syn::Result<Punctuated<Field, Comma>> {
+        fields
+            .into_iter()
+            .filter_map(|f| generate_def_field(f).transpose())
+            .collect()
     }
 
-    fn substitute_handle(path: &mut syn::Path) -> Result<(), syn::Error> {
-        let last_segment = match path.segments.last_mut() {
-            Some(last_segment) => last_segment,
-            None => {
-                return Err(syn::Error::new_spanned(
-                    &path,
-                    "dude, what is this path without any segments? I can't...",
-                ));
+    fn generate_def_field(mut field: Field) -> syn::Result<Option<Field>> {
+        let from_def_trait = match FieldAttr::parse(&field.attrs)? {
+            Some(FieldAttr { implicit: true, .. }) => return Ok(None),
+            Some(FieldAttr {
+                implicit: false,
+                spec: Some(_),
+            }) => {
+                let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+                quote!(#asset_module::FromDefWithResolver)
+            }
+            _ => {
+                let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+                quote!(#asset_module::FromDef)
             }
         };
-        if last_segment.arguments.is_none() {
-            return Ok(());
-        }
-        let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) =
-            &mut last_segment.arguments
-        else {
-            return Ok(());
-        };
-        if last_segment.ident == "Handle" {
-            *last_segment = PathSegment {
-                ident: Ident::new("String", Span::call_site()),
-                arguments: PathArguments::None,
-            };
-            Ok(())
-        } else {
-            for generic_arg in args {
-                let GenericArgument::Type(Type::Path(TypePath { path, .. })) = generic_arg else {
-                    continue;
-                };
-                substitute_handle(path)?;
-            }
-            Ok(())
-        }
+        let field_type = &field.ty;
+        field.attrs.clear();
+        field.ty = parse2(quote!(<#field_type as #from_def_trait>::Def))?;
+        Ok(Some(field))
     }
 
     #[cfg(test)]
@@ -164,12 +333,17 @@ mod def_generation {
 }
 
 mod game_asset_impl {
-
     use proc_macro2::{Span, TokenStream};
     use quote::{ToTokens, quote};
     use syn::{
-        Data, DataEnum, DataStruct, DeriveInput, Field, Fields, FieldsNamed, FieldsUnnamed, Ident,
-        Type, spanned::Spanned,
+        AngleBracketedGenericArguments, Data, DataEnum, DataStruct, DeriveInput, Field, Fields,
+        FieldsNamed, FieldsUnnamed, GenericArgument, Ident, PathArguments, Type, TypePath,
+        spanned::Spanned,
+    };
+
+    use crate::{
+        ASSET_MODULE_PATH, CratePath,
+        from_def::{FieldAttr, FieldSpec, PathKind},
     };
 
     use super::from_def_trait;
@@ -188,7 +362,7 @@ mod game_asset_impl {
         }
     }
 
-    pub fn generate_conversion_for(
+    pub fn generate_def_transform(
         derive_input: &DeriveInput,
         def_type: &syn::Type,
         def_var_ident: impl ToTokens,
@@ -196,8 +370,8 @@ mod game_asset_impl {
     ) -> Result<TokenStream, syn::Error> {
         let ctx = FromDefImplContext::new(def_var_ident, load_context_var_ident);
         match &derive_input.data {
-            Data::Struct(input_struct) => generate_conversion_for_struct(input_struct, &ctx),
-            Data::Enum(input_enum) => generate_conversion_for_enum(input_enum, def_type, &ctx),
+            Data::Struct(input_struct) => generate_def_transform_for_struct(input_struct, &ctx),
+            Data::Enum(input_enum) => generate_def_transform_for_enum(input_enum, def_type, &ctx),
             Data::Union(_) => Err(syn::Error::new(
                 derive_input.span(),
                 "def to asset conversion generation not supported for unions",
@@ -205,7 +379,7 @@ mod game_asset_impl {
         }
     }
 
-    fn generate_conversion_for_struct(
+    fn generate_def_transform_for_struct(
         input_struct: &DataStruct,
         ctx: &FromDefImplContext,
     ) -> Result<TokenStream, syn::Error> {
@@ -239,7 +413,7 @@ mod game_asset_impl {
         })
     }
 
-    fn generate_conversion_for_enum(
+    fn generate_def_transform_for_enum(
         input_enum: &DataEnum,
         def_type: &Type,
         ctx: &FromDefImplContext,
@@ -248,9 +422,7 @@ mod game_asset_impl {
         for variant in input_enum.variants.iter() {
             let variant_ident = &variant.ident;
             let variant_conversion = match &variant.fields {
-                Fields::Unit => {
-                    quote!(#def_type::#variant_ident => Self::#variant_ident)
-                }
+                Fields::Unit => quote!(#def_type::#variant_ident => Self::#variant_ident),
                 Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                     let fields: Vec<_> = unnamed
                         .iter()
@@ -265,7 +437,9 @@ mod game_asset_impl {
                         .iter()
                         .map(|(field, ident)| generate_field_conversion(field, ident, ctx))
                         .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                    quote!(#def_type::#variant_ident( #(#fields_destructured),* ) => Self::#variant_ident( #(#field_conversions),* ))
+                    quote! {
+                        #def_type::#variant_ident( #(#fields_destructured),* ) => Self::#variant_ident( #(#field_conversions),* )
+                    }
                 }
                 Fields::Named(FieldsNamed { named, .. }) => {
                     let fields_destructured = named.iter().map(|field| &field.ident);
@@ -276,7 +450,9 @@ mod game_asset_impl {
                             generate_field_conversion(field, field_access, ctx)
                         })
                         .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                    quote!(#def_type::#variant_ident { #(#fields_destructured),* } => Self::#variant_ident { #(#field_conversions),* })
+                    quote! {
+                        #def_type::#variant_ident { #(#fields_destructured),* } => Self::#variant_ident { #(#field_conversions),* }
+                    }
                 }
             };
             variant_conversions.push(variant_conversion);
@@ -296,17 +472,133 @@ mod game_asset_impl {
         field_access: impl ToTokens,
         ctx: &FromDefImplContext,
     ) -> Result<TokenStream, syn::Error> {
+        let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
         let colon = &field.colon_token;
         let field_type = &field.ty;
         let from_def_trait = from_def_trait()?;
         let field_ident = &field.ident;
         let ctx_var_ident = &ctx.load_context_var_ident;
-        Ok(quote! {
-            #field_ident #colon <#field_type as #from_def_trait>::from_def(
-                #field_access,
-                #ctx_var_ident
-            )?
-        })
+
+        let attr = FieldAttr::parse(&field.attrs)?;
+        let def_expr = if let Some(FieldAttr { implicit: true, .. }) = &attr {
+            quote! {
+                <<Self as #asset_module::HasResolver>::Resolver as #asset_module::AssetResolver>::to_id(
+                    &<Self as #asset_module::HasResolver>::resolver(),
+                    #ctx_var_ident.path().clone()
+                )
+            }
+        } else {
+            field_access.to_token_stream()
+        };
+        let conversion = if let Some(field_spec) = attr.as_ref().and_then(|a| a.spec.as_ref()) {
+            let resolver_expr = generate_resolver_from(&field.ty, field_spec, ctx)?;
+
+            quote! {
+                #field_ident #colon <#field_type as #asset_module::FromDefWithResolver>::from_def_with_resolver(
+                    #def_expr,
+                    &#resolver_expr,
+                    #ctx_var_ident
+                )?
+            }
+        } else {
+            quote! {
+                #field_ident #colon <#field_type as #from_def_trait>::from_def(
+                    #def_expr,
+                    #ctx_var_ident
+                )?
+            }
+        };
+
+        Ok(conversion)
+    }
+
+    fn generate_resolver_from(
+        field_type: &syn::Type,
+        spec: &FieldSpec,
+        ctx: &FromDefImplContext,
+    ) -> syn::Result<TokenStream> {
+        let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+        let provider_expr = match &spec.path_kind {
+            PathKind::Root(base_path) => {
+                let extension = if let Some(extension) = spec.extension.as_ref() {
+                    quote!(Some(#extension))
+                } else {
+                    quote!(None)
+                };
+                quote! {
+                    #asset_module::DynamicPathResolver {
+                        base_path: #base_path.to_string(),
+                        extension: #extension,
+                    }
+                }
+            }
+            PathKind::Child(sub_path) => {
+                let asset_type = extract_asset_type(field_type).ok_or_else(|| {
+                    syn::Error::new(
+                        field_type.span(),
+                        format!(
+                            "`subpath` only allowed for types, that contain a bevy::asset::Handle"
+                        ),
+                    )
+                })?;
+                let (sub_path, extension) = sub_path
+                    .as_ref()
+                    .map(|p| {
+                        let extension = if let Some(extension) = spec.extension.as_ref() {
+                            quote!(Some(#extension))
+                        } else {
+                            quote!(None)
+                        };
+                        (p.to_token_stream(), extension) })
+                    .unwrap_or_else(|| {(
+                            quote! {
+                                <#asset_type as #asset_module::HasSpecProvider>::provider().base_path()
+                            },
+                            quote! {
+                                <#asset_type as #asset_module::HasSpecProvider>::provider().extension()
+                            }
+                    )});
+                let ctx_var_ident = &ctx.load_context_var_ident;
+                quote! {
+                    #asset_module::DynamicPathResolver::resolve_sub_path(
+                        #ctx_var_ident,
+                        #sub_path,
+                        #extension
+                    )?
+                }
+            }
+        };
+
+        Ok(provider_expr)
+    }
+
+    fn extract_asset_type(field_type: &syn::Type) -> Option<&syn::Type> {
+        let syn::Type::Path(TypePath { path, .. }) = field_type else {
+            return None;
+        };
+        let last_segment = path.segments.last()?;
+        let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) =
+            &last_segment.arguments
+        else {
+            return None;
+        };
+        if last_segment.ident == "Handle" {
+            return if let GenericArgument::Type(asset_type) = args.first()? {
+                Some(asset_type)
+            } else {
+                None
+            };
+        } else {
+            for generic_arg in args {
+                if let GenericArgument::Type(inner) = generic_arg {
+                    let result = extract_asset_type(inner);
+                    if result.is_some() {
+                        return result;
+                    }
+                }
+            }
+            None
+        }
     }
 
     fn generate_field_name_for_unnamed(field_index: usize, field_span: Span) -> Ident {

@@ -2,7 +2,7 @@ use bevy::{asset::AssetPath, prelude::*};
 use serde::{Deserialize, Serialize};
 
 use crate::asset::{
-    AssetResolver, FromDef, FromDefError,
+    AssetResolver, FromDef, FromDefError, HasResolver,
     overworld::{object::ObjectSpritesheet, tile::TileKindSpritesheet},
 };
 
@@ -39,8 +39,8 @@ pub enum SpritesheetKind {
 impl SpritesheetKind {
     fn resolve(&self, id: &str) -> Result<AssetPath<'static>, FromDefError> {
         match self {
-            Self::Tile => TileKindSpritesheet::resolve(id),
-            Self::Object => ObjectSpritesheet::resolve(id),
+            Self::Tile => <TileKindSpritesheet as HasResolver>::resolver().resolve(id),
+            Self::Object => <ObjectSpritesheet as HasResolver>::resolver().resolve(id),
         }
     }
 }

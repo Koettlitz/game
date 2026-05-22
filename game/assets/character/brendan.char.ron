@@ -1,0 +1,12 @@
+(
+    animations: {
+        Standing(Up): Static(6),
+        Standing(Left): Static(12),
+        Standing(Right): Static(12),
+        Standing(Down): Static(0),
+        Walking(Up): Animated("brendan_walking_up"),
+        Walking(Left): Animated("brendan_walking_left"),
+        Walking(Right): Animated("brendan_walking_left"),
+        Walking(Down): Animated("brendan_walking_down"),
+    },
+)

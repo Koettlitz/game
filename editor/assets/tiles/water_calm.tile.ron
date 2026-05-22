@@ -1,5 +1,3 @@
 (
     passability: Always,
-    spritesheet: "water_calm.png",
-    edge_config: "water_calm",
 )

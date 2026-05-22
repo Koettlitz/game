@@ -1,5 +1,3 @@
 (
     passability: Surf,
-    spritesheet: "water_wild.png",
-    edge_config: "water_wild",
 )

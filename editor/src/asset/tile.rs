@@ -1,8 +1,9 @@
 use engine::{
     asset::{
-        AssetMap, AssetRef, AssetResolver, AssetSetPlugin, AssetsExt, FromDef, FromDefError,
-        RonAssetPlugin, animation::sprite::SpriteAnimationAsset, one_or_many,
-        overworld::tile::TileKindSpritesheet,
+        AssetMap, AssetRef, AssetSetPlugin, AssetsExt, FromDef, FromDefError, RonAssetPlugin,
+        animation::sprite::SpriteAnimationAsset,
+        one_or_many,
+        overworld::{TILE_LAYER, tile::TileKindSpritesheet},
     },
     overworld::tile::{GridCursor, Neighbor, Passability},
 };
@@ -16,7 +17,7 @@ use bevy::{
 use engine::asset::implicit_option;
 use serde::{Deserialize, Serialize};
 
-pub type TileKindMap = AssetMap<Tile, TileKindAsset>;
+pub type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
 
 pub struct TileAssetPlugin;
 impl Plugin for TileAssetPlugin {
@@ -52,35 +53,16 @@ fn derive_layouts(
     Ok(())
 }
 
-#[derive(Asset, TypePath, Debug)]
+#[derive(Asset, TypePath, FromDef, Debug)]
 #[asset_set(base_path = "tiles", progress_name = "tiles")]
 pub struct TileKindAsset {
     pub passability: Passability,
+
+    #[from_def(implicit)]
     pub spritesheet: TileKindSpritesheet,
+
+    #[from_def(implicit)]
     pub edge_config: Handle<TileEdgeConfig>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct TileKindDef {
-    pub passability: Passability,
-    pub spritesheet: String,
-    pub edge_config: String,
-}
-
-impl FromDef for TileKindAsset {
-    type Def = TileKindDef;
-    type Error = FromDefError;
-
-    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Ok(Self {
-            passability: def.passability,
-            spritesheet: TileKindSpritesheet::from_def(def.spritesheet, ctx)?,
-            edge_config: ctx.load(TileEdgeConfig::resolve(&def.edge_config)?),
-        })
-    }
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -169,8 +151,8 @@ impl AdjacentRequirements {
         let center = cursor.get().as_ref().unwrap();
         self.all()
             .iter()
-            .zip(cursor.iter_exclusive().iter().flatten())
-            .all(|(req, neighbor)| req.matches(center, neighbor.as_ref()))
+            .zip(cursor.around_exclusive().iter())
+            .all(|(req, neighbor)| req.matches(center, neighbor.unwrap_or(&None).as_ref()))
     }
 
     pub fn all(&self) -> [&AdjacentRequirement; 8] {
@@ -425,9 +407,9 @@ enum VisualLayer {
 impl VisualLayer {
     fn z(&self) -> f32 {
         match self {
-            Self::Below => 1.0,
-            Self::Base => 20.0,
-            Self::Above => Self::Base.z() + 1.0,
+            Self::Below => TILE_LAYER - 20.0,
+            Self::Base => TILE_LAYER,
+            Self::Above => TILE_LAYER + 1.0,
         }
     }
 }

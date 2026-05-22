@@ -1,5 +1,3 @@
 (
     passability: Always,
-    spritesheet: "sand.png",
-    edge_config: "sand",
 )

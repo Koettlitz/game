@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use engine::asset::AssetMap;
+use engine::asset::AssetRef;
 use engine::asset::AssetSetPlugin;
 use engine::asset::RonAssetPlugin;
-use engine::asset::overworld::object::ObjectSpritesheet;
 use macros::FromDef;
 use macros::asset_set;
 use serde::{Deserialize, Serialize};
 
-pub type GameObjectKindMap = AssetMap<Object, GameObjectKindAsset>;
+pub type GameObjectKindMap = AssetMap<ObjectResolverSet, GameObjectKindAsset>;
 
 pub struct GameObjectAssetPlugin;
 impl Plugin for GameObjectAssetPlugin {
@@ -24,7 +24,8 @@ impl Plugin for GameObjectAssetPlugin {
 #[asset_set(base_path = "objects")]
 pub struct GameObjectKindAsset {
     pub collision_box: Option<IRect>,
-    pub sprite_sheet: ObjectSpritesheet,
+    #[from_def(with_spec(base_path = "objects/spritesheets"))]
+    pub sprite_sheet: AssetRef<Image>,
 }
 
 #[derive(Serialize, Deserialize)]

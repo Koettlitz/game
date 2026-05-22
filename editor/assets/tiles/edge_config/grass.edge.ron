@@ -5,7 +5,7 @@
             base: Static(0),
         ),
         (
-            top: Either(["water_calm", "water_wild"]),
+            top: Either("water"),
         ): (
             base: Static(0),
             above: [

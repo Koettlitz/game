@@ -81,8 +81,13 @@ fn update_sprites(
         .ok_or_else(|| MissingAssetError::new(tile_kind_asset.edge_config.id()))?
         .edge_cases
         .iter()
-        .find(|(req, _)| req.matches(&tile_grid.cursor_at(position)))
-        .expect("no adjacent requirement matched the current surroundings")
+        .find(|(req, _)| {
+            let matches = req.matches(&tile_grid.cursor_at(position));
+            if matches {
+            }
+            matches
+        })
+        .expect("no adjacent requirement matched the current surroundings - this should never happen because there needs to be a default")
         .1;
     for (z, layer) in layers.iter() {
         let sprite_entity = spawn_tile_sprite(

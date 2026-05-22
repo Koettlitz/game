@@ -4,7 +4,7 @@ use build::{
     ASSET_MODULE_PATH, CratePath,
     asset_enum::{derive_enum_file_name, derive_enum_type_name},
     asset_set::AssetSetArgs,
-    from_def::{derive_def_type_name, from_def_trait, generate_conversion_for, generate_def_for},
+    from_def::{derive_def_type_name, from_def_trait, generate_def_for, generate_def_transform},
     is_self, resolve_crate_name,
     spec::{SpecArgs, create_spec_impl},
 };
@@ -38,7 +38,7 @@ pub fn asset_spec(attr: TokenStream, item: TokenStream) -> TokenStream {
         _ => {
             let error = syn::Error::new_spanned(
                 &item,
-                "resolver attribute is only valid for structs and enums",
+                "asset_spec attribute is only valid for structs and enums",
             )
             .to_compile_error();
             return quote! {
@@ -53,10 +53,22 @@ pub fn asset_spec(attr: TokenStream, item: TokenStream) -> TokenStream {
         Ok(resolver_impl) => resolver_impl,
         Err(e) => e.to_compile_error(),
     };
+    let asset_module = match CratePath::try_from(ASSET_MODULE_PATH) {
+        Ok(asset_module) => asset_module,
+        Err(e) => return e.to_compile_error().into(),
+    };
     quote! {
         #item
 
         #spec_impl
+
+        impl #asset_module::HasResolver for #type_ident {
+            type Resolver = #asset_module::ResolverSpec<Self>;
+
+            fn resolver() -> Self::Resolver {
+                #asset_module::ResolverSpec::<Self>::default()
+            }
+        }
     }
     .into()
 }
@@ -121,8 +133,11 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
         impl #impl_generics #asset_module::HasResolver for #struct_ident #ty_generics
             #where_clause
         {
-            type Resolver = #enum_type;
+            type Resolver = #asset_module::StaticResolverAdapter<#enum_type>;
 
+            fn resolver() -> Self::Resolver {
+                #asset_module::StaticResolverAdapter::<#enum_type>::default()
+            }
         }
     };
     let has_resolver_set_impl = quote! {
@@ -130,6 +145,12 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
             #where_clause
         {
             type ResolverSet = #enum_type;
+        }
+    };
+    let base_path = args.base_path;
+    let asset_spec_impl = quote! {
+        impl #asset_module::AssetPathSpec for #enum_type {
+            const BASE_PATH: &'static str = #base_path;
         }
     };
     quote! {
@@ -140,6 +161,8 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
         #has_resolver_impl
 
         #has_resolver_set_impl
+
+        #asset_spec_impl
     }
     .into()
 }
@@ -157,7 +180,7 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     3. If the additional `#[def_type]` attribute is not provided at all this macro generates a
 ///        def type.
 ///     All fields must implement FromDef tho.
-#[proc_macro_derive(FromDef, attributes(def_type))]
+#[proc_macro_derive(FromDef, attributes(def_type, from_def))]
 pub fn from_def(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let asset_module = match CratePath::try_from(ASSET_MODULE_PATH) {
@@ -185,7 +208,7 @@ pub fn from_def(item: TokenStream) -> TokenStream {
             };
         }
     }
-    let (generated_def, def_type, conversion_impl) = match def_type {
+    let (generated_def, def_type, def_transform) = match def_type {
         None => {
             let def_type_name = derive_def_type_name(&input_ident.to_string());
             let def_type = match syn::parse_str(&def_type_name) {
@@ -196,20 +219,20 @@ pub fn from_def(item: TokenStream) -> TokenStream {
                 Ok(def) => def,
                 Err(e) => return e.to_compile_error().into(),
             };
-            let conversion_impl = match generate_conversion_for(
+            let def_transform = match generate_def_transform(
                 &input,
                 &def_type,
                 &def_var_ident,
                 &load_context_var_ident,
             ) {
-                Ok(cimpl) => cimpl,
+                Ok(def_transform) => def_transform,
                 Err(e) => return e.to_compile_error().into(),
             };
-            (Some(generated_def), def_type, conversion_impl)
+            (Some(generated_def), def_type, def_transform)
         }
         Some(def_type) if is_self(&def_type) => (None, def_type, def_var_ident.to_token_stream()),
         Some(def_type) => {
-            let conversion_impl = match generate_conversion_for(
+            let def_transform = match generate_def_transform(
                 &input,
                 &def_type,
                 &def_var_ident,
@@ -218,7 +241,7 @@ pub fn from_def(item: TokenStream) -> TokenStream {
                 Ok(cimpl) => cimpl,
                 Err(e) => return e.to_compile_error().into(),
             };
-            (None, def_type, conversion_impl)
+            (None, def_type, def_transform)
         }
     };
     let macro_result = quote! {
@@ -232,7 +255,7 @@ pub fn from_def(item: TokenStream) -> TokenStream {
                 #def_var_ident: Self::Def,
                 #load_context_var_ident: &mut #bevy_crate::asset::LoadContext<'_>,
             ) -> std::result::Result<Self, Self::Error> {
-                Ok(#conversion_impl)
+                Ok(#def_transform)
             }
         }
     }
