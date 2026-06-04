@@ -119,9 +119,7 @@ fn switch_cursor(
     } else {
         for key in keys.get_just_pressed() {
             if let Some(handle) = tilekind_keymap.0.get(key) {
-                *cursor = Cursor::GroundTile(Some(handle.clone()));
-            } else if *key == KeyCode::KeyX {
-                *cursor = Cursor::GroundTile(None);
+                *cursor = Cursor::GroundTile(handle.clone());
             }
         }
     }
@@ -136,7 +134,9 @@ fn place_tiles(
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
 ) {
-    if !mouse_btn.pressed(MouseButton::Left) {
+    let left_pressed = mouse_btn.pressed(MouseButton::Left);
+    let right_pressed = mouse_btn.pressed(MouseButton::Right);
+    if !left_pressed && !right_pressed {
         return;
     }
     let Cursor::GroundTile(ref tile_kind) = *cursor else {
@@ -156,26 +156,26 @@ fn place_tiles(
         for _ in 0..step_count {
             let world_position =
                 cursor_pos_to_world_pos(starting_pos, camera.0, camera.1).truncate();
-            if let Some(tile_kind) = tile_kind.as_ref() {
+            if left_pressed {
                 place_tile_writer.write(PlaceTile {
                     world_position,
                     tile_kind: tile_kind.clone(),
                 });
-            } else {
+            } else if right_pressed {
                 remove_tile_writer.write(RemoveTile { world_position });
             }
             starting_pos += tile_step;
         }
-    } else if mouse_btn.just_pressed(MouseButton::Left) {
+    } else {
         let world_position =
             cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate();
 
-        if let Some(tile_kind) = tile_kind.as_ref() {
+        if mouse_btn.just_pressed(MouseButton::Left) {
             place_tile_writer.write(PlaceTile {
                 world_position,
                 tile_kind: tile_kind.clone(),
             });
-        } else {
+        } else if mouse_btn.just_pressed(MouseButton::Right) {
             remove_tile_writer.write(RemoveTile { world_position });
         }
     }

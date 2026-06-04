@@ -42,7 +42,7 @@ impl Plugin for UIPlugin {
 enum Cursor {
     #[default]
     Default,
-    GroundTile(Option<AssetRef<TileKindAsset>>),
+    GroundTile(AssetRef<TileKindAsset>),
     Object(AssetRef<GameObjectKindAsset>),
 }
 
@@ -65,21 +65,10 @@ fn on_cursor_changed(
     }
     match &*cursor {
         Cursor::GroundTile(tile_kind_handle) => {
-            let (mut sprite, animation_ref) = match tile_kind_handle {
-                Some(tile_kind_handle) => {
-                    let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
-                    let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-                    create_tile_sprite(&tile_kind.spritesheet, edge_config)?
-                }
-                None => (
-                    Sprite {
-                        color: Color::BLACK,
-                        custom_size: Some(TILE_SIZE.as_vec2()),
-                        ..Default::default()
-                    },
-                    None,
-                ),
-            };
+            let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
+            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+            let (mut sprite, animation_ref) =
+                create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
             sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
             let mut entity = commands.spawn((CursorSprite, sprite));
             if let Some(animation_ref) = animation_ref {
