@@ -33,12 +33,12 @@ impl Plugin for TilePlugin {
             )
             .add_systems(
                 Update,
-                ((grow_grid_to_place_tiles, place_tile).chain(), remove_tile)
+                ((grow_grid_to_fit_tiles, place_tile).chain(), remove_tile)
                     .run_if(in_state(ProgressState::Finished)),
             )
             .add_systems(
                 Update,
-                (on_tile_kind_changed, on_edge_config_changed)
+                (hot_reload_tile_kinds, hot_reload_edge_configs)
                     .run_if(in_state(ProgressState::Finished)),
             );
     }
@@ -75,7 +75,7 @@ fn spawn_tile_grid(
         .iter()
         .filter(|(id, _)| *id == DEFAULT_TILE_KIND)
         .next()
-        .expect(&format!("missing ground tile kind \"{DEFAULT_TILE_KIND}\""));
+        .expect(&format!("missing tile kind \"{DEFAULT_TILE_KIND}\""));
     commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
         let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
         let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
@@ -89,17 +89,18 @@ fn spawn_tile_grid(
     Ok(())
 }
 
-fn grow_grid_to_place_tiles(
+fn grow_grid_to_fit_tiles(
     mut event_reader: MessageReader<PlaceTile>,
     tile_grid: Single<(&mut Grid<Option<Tile>>, &mut GridSize)>,
 ) {
-    let (mut grid, mut grid_size) = tile_grid.into_inner();
-    if !event_reader.is_empty() {
-        grid.grow_to_fit(
-            &mut grid_size,
-            event_reader.read().map(|msg| msg.world_position),
-        );
+    if event_reader.is_empty() {
+        return;
     }
+    let (mut grid, mut grid_size) = tile_grid.into_inner();
+    grid.grow_to_fit(
+        &mut grid_size,
+        event_reader.read().map(|msg| msg.world_position),
+    );
 }
 
 fn place_tile(
@@ -165,7 +166,7 @@ fn remove_tile(
     }
 }
 
-fn on_tile_kind_changed(
+fn hot_reload_tile_kinds(
     mut message_reader: MessageReader<AssetEvent<TileKindAsset>>,
     mut tile_kinds: ResMut<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
@@ -202,7 +203,7 @@ fn on_tile_kind_changed(
     Ok(())
 }
 
-fn on_edge_config_changed(
+fn hot_reload_edge_configs(
     mut message_reader: MessageReader<AssetEvent<TileEdgeConfig>>,
     ground_tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,

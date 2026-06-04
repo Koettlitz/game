@@ -16,7 +16,7 @@ use crate::{
     ui::{
         Cursor, ShowGridLines,
         camera::{CameraMovement, CameraPlugin},
-        cursor_pos_to_world_pos,
+        screen_to_world,
     },
 };
 
@@ -30,14 +30,21 @@ impl Plugin for InputPlugin {
             .init_resource::<Cursor>()
             .init_resource::<TileKindKeyMap>()
             .init_resource::<GameObjectKindKeyMap>()
-            .add_systems(OnEnter(ProgressState::Finished), init_tile_kind_keymap)
-            .add_systems(OnEnter(ProgressState::Finished), init_object_kind_keymap)
+            .add_systems(
+                OnEnter(ProgressState::Finished),
+                (init_tile_kind_keymap, init_object_kind_keymap),
+            )
             .add_systems(
                 PreUpdate,
-                (switch_cursor, place_tiles, place_object, toggle_grid_lines)
-                    .run_if(in_state(ProgressState::Finished)),
+                (
+                    move_camera,
+                    (
+                        (switch_cursor, (place_tiles, place_object)).chain(),
+                        toggle_grid_lines,
+                    )
+                        .run_if(in_state(ProgressState::Finished)),
+                ),
             )
-            .add_systems(PreUpdate, move_camera)
             .add_systems(
                 PostUpdate,
                 save_lozo.run_if(in_state(ProgressState::Finished)),
@@ -154,8 +161,7 @@ fn place_tiles(
             .clamp_length(tile_step_size, tile_step_size);
         let step_count = (delta.length() / tile_step.length()).ceil() as usize;
         for _ in 0..step_count {
-            let world_position =
-                cursor_pos_to_world_pos(starting_pos, camera.0, camera.1).truncate();
+            let world_position = screen_to_world(starting_pos, camera.0, camera.1).truncate();
             if left_pressed {
                 place_tile_writer.write(PlaceTile {
                     world_position,
@@ -167,8 +173,7 @@ fn place_tiles(
             starting_pos += tile_step;
         }
     } else {
-        let world_position =
-            cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate();
+        let world_position = screen_to_world(cursor_position, camera.0, camera.1).truncate();
 
         if mouse_btn.just_pressed(MouseButton::Left) {
             place_tile_writer.write(PlaceTile {
@@ -198,8 +203,8 @@ fn place_object(
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
-    let Some(grid_position) = grid_size
-        .world_to_grid(cursor_pos_to_world_pos(cursor_position, camera.0, camera.1).truncate())
+    let Some(grid_position) =
+        grid_size.world_to_grid(screen_to_world(cursor_position, camera.0, camera.1).truncate())
     else {
         return;
     };

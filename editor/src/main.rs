@@ -4,7 +4,7 @@ use engine::{
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
-use crate::{io::IoPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UIPlugin};
+use crate::{io::IoPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UiPlugin};
 
 mod asset;
 mod io;
@@ -22,7 +22,7 @@ fn main() {
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             asset::AssetPlugin,
             ProgressPlugin,
-            UIPlugin,
+            UiPlugin,
             TilePlugin,
             GameObjectPlugin,
             SpriteAnimationPlugin,

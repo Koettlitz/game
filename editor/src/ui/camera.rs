@@ -21,7 +21,7 @@ pub struct CameraMovement {
     pub down: bool,
     timer: Timer,
     min_velocity: f32,
-    max_addtition: f32,
+    max_addition: f32,
 }
 
 impl Default for CameraMovement {
@@ -33,7 +33,7 @@ impl Default for CameraMovement {
             right: false,
             down: false,
             min_velocity: 10.0,
-            max_addtition: 100.0,
+            max_addition: 100.0,
         }
     }
 }
@@ -51,7 +51,7 @@ impl CameraMovement {
         } else if self.right && !self.left {
             translation += Vec3::X;
         }
-        let velocity = self.min_velocity + self.timer.fraction().cubed() * self.max_addtition;
+        let velocity = self.min_velocity + self.timer.fraction().cubed() * self.max_addition;
         let velocity = translation.clamp_length(velocity, velocity);
         velocity
     }

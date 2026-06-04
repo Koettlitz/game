@@ -23,9 +23,9 @@ mod input;
 
 const CURSOR_SPRITE_ALPHA: f32 = 0.5;
 
-pub struct UIPlugin;
+pub struct UiPlugin;
 
-impl Plugin for UIPlugin {
+impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputPlugin)
             .add_systems(Update, on_cursor_changed.run_if(resource_changed::<Cursor>))
@@ -63,8 +63,8 @@ fn on_cursor_changed(
     if let Ok(entity) = cursor_sprite.single() {
         commands.entity(entity).despawn();
     }
-    match &*cursor {
-        Cursor::GroundTile(tile_kind_handle) => {
+    match *cursor {
+        Cursor::GroundTile(ref tile_kind_handle) => {
             let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
             let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
             let (mut sprite, animation_ref) =
@@ -76,7 +76,7 @@ fn on_cursor_changed(
             }
             if let Some(cursor_position) = window
                 .cursor_position()
-                .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
+                .map(|pos| screen_to_world(pos, camera.0, camera.1))
             {
                 let translation = grid_size
                     .snap_to_tile(cursor_position.truncate())
@@ -84,7 +84,7 @@ fn on_cursor_changed(
                 entity.insert(Transform::from_translation(translation));
             }
         }
-        Cursor::Object(object_handle) => {
+        Cursor::Object(ref object_handle) => {
             let object_kind = object_kinds
                 .get(object_handle.handle().id())
                 .expect("cursor contained missing game object kind entity");
@@ -95,7 +95,7 @@ fn on_cursor_changed(
             let mut entity = commands.spawn((sprite, CursorSprite));
             if let Some(cursor_position) = window
                 .cursor_position()
-                .map(|pos| cursor_pos_to_world_pos(pos, camera.0, camera.1))
+                .map(|pos| screen_to_world(pos, camera.0, camera.1))
             {
                 let translation = grid_size
                     .snap_to_tile(cursor_position.truncate())
@@ -108,14 +108,10 @@ fn on_cursor_changed(
     Ok(())
 }
 
-fn cursor_pos_to_world_pos(
-    cursor_pos: Vec2,
-    camera: &Camera,
-    camera_transform: &GlobalTransform,
-) -> Vec3 {
+fn screen_to_world(cursor_pos: Vec2, camera: &Camera, camera_transform: &GlobalTransform) -> Vec3 {
     match camera.viewport_to_world_2d(camera_transform, cursor_pos) {
         Ok(world_pos) => world_pos.extend(128.0),
-        Err(e) => panic!("could not get world coords from mouse coords - {e}"),
+        Err(e) => panic!("could not convert screen to world coords - {e}"),
     }
 }
 
@@ -128,7 +124,7 @@ fn update_cursor_sprite(
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
-    let translation = cursor_pos_to_world_pos(cursor_position, camera.0, camera.1);
+    let translation = screen_to_world(cursor_position, camera.0, camera.1);
     let translation = grid_size
         .snap_to_tile(translation.truncate())
         .extend(translation.z);
@@ -164,22 +160,23 @@ fn on_tile_grid_spawn(event: On<Insert, GridSize>, mut commands: Commands) {
         .insert(ShowGridLines::default());
 }
 
-fn draw_grid_bounds(mut gizmos: Gizmos, grid: Single<(&GridSize, &ShowGridLines)>) {
-    let (grid_size, show_grid_lines) = grid.into_inner();
-    if **show_grid_lines {
-        gizmos
-            .grid_2d(
+fn draw_grid_bounds(mut gizmos: Gizmos, grid: Query<(&GridSize, &ShowGridLines)>) {
+    for (grid_size, show_grid_lines) in &grid {
+        if **show_grid_lines {
+            gizmos
+                .grid_2d(
+                    Isometry2d::IDENTITY,
+                    grid_size.as_uvec2(),
+                    TILE_SIZE.as_vec2(),
+                    Color::BLACK,
+                )
+                .outer_edges();
+        } else {
+            gizmos.rect_2d(
                 Isometry2d::IDENTITY,
-                grid_size.as_uvec2(),
-                TILE_SIZE.as_vec2(),
+                grid_size.as_vec2() * TILE_SIZE.as_vec2(),
                 Color::BLACK,
-            )
-            .outer_edges();
-    } else {
-        gizmos.rect_2d(
-            Isometry2d::IDENTITY,
-            grid_size.as_vec2() * TILE_SIZE.as_vec2(),
-            Color::BLACK,
-        );
+            );
+        }
     }
 }

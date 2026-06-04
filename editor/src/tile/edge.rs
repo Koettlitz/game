@@ -139,12 +139,9 @@ fn spawn_tile_sprite(
                 layout: spritesheet.layout()?.clone(),
                 index: *idx,
             };
+            let sprite = Sprite::from_atlas_image(spritesheet.image().clone(), atlas);
             let entity = commands
-                .spawn((
-                    TileSprite(spritesheet.id().to_string()),
-                    Sprite::from_atlas_image(spritesheet.image().clone(), atlas),
-                    transform,
-                ))
+                .spawn((TileSprite(spritesheet.id().to_string()), transform, sprite))
                 .id();
             Ok(Some(entity))
         }
@@ -157,10 +154,10 @@ fn spawn_tile_sprite(
             let entity = commands
                 .spawn((
                     TileSprite(spritesheet.id().to_string()),
+                    transform,
                     sprite,
                     Animated::by(animation_asset.handle().clone()),
                     AnimationId(animation_asset.id().to_string()),
-                    transform,
                 ))
                 .id();
             Ok(Some(entity))

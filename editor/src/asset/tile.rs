@@ -265,6 +265,7 @@ impl AdjacentRequirement {
             Self::SameGroup => other.map(|o| o.group == identity.group).unwrap_or(false),
             Self::OtherGroup => other.map(|o| o.group != identity.group).unwrap_or(false),
             Self::Either(e) => other
+                // Any of the given `e` matches the id or the group
                 .map(|o| {
                     e.iter().any(|e| {
                         e == o.kind.id() || o.group.as_ref().map(|o| o == e).unwrap_or(false)
@@ -370,14 +371,14 @@ impl FromDef for GroundTileVisualLayers {
                 .below
                 .into_iter()
                 .map(|c| GroundTileVisual::from_def(c, load_context))
-                .filter_map(|result| result.inspect_err(|e| bevy::log::error!("{e}")).ok())
+                .filter_map(|result| result.inspect_err(|e| error!("{e}")).ok())
                 .collect(),
             base: GroundTileVisual::from_def(config.base, load_context)?,
             above: config
                 .above
                 .into_iter()
                 .map(|c| GroundTileVisual::from_def(c, load_context))
-                .filter_map(|result| result.inspect_err(|e| bevy::log::error!("{e}")).ok())
+                .filter_map(|result| result.inspect_err(|e| error!("{e}")).ok())
                 .collect(),
         })
     }

@@ -1,6 +1,6 @@
 #### Key bindings
 | Description                       | Key binding                                                   |
-| :------------------               | :------------------                                           |
+| :-------------------------------- | :------------------------------------------------------------ |
 | Move around                       | ⬆⬅➡⬇                                                          |
 | Zoom                              | Mouse wheel                                                   |
 | Place whats in cursor (e.g. tile) | Left mouse                                                    |
