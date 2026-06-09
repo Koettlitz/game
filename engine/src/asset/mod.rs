@@ -27,12 +27,19 @@ pub type Phantom<L> = PhantomData<fn() -> L>;
 pub trait AssetResolver {
     // TODO: error type sollte nicht FromDefError sein hier
     fn resolve(&self, asset_id: &str) -> Result<AssetPath<'static>, FromDefError>;
-    fn to_id(&self, asset_path: AssetPath) -> String;
 }
 
 pub trait StaticAssetResolver {
     fn resolve(asset_id: &str) -> Result<AssetPath<'static>, FromDefError>;
-    fn to_id(asset_path: AssetPath) -> String;
+}
+
+pub fn extract_id_from(asset_path: AssetPath) -> String {
+    asset_path
+        .path()
+        .file_prefix()
+        .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
+        .to_string_lossy()
+        .to_string()
 }
 
 #[derive(Error, Debug)]
@@ -56,10 +63,6 @@ impl<S> Default for StaticResolverAdapter<S> {
 impl<S: StaticAssetResolver> AssetResolver for StaticResolverAdapter<S> {
     fn resolve(&self, asset_id: &str) -> Result<AssetPath<'static>, FromDefError> {
         S::resolve(asset_id)
-    }
-
-    fn to_id(&self, asset_path: AssetPath) -> String {
-        S::to_id(asset_path)
     }
 }
 
@@ -188,26 +191,6 @@ where
             Cow::Borrowed(asset_id)
         };
         Ok(AssetPath::from(self.base_path().to_string()).resolve(file_name.as_ref())?)
-    }
-
-    fn to_id(&self, asset_path: AssetPath) -> String {
-        if let Some(extension) = self.extension() {
-            let id = asset_path
-                .path()
-                .file_name()
-                .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
-                .to_string_lossy();
-            id.strip_suffix(&(".".to_string() + extension))
-                .unwrap_or(id.as_ref())
-                .to_string()
-        } else {
-            asset_path
-                .path()
-                .file_prefix()
-                .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
-                .to_string_lossy()
-                .to_string()
-        }
     }
 }
 
@@ -421,10 +404,12 @@ from_def_self![
     IRect,
     IVec2,
     Vec2,
+    Vec3,
     TextureAtlasLayout,
     Duration
 ];
 
+/// Registers the asset type `A` and a `RonAssetLoader<A>`
 pub struct RonAssetPlugin<A>(Phantom<A>);
 impl<A> Default for RonAssetPlugin<A> {
     fn default() -> Self {

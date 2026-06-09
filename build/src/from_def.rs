@@ -3,22 +3,69 @@ use std::fmt::Debug;
 pub use def_generation::*;
 pub use game_asset_impl::*;
 use proc_macro2::Span;
-use syn::{Attribute, Ident, LitStr, Token, parenthesized, parse::Parse, spanned::Spanned};
+use syn::{Attribute, Expr, Ident, LitStr, Token, parenthesized, parse::Parse, spanned::Spanned};
 
 use crate::{ASSET_MODULE_PATH, CratePath};
 
 #[derive(Debug)]
 struct FieldAttr {
+    default: bool,
     implicit: bool,
     spec: Option<FieldSpec>,
+    resolver: Option<Expr>,
+}
+
+impl Parse for FieldAttr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut implicit = false;
+        let mut default = false;
+        let mut spec: Option<FieldSpec> = None;
+        let mut resolver: Option<Expr> = None;
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+
+            match ident.to_string().as_str() {
+                "default" => default = true,
+                "implicit" => implicit = true,
+                "with_spec" => {
+                    let spec_args;
+                    parenthesized!(spec_args in input);
+                    spec = Some(FieldSpec::parse(&spec_args)?);
+                }
+                "with_resolver" => {
+                    let resolver_expr;
+                    parenthesized!(resolver_expr in input);
+                    resolver = Some(Expr::parse(&resolver_expr)?);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "Unknown parameter. Expected `default`, `implicit`, `with_spec` or `with_resolver`",
+                    ));
+                }
+            }
+            // optional trailing comma
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(Self {
+            implicit,
+            default,
+            spec,
+            resolver,
+        })
+    }
 }
 
 impl FieldAttr {
     fn validate(&self, span: Span) -> syn::Result<()> {
-        if !self.implicit && self.spec.is_none() {
+        if !self.implicit && !self.default && self.spec.is_none() && self.resolver.is_none() {
             Err(syn::Error::new(
                 span,
-                "expected at least one of `implicit` or `with_spec`",
+                "expected at least one of `implicit`, `default`, `with_spec` or `with_resolver`",
             ))
         } else if self.implicit
             && self
@@ -30,43 +77,20 @@ impl FieldAttr {
                 span,
                 "expected `extension` on implicit field",
             ))
+        } else if self.spec.is_some() && self.resolver.is_some() {
+            Err(syn::Error::new(
+                span,
+                "cannot use both `with_spec` and `with_resolver`",
+            ))
+        } else if self.default && (self.implicit || self.spec.is_some() || self.resolver.is_some())
+        {
+            Err(syn::Error::new(
+                span,
+                "`default` cannot be combined with other parameters",
+            ))
         } else {
             Ok(())
         }
-    }
-}
-
-impl Parse for FieldAttr {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut implicit = false;
-        let mut spec: Option<FieldSpec> = None;
-
-        while !input.is_empty() {
-            let ident: Ident = input.parse()?;
-
-            match ident.to_string().as_str() {
-                "implicit" => {
-                    implicit = true;
-                }
-                "with_spec" => {
-                    let spec_args;
-                    parenthesized!(spec_args in input);
-                    spec = Some(FieldSpec::parse(&spec_args)?);
-                }
-                _ => {
-                    return Err(syn::Error::new(
-                        ident.span(),
-                        "Unknown parameter. Expected `base_path`, or `extension`",
-                    ));
-                }
-            }
-            // optional trailing comma
-            if input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        Ok(Self { implicit, spec })
     }
 }
 
@@ -176,6 +200,12 @@ impl Parse for FieldSpec {
     }
 }
 
+fn expose_resolver<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> bool {
+    attrs
+        .into_iter()
+        .any(|attr| attr.path().is_ident("expose_resolver"))
+}
+
 mod def_generation {
     use proc_macro2::TokenStream;
     use quote::quote;
@@ -276,10 +306,12 @@ mod def_generation {
 
     fn generate_def_field(mut field: Field) -> syn::Result<Option<Field>> {
         let from_def_trait = match FieldAttr::parse(&field.attrs)? {
-            Some(FieldAttr { implicit: true, .. }) => return Ok(None),
-            Some(FieldAttr {
-                implicit: false,
-                spec: Some(_),
+            Some(FieldAttr { implicit: true, .. }) | Some(FieldAttr { default: true, .. }) => {
+                return Ok(None);
+            }
+            Some(FieldAttr { spec: Some(_), .. })
+            | Some(FieldAttr {
+                resolver: Some(_), ..
             }) => {
                 let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
                 quote!(#asset_module::FromDefWithResolver)
@@ -333,6 +365,7 @@ mod def_generation {
 }
 
 mod game_asset_impl {
+    use convert_case::{Case, Casing};
     use proc_macro2::{Span, TokenStream};
     use quote::{ToTokens, quote};
     use syn::{
@@ -343,7 +376,7 @@ mod game_asset_impl {
 
     use crate::{
         ASSET_MODULE_PATH, CratePath,
-        from_def::{FieldAttr, FieldSpec, PathKind},
+        from_def::{FieldAttr, FieldSpec, PathKind, expose_resolver},
     };
 
     use super::from_def_trait;
@@ -362,12 +395,17 @@ mod game_asset_impl {
         }
     }
 
+    pub struct DefTransformResult {
+        pub transformation: TokenStream,
+        pub resolver_fns: Vec<TokenStream>,
+    }
+
     pub fn generate_def_transform(
         derive_input: &DeriveInput,
         def_type: &syn::Type,
         def_var_ident: impl ToTokens,
         load_context_var_ident: impl ToTokens,
-    ) -> Result<TokenStream, syn::Error> {
+    ) -> Result<DefTransformResult, syn::Error> {
         let ctx = FromDefImplContext::new(def_var_ident, load_context_var_ident);
         match &derive_input.data {
             Data::Struct(input_struct) => generate_def_transform_for_struct(input_struct, &ctx),
@@ -382,33 +420,61 @@ mod game_asset_impl {
     fn generate_def_transform_for_struct(
         input_struct: &DataStruct,
         ctx: &FromDefImplContext,
-    ) -> Result<TokenStream, syn::Error> {
+    ) -> Result<DefTransformResult, syn::Error> {
         Ok(match &input_struct.fields {
-            Fields::Unit => quote!(Self),
+            Fields::Unit => DefTransformResult {
+                transformation: quote!(Self),
+                resolver_fns: Vec::new(),
+            },
             Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                 let def_var_ident = &ctx.def_var_ident;
-                let field_conversions = unnamed
+                let (field_conversions, resolver_fns) = unnamed
                     .iter()
                     .enumerate()
                     .map(|(field_index, field)| {
-                        let field_ident = syn::Index::from(field_index);
-                        let field_access = quote!(#def_var_ident.#field_ident);
-                        generate_field_conversion(field, field_access, ctx)
+                        let field_idx = syn::Index::from(field_index);
+                        let field_access = quote!(#def_var_ident.#field_idx);
+                        let field_ident = Ident::new(&format!("field{field_index}"), field.span());
+                        generate_field_conversion(field, &field_ident, field_access, ctx).map(
+                            |FieldResult {
+                                 def_conversion,
+                                 resolver_fn,
+                             }| (def_conversion, resolver_fn),
+                        )
                     })
-                    .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                quote!(Self( #(#field_conversions),* ))
+                    .collect::<Result<(Vec<TokenStream>, Vec<Option<TokenStream>>), syn::Error>>(
+                    )?;
+                DefTransformResult {
+                    transformation: quote!(Self( #(#field_conversions),* )),
+                    resolver_fns: resolver_fns.into_iter().filter_map(|o| o).collect(),
+                }
             }
             Fields::Named(FieldsNamed { named, .. }) => {
                 let def_var_ident = &ctx.def_var_ident;
-                let field_conversions = named
+                let (field_conversions, resolver_fns) = named
                     .iter()
                     .map(|field| {
                         let field_ident = &field.ident;
                         let field_access = quote!(#def_var_ident.#field_ident);
-                        generate_field_conversion(field, field_access, ctx)
+                        generate_field_conversion(
+                            field,
+                            field_ident.as_ref().unwrap(),
+                            field_access,
+                            ctx,
+                        )
+                        .map(
+                            |FieldResult {
+                                 def_conversion,
+                                 resolver_fn,
+                             }| (def_conversion, resolver_fn),
+                        )
                     })
-                    .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                quote!(Self { #(#field_conversions),* })
+                    .collect::<Result<(Vec<TokenStream>, Vec<Option<TokenStream>>), syn::Error>>(
+                    )?;
+                DefTransformResult {
+                    transformation: quote!(Self { #(#field_conversions),* }),
+                    resolver_fns: resolver_fns.into_iter().filter_map(|o| o).collect(),
+                }
             }
         })
     }
@@ -417,61 +483,90 @@ mod game_asset_impl {
         input_enum: &DataEnum,
         def_type: &Type,
         ctx: &FromDefImplContext,
-    ) -> Result<TokenStream, syn::Error> {
+    ) -> Result<DefTransformResult, syn::Error> {
         let mut variant_conversions = Vec::new();
+        let mut resolver_fns = Vec::new();
         for variant in input_enum.variants.iter() {
             let variant_ident = &variant.ident;
-            let variant_conversion = match &variant.fields {
-                Fields::Unit => quote!(#def_type::#variant_ident => Self::#variant_ident),
+            let (variant_conversion, variant_resolver_fns) = match &variant.fields {
+                Fields::Unit => (
+                    quote!(#def_type::#variant_ident => Self::#variant_ident),
+                    Vec::new(),
+                ),
                 Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                     let fields: Vec<_> = unnamed
                         .iter()
                         .enumerate()
                         .map(|(field_index, field)| {
-                            let ident = generate_field_name_for_unnamed(field_index, field.span());
+                            let ident = generate_field_name_for_unnamed(
+                                Some(&variant_ident.to_string().to_case(Case::Snake)),
+                                field_index,
+                                field.span(),
+                            );
                             (field, ident)
                         })
                         .collect();
                     let fields_destructured = fields.iter().map(|(_, ident)| ident);
-                    let field_conversions = fields
+                    let (field_conversions, resolver_fns) = fields
                         .iter()
-                        .map(|(field, ident)| generate_field_conversion(field, ident, ctx))
-                        .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                    quote! {
-                        #def_type::#variant_ident( #(#fields_destructured),* ) => Self::#variant_ident( #(#field_conversions),* )
-                    }
+                        .map(|(field, ident)| generate_field_conversion(field, ident, ident, ctx).map(|FieldResult { def_conversion, resolver_fn }| (def_conversion, resolver_fn)))
+                        .collect::<Result<(Vec<TokenStream>, Vec< Option<TokenStream> >), syn::Error>>()?;
+                    (
+                        quote! {
+                            #def_type::#variant_ident( #(#fields_destructured),* ) => Self::#variant_ident( #(#field_conversions),* )
+                        },
+                        resolver_fns,
+                    )
                 }
                 Fields::Named(FieldsNamed { named, .. }) => {
                     let fields_destructured = named.iter().map(|field| &field.ident);
-                    let field_conversions = named
+                    let (field_conversions, resolver_fns) = named
                         .iter()
                         .map(|field| {
                             let field_access = &field.ident;
-                            generate_field_conversion(field, field_access, ctx)
+                            generate_field_conversion(field, field.ident.as_ref().unwrap(), field_access, ctx).map(
+                                |FieldResult {
+                                     def_conversion,
+                                     resolver_fn ,
+                                 }| (def_conversion, resolver_fn),
+                            )
                         })
-                        .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-                    quote! {
-                        #def_type::#variant_ident { #(#fields_destructured),* } => Self::#variant_ident { #(#field_conversions),* }
-                    }
+                        .collect::<Result<(Vec<TokenStream>, Vec<Option<TokenStream>>), syn::Error>>()?;
+                    (
+                        quote! {
+                            #def_type::#variant_ident { #(#fields_destructured),* } => Self::#variant_ident { #(#field_conversions),* }
+                        },
+                        resolver_fns,
+                    )
                 }
             };
             variant_conversions.push(variant_conversion);
+            resolver_fns.append(&mut variant_resolver_fns.into_iter().filter_map(|o| o).collect());
         }
 
         let variant_conversions = variant_conversions.into_iter();
         let def_var_ident = &ctx.def_var_ident;
-        Ok(quote! {
-            match #def_var_ident {
-                #(#variant_conversions),*
-            }
+        Ok(DefTransformResult {
+            transformation: quote! {
+                match #def_var_ident {
+                    #(#variant_conversions),*
+                }
+            },
+            resolver_fns,
         })
+    }
+
+    struct FieldResult {
+        def_conversion: TokenStream,
+        resolver_fn: Option<TokenStream>,
     }
 
     fn generate_field_conversion(
         field: &Field,
+        artificial_field_ident: &Ident,
         field_access: impl ToTokens,
         ctx: &FromDefImplContext,
-    ) -> Result<TokenStream, syn::Error> {
+    ) -> Result<FieldResult, syn::Error> {
         let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
         let colon = &field.colon_token;
         let field_type = &field.ty;
@@ -479,37 +574,81 @@ mod game_asset_impl {
         let field_ident = &field.ident;
         let ctx_var_ident = &ctx.load_context_var_ident;
 
-        let attr = FieldAttr::parse(&field.attrs)?;
-        let def_expr = if let Some(FieldAttr { implicit: true, .. }) = &attr {
+        let from_def_attr = FieldAttr::parse(&field.attrs)?;
+        if let Some(FieldAttr { default: true, .. }) = &from_def_attr {
+            return Ok(FieldResult {
+                def_conversion: quote! {
+                    #field_ident #colon <#field_type as std::default::Default>::default()
+                },
+                resolver_fn: None,
+            });
+        }
+
+        let def_expr = if let Some(FieldAttr { implicit: true, .. }) = &from_def_attr {
             quote! {
-                <<Self as #asset_module::HasResolver>::Resolver as #asset_module::AssetResolver>::to_id(
-                    &<Self as #asset_module::HasResolver>::resolver(),
-                    #ctx_var_ident.path().clone()
-                )
+                #asset_module::extract_id_from(#ctx_var_ident.path().clone())
             }
         } else {
             field_access.to_token_stream()
         };
-        let conversion = if let Some(field_spec) = attr.as_ref().and_then(|a| a.spec.as_ref()) {
-            let resolver_expr = generate_resolver_from(&field.ty, field_spec, ctx)?;
 
-            quote! {
-                #field_ident #colon <#field_type as #asset_module::FromDefWithResolver>::from_def_with_resolver(
-                    #def_expr,
-                    &#resolver_expr,
-                    #ctx_var_ident
-                )?
+        let resolver_expr =
+            if let Some(field_spec) = from_def_attr.as_ref().and_then(|a| a.spec.as_ref()) {
+                Some(generate_resolver_from(&field.ty, field_spec, ctx)?)
+            } else {
+                from_def_attr
+                    .as_ref()
+                    .and_then(|a| a.resolver.as_ref().map(|r| r.to_token_stream()))
+            };
+
+        let expose_resolver = expose_resolver(&field.attrs);
+        Ok(if let Some(resolver_expr) = resolver_expr {
+            FieldResult {
+                def_conversion: quote! {
+                    #field_ident #colon <#field_type as #asset_module::FromDefWithResolver>::from_def_with_resolver(
+                        #def_expr,
+                        &#resolver_expr,
+                        #ctx_var_ident
+                    )?
+                },
+                resolver_fn: if expose_resolver {
+                    let fn_name = generate_resolver_fn_name(artificial_field_ident);
+                    Some(quote! {
+                        pub fn #fn_name() -> impl #asset_module::AssetResolver {
+                            #resolver_expr
+                        }
+                    })
+                } else {
+                    None
+                },
             }
         } else {
-            quote! {
-                #field_ident #colon <#field_type as #from_def_trait>::from_def(
-                    #def_expr,
-                    #ctx_var_ident
-                )?
+            let resolver_fn = if expose_resolver {
+                let Some(asset_type) = extract_asset_type(&field.ty) else {
+                    return Err(syn::Error::new(
+                        field.ty.span(),
+                        "cannot `expose_resolver` for non-asset field - field must be of a type that contains a Handle",
+                    ));
+                };
+                let fn_name = generate_resolver_fn_name(artificial_field_ident);
+                Some(quote! {
+                    pub fn #fn_name() -> impl #asset_module::AssetResolver {
+                        <#asset_type as #asset_module::HasResolver>::resolver()
+                    }
+                })
+            } else {
+                None
+            };
+            FieldResult {
+                def_conversion: quote! {
+                    #field_ident #colon <#field_type as #from_def_trait>::from_def(
+                        #def_expr,
+                        #ctx_var_ident
+                    )?
+                },
+                resolver_fn,
             }
-        };
-
-        Ok(conversion)
+        })
     }
 
     fn generate_resolver_from(
@@ -601,8 +740,21 @@ mod game_asset_impl {
         }
     }
 
-    fn generate_field_name_for_unnamed(field_index: usize, field_span: Span) -> Ident {
-        Ident::new(&format!("field{field_index}"), field_span)
+    fn generate_field_name_for_unnamed(
+        prefix: Option<&str>,
+        field_index: usize,
+        field_span: Span,
+    ) -> Ident {
+        let name = if let Some(prefix) = prefix {
+            format!("{prefix}{field_index}")
+        } else {
+            format!("field{field_index}")
+        };
+        Ident::new(&name, field_span)
+    }
+
+    fn generate_resolver_fn_name(field_ident: &Ident) -> Ident {
+        Ident::new(&format!("{field_ident}_resolver"), Span::call_site())
     }
 }
 

@@ -3,17 +3,14 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use engine::{
     animation::Animated,
-    asset::{
-        AssetRef, AssetsExt, MissingAssetError, animation::sprite::SpriteAnimationAsset,
-        overworld::tile::TileKindSpritesheet,
-    },
+    asset::{AssetRef, AssetsExt, animation::sprite::SpriteAnimationAsset},
     overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };
 
 use super::spawn_tile_grid;
 use crate::{
-    asset::tile::{GroundTileVisual, TileEdgeConfig, TileKindAsset},
+    asset::tile::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileKindSpritesheet},
     tile::{InvalidGridPosition, Tile, TilesChanged},
 };
 
@@ -76,9 +73,7 @@ fn update_sprites(
     } else {
         return Ok(());
     };
-    let layers = &edge_configs
-        .get(tile_kind_asset.edge_config.id())
-        .ok_or_else(|| MissingAssetError::new(tile_kind_asset.edge_config.id()))?
+    let layers = &edge_configs.require_handle(&tile_kind_asset.edge_config)?
         .edge_cases
         .iter()
         .find(|(req, _)| {
@@ -114,6 +109,7 @@ fn update_sprites(
 
 #[derive(Component)]
 pub struct TileSprite(String);
+
 impl TileSprite {
     pub fn id(&self) -> &str {
         &self.0
@@ -196,25 +192,23 @@ pub fn create_tile_sprite(
     let visual = visuals.get_default();
     Ok(match &visual.base() {
         GroundTileVisual::Static(idx) => (
-            Sprite {
-                image: spritesheet.image().clone(),
-                texture_atlas: Some(TextureAtlas {
+            Sprite::from_atlas_image(
+                spritesheet.image().clone(),
+                TextureAtlas {
                     layout: spritesheet.layout()?.clone(),
                     index: *idx,
-                }),
-                ..Default::default()
-            },
+                },
+            ),
             None,
         ),
         GroundTileVisual::Animated(animation_asset) => (
-            Sprite {
-                image: spritesheet.image().clone(),
-                texture_atlas: Some(TextureAtlas {
+            Sprite::from_atlas_image(
+                spritesheet.image().clone(),
+                TextureAtlas {
                     layout: spritesheet.layout()?.clone(),
                     index: 0,
-                }),
-                ..Default::default()
-            },
+                },
+            ),
             Some(animation_asset.clone()),
         ),
         GroundTileVisual::Neighbor(_) => {

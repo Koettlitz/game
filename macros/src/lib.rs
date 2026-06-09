@@ -4,7 +4,10 @@ use build::{
     ASSET_MODULE_PATH, CratePath,
     asset_enum::{derive_enum_file_name, derive_enum_type_name},
     asset_set::AssetSetArgs,
-    from_def::{derive_def_type_name, from_def_trait, generate_def_for, generate_def_transform},
+    from_def::{
+        DefTransformResult, derive_def_type_name, from_def_trait, generate_def_for,
+        generate_def_transform,
+    },
     is_self, resolve_crate_name,
     spec::{SpecArgs, create_spec_impl},
 };
@@ -143,11 +146,12 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let has_resolver_set_impl = quote! {
         impl #asset_set_module::HasResolverSet for #struct_ident #ty_generics
             #where_clause
-        {
+    {
             type ResolverSet = #enum_type;
         }
     };
     let base_path = args.base_path;
+    // TODO: include asset source prefix in base_path
     let asset_spec_impl = quote! {
         impl #asset_module::AssetPathSpec for #enum_type {
             const BASE_PATH: &'static str = #base_path;
@@ -167,20 +171,42 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Implements the trait engine::asset::FromDef for the annotated struct or enum.
-/// The type `FromDef::Def` can be provided by the additional attributes
+/// Implements the trait [`engine::asset::FromDef`] for the annotated struct or enum.
+/// The def type (`FromDef::Def`) can be provided by the additional attribute
 /// `#[def_type(DefType)]`. If this attribute is omitted, a DefType is generated.
 ///
-/// There are the the following ways to use this macro:
-///     1. `#[def_type(Self)]`
-///     2. `#[def_type(CustomType)]` provides a custom type to be used.
-///     That type needs to have the same number of fields with the same names as Self.
-///     The field types must match the corresponing fields type in Self in terms
-///     of the Self fields FromDef::Def type.
-///     3. If the additional `#[def_type]` attribute is not provided at all this macro generates a
+/// There are the following ways to specify the def_type:
+///     1. `#[def_type(Self)]` where no conversion is necessary, because the serializable type is
+///        also the runtime type. `from_def()` just returns `Self` as is.
+///     2. `#[def_type(CustomType)]` to provide a custom serializable def type to be used.
+///        That type needs to have a corresponing field with the same name for each field in `Self`
+///        that should be converted.
+///        The field types must match the corresponing fields type in `Self` in terms
+///        of its `FromDef::Def` type.
+///     3. If the additional `#[def_type]` attribute is omitted this macro generates a
 ///        def type.
-///     All fields must implement FromDef tho.
-#[proc_macro_derive(FromDef, attributes(def_type, from_def))]
+/// All fields included must implement FromDef though.
+///
+/// It is possible to influence resolution and def type generation by using the
+/// `#[from_def(...)]` attribute on the fields directly:
+///
+/// `#[from_def(default)]` will use the [`std::default::Default`] trait to construct a value, so
+/// it omits the field in the generated def type and also skips resolution completely.
+///
+/// `#[from_def(implicit)]` will omit the field in the generated def type and use the same id
+/// as of self to resolve the file name. The `implicit` option can be combined freely with `with_spec`.
+///
+/// `#[from_def(with_spec(base_path = "base/path"))]` overrides the `base_path` of the fields
+/// type used for resolution. This is only relevant for types like [`bevy::asset::Handle<T>`] or [`engine::asset::AssetRef<T>`]
+///
+/// Alternatively to specifying a `base_path` you can use
+/// `#[from_def(with_spec(sub_path = "foo"))]` to to make the field being resolved relatively
+/// to the current path (the `base_path` used to resolve the containing type).
+///
+/// Use `#[expose_resolver]` on a field to generate a function on the type containing the field
+/// which exposes the resolver. The name is derived from the field name (e.g.
+/// `MyAsset::foo_resolver()` for the field `foo`)
+#[proc_macro_derive(FromDef, attributes(def_type, from_def, expose_resolver))]
 pub fn from_def(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let asset_module = match CratePath::try_from(ASSET_MODULE_PATH) {
@@ -230,7 +256,14 @@ pub fn from_def(item: TokenStream) -> TokenStream {
             };
             (Some(generated_def), def_type, def_transform)
         }
-        Some(def_type) if is_self(&def_type) => (None, def_type, def_var_ident.to_token_stream()),
+        Some(def_type) if is_self(&def_type) => (
+            None,
+            def_type,
+            DefTransformResult {
+                transformation: def_var_ident.to_token_stream(),
+                resolver_fns: Vec::new(),
+            },
+        ),
         Some(def_type) => {
             let def_transform = match generate_def_transform(
                 &input,
@@ -244,10 +277,22 @@ pub fn from_def(item: TokenStream) -> TokenStream {
             (None, def_type, def_transform)
         }
     };
-    let macro_result = quote! {
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let (transformation, resolver_fns) = (def_transform.transformation, def_transform.resolver_fns);
+    let resolver_fns = if resolver_fns.is_empty() {
+        None
+    } else {
+        Some(quote! {
+            impl #impl_generics #input_ident #ty_generics #where_clause {
+                #(#resolver_fns)*
+            }
+        })
+    };
+
+    quote! {
         #generated_def
 
-        impl #from_def_trait for #input_ident {
+        impl #impl_generics #from_def_trait #ty_generics for #input_ident #where_clause {
             type Def = #def_type;
             type Error = #asset_module::FromDefError;
 
@@ -255,12 +300,13 @@ pub fn from_def(item: TokenStream) -> TokenStream {
                 #def_var_ident: Self::Def,
                 #load_context_var_ident: &mut #bevy_crate::asset::LoadContext<'_>,
             ) -> std::result::Result<Self, Self::Error> {
-                Ok(#def_transform)
+                Ok(#transformation)
             }
         }
+
+        #resolver_fns
     }
-    .into();
-    macro_result
+    .into()
 }
 
 #[proc_macro]

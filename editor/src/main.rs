@@ -18,6 +18,10 @@ fn main() {
             "editor",
             AssetSourceBuilder::platform_default("editor/assets", None),
         )
+        .register_asset_source(
+            "game",
+            AssetSourceBuilder::platform_default("game/assets", None),
+        )
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             asset::AssetPlugin,

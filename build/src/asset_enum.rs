@@ -47,7 +47,11 @@ fn generate_resolver_enums_in(
         if file.file_type()?.is_dir() {
             generate_resolver_enums_in(asset_source, asset_root, path, enums)?;
         } else {
-            asset_files.push(path.to_path_buf());
+            // TODO: remove this fragile workaround and implement paths for top level assets
+            // properly
+            if asset_root != asset_dir {
+                asset_files.push(path.to_path_buf());
+            }
         }
     }
 
@@ -134,15 +138,6 @@ fn generate_resolver_enum(
             fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #asset_module::FromDefError> {
                 let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
                 Ok(<Self as #asset_set_module::AsAssetPath>::as_asset_path(&instance))
-            }
-
-            fn to_id(asset_path: #bevy_crate::asset::AssetPath) -> String {
-                asset_path
-                    .path()
-                    .file_prefix()
-                    .unwrap_or_else(|| panic!("missing file name in asset path {asset_path}"))
-                    .to_string_lossy()
-                    .to_string()
             }
         }
     })

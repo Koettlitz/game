@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
 use engine::{
-    asset::AssetRef,
+    animation::Animated,
+    asset::{AssetRef, AssetsExt},
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
@@ -10,15 +11,20 @@ use engine::{
 use crate::{
     asset::{
         object::{GameObjectKindAsset, GameObjectKindMap},
-        tile::{TileKindAsset, TileKindMap},
+        tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
     },
     io::export::ExportLozo,
+    object::create_object_sprites_for,
+    tile::edge::create_tile_sprite,
     ui::{
-        Cursor, ShowGridLines,
+        ShowGridLines,
         camera::{CameraMovement, CameraPlugin},
         screen_to_world,
     },
 };
+
+const CURSOR_SPRITE_ALPHA: f32 = 0.5;
+const CURSOR_Z: f32 = 500.0;
 
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
@@ -27,9 +33,9 @@ impl Plugin for InputPlugin {
             .add_message::<PlaceTile>()
             .add_message::<PlaceObject>()
             .add_message::<RemoveTile>()
-            .init_resource::<Cursor>()
             .init_resource::<TileKindKeyMap>()
             .init_resource::<GameObjectKindKeyMap>()
+            .add_systems(Startup, init_cursor)
             .add_systems(
                 OnEnter(ProgressState::Finished),
                 (init_tile_kind_keymap, init_object_kind_keymap),
@@ -39,7 +45,11 @@ impl Plugin for InputPlugin {
                 (
                     move_camera,
                     (
-                        (switch_cursor, (place_tiles, place_object)).chain(),
+                        (
+                            (update_cursor_position, switch_cursor),
+                            (place_tiles, place_object),
+                        )
+                            .chain(),
                         toggle_grid_lines,
                     )
                         .run_if(in_state(ProgressState::Finished)),
@@ -47,7 +57,7 @@ impl Plugin for InputPlugin {
             )
             .add_systems(
                 PostUpdate,
-                save_lozo.run_if(in_state(ProgressState::Finished)),
+                (update_cursor_visuals, save_lozo).run_if(in_state(ProgressState::Finished)),
             );
     }
 }
@@ -67,6 +77,19 @@ pub struct RemoveTile {
 pub struct PlaceObject {
     pub pos: UVec2,
     pub object_kind: AssetRef<GameObjectKindAsset>,
+}
+
+#[derive(Component, Default)]
+#[require(Visibility, Transform)]
+enum Cursor {
+    #[default]
+    Default,
+    GroundTile(AssetRef<TileKindAsset>),
+    Object(AssetRef<GameObjectKindAsset>),
+}
+
+fn init_cursor(mut commands: Commands) {
+    commands.spawn(Cursor::default());
 }
 
 fn init_tile_kind_keymap(tile_kind_map: Res<TileKindMap>, mut keymap: ResMut<TileKindKeyMap>) {
@@ -111,25 +134,81 @@ struct TileKindKeyMap(HashMap<KeyCode, AssetRef<TileKindAsset>>);
 #[derive(Resource, Default)]
 struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 
+fn update_cursor_position(
+    mut cursor: Single<&mut Transform, With<Cursor>>,
+    grid_size: Single<&GridSize>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    window: Single<&Window, With<PrimaryWindow>>,
+) {
+    if let Some(cursor_position) = window.cursor_position() {
+        let world_position = screen_to_world(cursor_position, camera.0, camera.1);
+        cursor.translation = grid_size.snap_to_tile(world_position).extend(CURSOR_Z);
+    }
+}
+
 fn switch_cursor(
     keys: Res<ButtonInput<KeyCode>>,
-    mut cursor: ResMut<Cursor>,
+    mut cursor: Single<&mut Cursor>,
     tilekind_keymap: Res<TileKindKeyMap>,
     objectkind_keymap: Res<GameObjectKindKeyMap>,
 ) {
     if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
         for key in keys.get_just_pressed() {
             if let Some(handle) = objectkind_keymap.0.get(key) {
-                *cursor = Cursor::Object(handle.clone());
+                **cursor = Cursor::Object(handle.clone());
             }
         }
     } else {
         for key in keys.get_just_pressed() {
             if let Some(handle) = tilekind_keymap.0.get(key) {
-                *cursor = Cursor::GroundTile(handle.clone());
+                **cursor = Cursor::GroundTile(handle.clone());
             }
         }
     }
+}
+
+fn update_cursor_visuals(
+    cursor: Query<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
+    tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
+    object_kinds: Res<Assets<GameObjectKindAsset>>,
+    mut commands: Commands,
+) -> Result<()> {
+    for (entity, cursor, children) in &cursor {
+        if let Some(children) = children {
+            for child in children {
+                commands.entity(*child).despawn();
+            }
+        }
+        match *cursor {
+            Cursor::GroundTile(ref tile_kind_handle) => {
+                let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
+                let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+                let (mut sprite, animation_ref) =
+                    create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
+                sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
+                let mut cursor_commands = commands.entity(entity);
+                if let Some(animation_ref) = animation_ref {
+                    cursor_commands
+                        .with_child((sprite, Animated::by(animation_ref.handle().clone())));
+                } else {
+                    cursor_commands.with_child(sprite);
+                }
+            }
+            Cursor::Object(ref object_handle) => {
+                let object_kind = object_kinds.require_handle(object_handle.handle())?;
+                let sprites = create_object_sprites_for(object_kind);
+                let mut cursor_commands = commands.entity(entity);
+                for (tag, mut sprite, transform) in sprites {
+                    sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
+                    cursor_commands.with_child((tag, sprite, transform));
+                }
+            }
+            Cursor::Default => {}
+        }
+    }
+
+    Ok(())
 }
 
 fn place_tiles(
@@ -137,7 +216,7 @@ fn place_tiles(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    cursor: Res<Cursor>,
+    cursor: Single<&Cursor>,
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
 ) {
@@ -146,9 +225,10 @@ fn place_tiles(
     if !left_pressed && !right_pressed {
         return;
     }
-    let Cursor::GroundTile(ref tile_kind) = *cursor else {
+    let Cursor::GroundTile(tile_kind) = *cursor else {
         return;
     };
+    // TODO: use cursor Transform component instead
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
@@ -161,7 +241,7 @@ fn place_tiles(
             .clamp_length(tile_step_size, tile_step_size);
         let step_count = (delta.length() / tile_step.length()).ceil() as usize;
         for _ in 0..step_count {
-            let world_position = screen_to_world(starting_pos, camera.0, camera.1).truncate();
+            let world_position = screen_to_world(starting_pos, camera.0, camera.1);
             if left_pressed {
                 place_tile_writer.write(PlaceTile {
                     world_position,
@@ -173,7 +253,7 @@ fn place_tiles(
             starting_pos += tile_step;
         }
     } else {
-        let world_position = screen_to_world(cursor_position, camera.0, camera.1).truncate();
+        let world_position = screen_to_world(cursor_position, camera.0, camera.1);
 
         if mouse_btn.just_pressed(MouseButton::Left) {
             place_tile_writer.write(PlaceTile {
@@ -187,24 +267,24 @@ fn place_tiles(
 }
 
 fn place_object(
-    cursor: Res<Cursor>,
+    cursor: Single<&Cursor>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window, With<PrimaryWindow>>,
     grid_size: Single<&GridSize>,
     mut message_writer: MessageWriter<PlaceObject>,
 ) {
-    if !mouse_btn.pressed(MouseButton::Left) {
+    if !mouse_btn.just_pressed(MouseButton::Left) {
         return;
     }
-    let Cursor::Object(ref object_kind_handle) = *cursor else {
+    let Cursor::Object(object_kind_handle) = *cursor else {
         return;
     };
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
     let Some(grid_position) =
-        grid_size.world_to_grid(screen_to_world(cursor_position, camera.0, camera.1).truncate())
+        grid_size.world_to_grid(screen_to_world(cursor_position, camera.0, camera.1))
     else {
         return;
     };

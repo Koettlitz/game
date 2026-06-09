@@ -32,7 +32,7 @@ impl Default for CameraMovement {
             left: false,
             right: false,
             down: false,
-            min_velocity: 10.0,
+            min_velocity: 16.0,
             max_addition: 100.0,
         }
     }
@@ -51,7 +51,7 @@ impl CameraMovement {
         } else if self.right && !self.left {
             translation += Vec3::X;
         }
-        let velocity = self.min_velocity + self.timer.fraction().cubed() * self.max_addition;
+        let velocity = self.min_velocity + self.max_addition * self.timer.fraction().cubed();
         let velocity = translation.clamp_length(velocity, velocity);
         velocity
     }

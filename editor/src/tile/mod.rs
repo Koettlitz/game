@@ -153,7 +153,6 @@ fn remove_tile(
     let (mut grid, grid_size) = tile_grid.into_inner();
     for msg in message_reader.read() {
         let Some(pos) = grid_size.world_to_grid(msg.world_position) else {
-            error!("invalid position in PlaceTile message");
             continue;
         };
         let Some(tile) = &grid[pos] else {

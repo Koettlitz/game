@@ -1,29 +1,20 @@
-use std::ops::Deref;
-
+use crate::asset::spritesheet::{SpriteKind, SpritesheetKind};
 use bevy::prelude::*;
-use macros::asset_spec;
+use macros::{FromDef, asset_spec};
 
-use crate::asset::{AssetRef, AssetResolver, FromDef, FromDefError, HasResolver};
-
-#[asset_spec(base_path = "objects/spritesheets")]
-pub struct ObjectSpritesheet(pub AssetRef<Image>);
-impl Deref for ObjectSpritesheet {
-    type Target = AssetRef<Image>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+#[derive(FromDef, Asset, TypePath)]
+#[asset_spec(base_path = "game://lozo/objects/sprites", extension = "objsprite.ron")]
+pub struct GameObjectSpriteAsset {
+    #[from_def(with_resolver(SpritesheetKind::Object))]
+    pub image: Handle<Image>,
+    pub sprite_kind: Option<TextureAtlasData>,
+    pub world_position: Vec3,
 }
 
-impl FromDef for ObjectSpritesheet {
-    type Def = String;
-    type Error = FromDefError;
-
-    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        let handle = ctx.load(<Self as HasResolver>::resolver().resolve(&def)?);
-        Ok(Self(AssetRef::new(def, handle)))
-    }
+#[derive(FromDef)]
+pub struct TextureAtlasData {
+    #[from_def(with_spec(base_path = "objects/spritesheets/layouts", extension = "layout.ron"))]
+    #[expose_resolver]
+    pub layout: Handle<TextureAtlasLayout>,
+    pub kind: SpriteKind,
 }

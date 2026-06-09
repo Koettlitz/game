@@ -4,8 +4,13 @@ use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, prelud
 use engine::{
     animation::Animated,
     asset::{
-        AssetResolver, HasResolver, MissingAssetError,
-        overworld::{lozo::LozoAsset, tile::TileVisualKind},
+        AssetResolver, AssetsExt, HasResolver,
+        overworld::{
+            lozo::LozoAsset,
+            object::{GameObjectSpriteAsset, TextureAtlasData},
+            tile::TileVisualKind,
+        },
+        spritesheet::SpriteKind,
     },
     overworld::tile::create_grid_bundle,
 };
@@ -35,7 +40,9 @@ impl Plugin for LozoPlugin {
 }
 
 #[derive(Component, Default)]
+#[require(Visibility, Transform)]
 pub struct CurrentLozo(String);
+
 impl Deref for CurrentLozo {
     type Target = String;
 
@@ -138,12 +145,10 @@ fn spawn_lozo_entities(
     mut commands: LozoCommands,
     transition: Res<LozoTransition>,
     lozo_assets: Res<Assets<LozoAsset>>,
-    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    object_assets: Res<Assets<GameObjectSpriteAsset>>,
     mut next_state: ResMut<NextState<LozoState>>,
 ) -> Result<()> {
-    let lozo_asset = lozo_assets
-        .get(transition.asset_handle.id())
-        .ok_or_else(|| MissingAssetError::new(transition.asset_handle.id()))?;
+    let lozo_asset = lozo_assets.require_handle(&transition.asset_handle)?;
 
     let grid_bundle = create_grid_bundle(lozo_asset.grid_size(), |pos| {
         let Some(tile_asset) = &lozo_asset.tile_grid[*pos.as_index()] else {
@@ -152,12 +157,11 @@ fn spawn_lozo_entities(
         let mut sprite_stack = Vec::new();
         for (i, visual) in tile_asset.sprite_stack.iter().enumerate() {
             let spritesheet = &visual.spritesheet;
-            let layout = spritesheet.layout.as_ref().map(|l| layouts.add(l.clone()));
             let entity = spawn_tile_sprite(
                 pos.to_world_pos(),
                 &visual.kind,
-                spritesheet.image.clone(),
-                layout,
+                spritesheet.clone(),
+                Some(visual.layout.clone()),
                 i as f32,
                 &mut commands.commands,
             )?;
@@ -169,6 +173,41 @@ fn spawn_lozo_entities(
             .id();
         Ok(Some(entity))
     })?;
+
+    for handle in &lozo_asset.objects {
+        let object_asset = object_assets.require_handle(handle)?;
+        println!("spawning object sprite at {}", object_asset.world_position);
+        let transform = Transform::from_translation(object_asset.world_position);
+        if let Some(TextureAtlasData { layout, kind }) = &object_asset.sprite_kind {
+            match kind {
+                SpriteKind::Static { idx } => {
+                    commands.spawn((
+                        Sprite::from_atlas_image(
+                            object_asset.image.clone(),
+                            TextureAtlas {
+                                layout: layout.clone(),
+                                index: *idx,
+                            },
+                        ),
+                        transform,
+                    ));
+                }
+                SpriteKind::Animated { animation } => {
+                    commands.spawn((
+                        Sprite::from_atlas_image(
+                            object_asset.image.clone(),
+                            TextureAtlas {
+                                layout: layout.clone(),
+                                ..Default::default()
+                            },
+                        ),
+                        Animated::by(animation.clone()),
+                        transform,
+                    ));
+                }
+            }
+        }
+    }
     commands.spawn(grid_bundle);
     commands.commands.remove_resource::<LozoTransition>();
     next_state.set(LozoState::Default);

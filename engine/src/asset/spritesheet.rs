@@ -1,9 +1,12 @@
-use bevy::{asset::AssetPath, prelude::*};
+use std::borrow::Cow;
+
+use bevy::prelude::*;
+use macros::FromDef;
 use serde::{Deserialize, Serialize};
 
 use crate::asset::{
-    AssetResolver, FromDef, FromDefError, HasResolver,
-    overworld::{object::ObjectSpritesheet, tile::TileKindSpritesheet},
+    AssetPathSpecProvider, AssetResolver, FromDef, FromDefError,
+    animation::sprite::SpriteAnimationAsset,
 };
 
 pub struct Spritesheet {
@@ -30,17 +33,31 @@ impl FromDef for Spritesheet {
     }
 }
 
+#[derive(FromDef)]
+pub enum SpriteKind {
+    Static {
+        idx: usize,
+    },
+    Animated {
+        animation: Handle<SpriteAnimationAsset>,
+    },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum SpritesheetKind {
     Tile,
     Object,
 }
 
-impl SpritesheetKind {
-    fn resolve(&self, id: &str) -> Result<AssetPath<'static>, FromDefError> {
+impl AssetPathSpecProvider for SpritesheetKind {
+    fn base_path(&self) -> Cow<'static, str> {
         match self {
-            Self::Tile => <TileKindSpritesheet as HasResolver>::resolver().resolve(id),
-            Self::Object => <ObjectSpritesheet as HasResolver>::resolver().resolve(id),
+            Self::Tile => Cow::Borrowed("tiles/spritesheets"),
+            Self::Object => Cow::Borrowed("objects/spritesheets"),
         }
+    }
+
+    fn extension(&self) -> Option<&'static str> {
+        Some("png")
     }
 }

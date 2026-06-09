@@ -1,158 +1,231 @@
 use ron::ser::PrettyConfig;
-use std::{fs, io, path::Path};
-use thiserror::Error;
+use serde::Serialize;
+use std::{collections::HashMap, fs};
 
-use bevy::{prelude::*, tasks::IoTaskPool};
+use bevy::{
+    asset::{
+        AssetPath,
+        io::{AssetSourceId, file::FileAssetReader},
+    },
+    prelude::*,
+    tasks::IoTaskPool,
+};
 use engine::{
     asset::{
-        AssetPathSpec, AssetsExt,
+        AssetResolver, HasResolver,
         overworld::{
             lozo::{LozoAsset, LozoDef},
-            tile::{TileDef, TileVisualKindDef, TileVisualsDef},
+            object::{GameObjectSpriteDef, TextureAtlasData, TextureAtlasDataDef},
+            tile::{TileDef, TileVisualKindDef, TileVisualsAsset, TileVisualsDef},
         },
-        spritesheet::{SpritesheetDef, SpritesheetKind},
+        spritesheet::SpriteKindDef,
     },
     overworld::tile::{Grid, GridPosition, GridSize, Passability},
 };
 
 use crate::{
     asset::{object::GameObjectKindAsset, tile::TileKindAsset},
-    object::GameObject,
-    tile::Tile,
-    tile::edge::{AnimationId, TileSprite},
+    object::{GameObject, GameObjectSprite},
+    tile::{
+        Tile,
+        edge::{AnimationId, TileSprite},
+    },
 };
 
 pub struct ExportPlugin;
 impl Plugin for ExportPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(export_lozo);
+        app.add_observer(create_grid.pipe(add_objects));
     }
+}
+
+trait AssetsExt<A: Asset> {
+    fn require(&self, id: AssetId<A>) -> &A;
+    fn require_handle(&self, handle: &Handle<A>) -> &A {
+        self.require(handle.id())
+    }
+
+    // fn require_mut(&mut self, id: AssetId<A>) -> &mut A;
+    // fn require_handle_mut(&mut self, handle: &Handle<A>) -> &mut A {
+    //     self.require_mut(handle.id())
+    // }
+}
+
+impl<A: Asset> AssetsExt<A> for Assets<A> {
+    fn require(&self, id: AssetId<A>) -> &A {
+        let asset_type = A::type_ident().unwrap_or_else(|| A::type_path());
+        self.get(id)
+            .unwrap_or_else(|| panic!("missing {asset_type}: \"{}\"", id))
+    }
+
+    // fn require_mut(&mut self, id: AssetId<A>) -> &mut A {
+    //     let asset_type = A::type_ident().unwrap_or_else(|| A::type_path());
+    //     self.get_mut(id)
+    //         .unwrap_or_else(|| panic!("missing {asset_type}: \"{}\"", id))
+    // }
 }
 
 #[derive(Event)]
 pub struct ExportLozo;
 
-pub fn export_lozo(
+fn create_grid(
     _: On<ExportLozo>,
     tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
-    game_objects: Res<Assets<GameObjectKindAsset>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
     sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>)>,
-    object_query: Query<(&GameObject, &Transform)>,
-) -> Result<()> {
+) -> Vec<Option<TileDef>> {
     let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
+    let mut layout_map = HashMap::new();
+
     for pos in grid_size.iter_all() {
         let Some(tile) = &tile_grid[pos] else {
             grid.push(None);
             continue;
         };
         let tile_kind_handle = tile.kind.handle();
-        let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
-        let tile_def = create_tile_def(&tile_kind, &tile.sprite_stack, &sprites_query, &layouts)?;
-        grid.push(Some(tile_def));
-    }
-    let mut lozo_def = LozoDef {
-        width: grid_size.width(),
-        height: grid_size.height(),
-        tile_grid: grid,
-    };
+        let tile_kind = tile_kinds.require_handle(tile_kind_handle);
+        let mut visuals = Vec::new();
+        for tile_sprite in &tile.sprite_stack {
+            let (sprite_tag, sprite, animated) = sprites_query
+                .get(*tile_sprite)
+                .unwrap_or_else(|e| panic!("missing tile sprite {tile_sprite} - {e}"));
+            let atlas = sprite
+                .texture_atlas
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing texture atlas on tile sprite"));
+            let layout = layouts.require_handle(&atlas.layout);
+            let layout_id = sprite_tag.id().to_string();
+            layout_map
+                .entry(layout_id.clone())
+                .or_insert(layout.clone());
+            let kind = match animated {
+                Some(animation_id) => TileVisualKindDef::Animated {
+                    animation: animation_id.0.clone(),
+                },
+                None => TileVisualKindDef::Static { idx: atlas.index },
+            };
+            let visual = TileVisualsDef {
+                spritesheet: sprite_tag.id().to_string(),
+                layout: layout_id,
+                kind,
+            };
+            visuals.push(visual);
+        }
 
-    for (game_object, transform) in &object_query {
-        let object_kind_id = game_object.kind_ref().handle().id();
-        let object_kind = game_objects.require(object_kind_id)?;
-        let object_pos = grid_size
-            .world_to_grid(transform.translation.truncate())
-            .ok_or_else(|| PositionOutOfGridBoundsError::new(transform.translation.truncate()))?;
-        let tile_def =
-            lozo_def.tile_grid[*object_pos.as_index()].get_or_insert_with(|| TileDef::default());
-        let spritesheet = SpritesheetDef {
-            image: object_kind.sprite_sheet.id().to_string(),
-            layout: None,
-            kind: SpritesheetKind::Object,
-        };
-        tile_def.sprite_stack.push(TileVisualsDef {
-            kind: Default::default(),
-            spritesheet,
-        });
-        if let Some(ref collision_box) = object_kind.collision_box {
+        grid.push(Some(TileDef {
+            passability: tile_kind.passability,
+            sprite_stack: visuals,
+        }));
+    }
+
+    flush_assets(layout_map, TileVisualsAsset::layout_resolver());
+    grid
+}
+
+fn add_objects(
+    mut grid: In<Vec<Option<TileDef>>>,
+    grid_size: Single<&GridSize>,
+    game_objects: Res<Assets<GameObjectKindAsset>>,
+    layouts: Res<Assets<TextureAtlasLayout>>,
+    object_query: Query<(&GameObject, &Transform, &Children)>,
+    object_sprite_query: Query<(&GameObjectSprite, &Sprite, &GlobalTransform)>,
+) {
+    let mut object_sprite_map = HashMap::new();
+    let mut layout_map = HashMap::new();
+    for (game_object, transform, children) in &object_query {
+        let object_kind_id = game_object.kind_ref().id();
+        let object_kind = game_objects.require_handle(game_object.kind_ref().handle());
+
+        for child in children {
+            let (sprite_tag, sprite, sprite_transform) = object_sprite_query
+                .get(*child)
+                .unwrap_or_else(|e| panic!("missing object sprite {child} - {e}"));
+            let sprite_kind = sprite.texture_atlas.as_ref().map(|atlas| {
+                layout_map
+                    .entry(object_kind_id.to_string())
+                    .or_insert_with(|| layouts.require_handle(&atlas.layout).clone());
+                TextureAtlasDataDef {
+                    layout: object_kind_id.to_string(),
+                    kind: SpriteKindDef::Static {
+                        idx: sprite.texture_atlas.as_ref().unwrap().index,
+                    },
+                }
+            });
+
+            let sprite_def = GameObjectSpriteDef {
+                image: object_kind.spritesheet().image().id().to_string(),
+                sprite_kind,
+                world_position: sprite_transform.translation(),
+            };
+            object_sprite_map
+                .entry(sprite_tag.id().to_string())
+                .or_insert(sprite_def);
+        }
+        if let Some(ref collision_box) = object_kind.collision_box() {
+            let object_pos = grid_size
+                .world_to_grid(transform.translation.truncate())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "position out of bounds: {}",
+                        transform.translation.truncate()
+                    )
+                });
             for pos in CollisionBoxIter::from(collision_box) {
                 let pos = object_pos.as_ivec2() + pos;
                 let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
-                    .ok_or_else(|| PositionOutOfGridBoundsError::new(pos.as_vec2()))?;
-                let tile_def =
-                    lozo_def.tile_grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
+                    .unwrap_or_else(|| panic!("position out of bounds: {}", pos.as_vec2()));
+                let tile_def = grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
                 tile_def.passability &= Passability::Never;
             }
         }
     }
+
+    flush_assets(layout_map, TextureAtlasData::layout_resolver());
+
+    let object_ids = object_sprite_map.keys().cloned().collect();
+    flush_assets(object_sprite_map, LozoAsset::objects_resolver());
+
+    let lozo_def = LozoDef {
+        width: grid_size.width(),
+        height: grid_size.height(),
+        tile_grid: grid.0,
+        objects: object_ids,
+    };
+    flush_assets(vec![("world".to_string(), lozo_def)], LozoAsset::resolver());
+}
+
+fn flush_assets<A: Serialize>(
+    assets: impl IntoIterator<Item = (String, A)> + Send + 'static,
+    resolver: impl AssetResolver + Send + 'static,
+) {
     IoTaskPool::get()
         .spawn(async move {
-            save_lozo("world", lozo_def).expect("failed to save lozo");
+            for (id, asset) in assets {
+                let asset_path = resolver
+                    .resolve(&id)
+                    .unwrap_or_else(|e| panic!("failed to resolve asset path: {e}"));
+                write_asset(asset_path, asset).expect("failed to save asset");
+            }
         })
         .detach();
-    Ok(())
 }
 
-fn save_lozo(id: &str, lozo: LozoDef) -> Result<()> {
-    let crate_root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let workspace_root = crate_root.parent().ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("crate root {} has no parent dir?", crate_root.display()),
-        )
-    })?;
-    let game_asset_root = workspace_root.join("game").join("assets");
-    let base_path = LozoAsset::BASE_PATH
-        .split_once("://")
-        .map(|(_, base_path)| base_path)
-        .unwrap_or_else(|| LozoAsset::BASE_PATH);
-    let file_name = match LozoAsset::EXTENSION {
-        Some(ext) => &format!("{id}.{ext}"),
-        None => id,
+fn write_asset<A: Serialize>(asset_path: AssetPath, asset: A) -> Result<()> {
+    let base_path = FileAssetReader::get_base_path();
+    let source_folder = match asset_path.source() {
+        AssetSourceId::Default => "assets",
+        AssetSourceId::Name(name) => &format!("{}/assets", name.as_ref()),
     };
-    let dir_path = game_asset_root.join(base_path);
-    fs::create_dir_all(&dir_path)?;
-    let path = dir_path.join(file_name);
-    info!("writing lozo to {}", path.display());
-    let serialized = ron::ser::to_string_pretty(&lozo, PrettyConfig::default())?;
-    fs::write(path, serialized)?;
+    let file_path = base_path.join(source_folder).join(asset_path.path());
+    info!(
+        "writing asset to {asset_path} => \"{}\"",
+        file_path.display()
+    );
+    let serialized = ron::ser::to_string_pretty(&asset, PrettyConfig::default())?;
+    fs::write(file_path, serialized)?;
     Ok(())
-}
-
-fn create_tile_def(
-    tile_kind: &TileKindAsset,
-    sprite_stack: &Vec<Entity>,
-    sprites_query: &Query<(&TileSprite, &Sprite, Option<&AnimationId>)>,
-    layouts: &Assets<TextureAtlasLayout>,
-) -> Result<TileDef> {
-    let mut visuals = Vec::new();
-    for tile_sprite in sprite_stack {
-        let (tile_sprite, sprite, animated) = sprites_query.get(*tile_sprite)?;
-        let atlas = sprite
-            .texture_atlas
-            .as_ref()
-            .ok_or_else(|| "missing texture atlas on tile sprite")?;
-        let spritesheet = SpritesheetDef {
-            image: tile_sprite.id().to_string(),
-            layout: layouts.get(atlas.layout.id()).cloned(),
-            kind: SpritesheetKind::Tile,
-        };
-        let kind = match animated {
-            Some(animation_id) => TileVisualKindDef::Animated {
-                animation: animation_id.0.clone(),
-            },
-            None => TileVisualKindDef::Static { idx: atlas.index },
-        };
-        let visual = TileVisualsDef { kind, spritesheet };
-        visuals.push(visual);
-    }
-    let tile_def = TileDef {
-        passability: tile_kind.passability,
-        sprite_stack: visuals,
-    };
-    Ok(tile_def)
 }
 
 struct CollisionBoxIter<'a> {
@@ -186,15 +259,5 @@ impl<'a> Iterator for CollisionBoxIter<'a> {
             }
         };
         Some(current)
-    }
-}
-
-#[derive(Error, Debug)]
-#[error("position out of bounds: {0}")]
-struct PositionOutOfGridBoundsError(Vec2);
-
-impl PositionOutOfGridBoundsError {
-    fn new(pos: impl Into<Vec2>) -> Self {
-        Self(pos.into())
     }
 }
