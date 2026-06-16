@@ -7,16 +7,20 @@ use bevy::{
         AssetPath,
         io::{AssetSourceId, file::FileAssetReader},
     },
+    log,
     prelude::*,
     tasks::IoTaskPool,
 };
 use engine::{
     asset::{
-        AssetResolver, HasResolver,
+        AssetResolver, AssetsExt, HasResolver,
         overworld::{
             lozo::{LozoAsset, LozoDef},
-            object::{GameObjectSpriteDef, TextureAtlasData, TextureAtlasDataDef},
-            tile::{TileDef, TileVisualKindDef, TileVisualsAsset, TileVisualsDef},
+            object::{GameObjectSpriteDef, TextureAtlasDataDef},
+            tile::{
+                TileDef, TileEventActionDef, TileEventTrigger, TileVisualKindDef, TileVisualsAsset,
+                TileVisualsDef,
+            },
         },
         spritesheet::SpriteKindDef,
     },
@@ -35,34 +39,12 @@ use crate::{
 pub struct ExportPlugin;
 impl Plugin for ExportPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(create_grid.pipe(add_objects));
+        app.add_observer(create_grid.pipe(add_objects.map(|result: Result| {
+            if let Err(e) = result {
+                log::error!("{e}");
+            }
+        })));
     }
-}
-
-trait AssetsExt<A: Asset> {
-    fn require(&self, id: AssetId<A>) -> &A;
-    fn require_handle(&self, handle: &Handle<A>) -> &A {
-        self.require(handle.id())
-    }
-
-    // fn require_mut(&mut self, id: AssetId<A>) -> &mut A;
-    // fn require_handle_mut(&mut self, handle: &Handle<A>) -> &mut A {
-    //     self.require_mut(handle.id())
-    // }
-}
-
-impl<A: Asset> AssetsExt<A> for Assets<A> {
-    fn require(&self, id: AssetId<A>) -> &A {
-        let asset_type = A::type_ident().unwrap_or_else(|| A::type_path());
-        self.get(id)
-            .unwrap_or_else(|| panic!("missing {asset_type}: \"{}\"", id))
-    }
-
-    // fn require_mut(&mut self, id: AssetId<A>) -> &mut A {
-    //     let asset_type = A::type_ident().unwrap_or_else(|| A::type_path());
-    //     self.get_mut(id)
-    //         .unwrap_or_else(|| panic!("missing {asset_type}: \"{}\"", id))
-    // }
 }
 
 #[derive(Event)]
@@ -73,8 +55,8 @@ fn create_grid(
     tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
-    sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>)>,
-) -> Vec<Option<TileDef>> {
+    sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>, &Transform)>,
+) -> Result<Vec<Option<TileDef>>> {
     let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
     let mut layout_map = HashMap::new();
@@ -85,17 +67,17 @@ fn create_grid(
             continue;
         };
         let tile_kind_handle = tile.kind.handle();
-        let tile_kind = tile_kinds.require_handle(tile_kind_handle);
+        let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
         let mut visuals = Vec::new();
         for tile_sprite in &tile.sprite_stack {
-            let (sprite_tag, sprite, animated) = sprites_query
+            let (sprite_tag, sprite, animated, transform) = sprites_query
                 .get(*tile_sprite)
                 .unwrap_or_else(|e| panic!("missing tile sprite {tile_sprite} - {e}"));
             let atlas = sprite
                 .texture_atlas
                 .as_ref()
                 .unwrap_or_else(|| panic!("missing texture atlas on tile sprite"));
-            let layout = layouts.require_handle(&atlas.layout);
+            let layout = layouts.require_handle(&atlas.layout)?;
             let layout_id = sprite_tag.id().to_string();
             layout_map
                 .entry(layout_id.clone())
@@ -110,6 +92,7 @@ fn create_grid(
                 spritesheet: sprite_tag.id().to_string(),
                 layout: layout_id,
                 kind,
+                z: transform.translation.z,
             };
             visuals.push(visual);
         }
@@ -117,52 +100,27 @@ fn create_grid(
         grid.push(Some(TileDef {
             passability: tile_kind.passability,
             sprite_stack: visuals,
+            ..Default::default()
         }));
     }
 
     flush_assets(layout_map, TileVisualsAsset::layout_resolver());
-    grid
+    Ok(grid)
 }
 
 fn add_objects(
-    mut grid: In<Vec<Option<TileDef>>>,
+    grid: In<Result<Vec<Option<TileDef>>>>,
     grid_size: Single<&GridSize>,
     game_objects: Res<Assets<GameObjectKindAsset>>,
-    layouts: Res<Assets<TextureAtlasLayout>>,
     object_query: Query<(&GameObject, &Transform, &Children)>,
     object_sprite_query: Query<(&GameObjectSprite, &Sprite, &GlobalTransform)>,
-) {
+) -> Result {
+    let mut grid = grid.0?;
     let mut object_sprite_map = HashMap::new();
-    let mut layout_map = HashMap::new();
     for (game_object, transform, children) in &object_query {
         let object_kind_id = game_object.kind_ref().id();
-        let object_kind = game_objects.require_handle(game_object.kind_ref().handle());
+        let object_kind = game_objects.require_handle(game_object.kind_ref().handle())?;
 
-        for child in children {
-            let (sprite_tag, sprite, sprite_transform) = object_sprite_query
-                .get(*child)
-                .unwrap_or_else(|e| panic!("missing object sprite {child} - {e}"));
-            let sprite_kind = sprite.texture_atlas.as_ref().map(|atlas| {
-                layout_map
-                    .entry(object_kind_id.to_string())
-                    .or_insert_with(|| layouts.require_handle(&atlas.layout).clone());
-                TextureAtlasDataDef {
-                    layout: object_kind_id.to_string(),
-                    kind: SpriteKindDef::Static {
-                        idx: sprite.texture_atlas.as_ref().unwrap().index,
-                    },
-                }
-            });
-
-            let sprite_def = GameObjectSpriteDef {
-                image: object_kind.spritesheet().image().id().to_string(),
-                sprite_kind,
-                world_position: sprite_transform.translation(),
-            };
-            object_sprite_map
-                .entry(sprite_tag.id().to_string())
-                .or_insert(sprite_def);
-        }
         if let Some(ref collision_box) = object_kind.collision_box() {
             let object_pos = grid_size
                 .world_to_grid(transform.translation.truncate())
@@ -176,13 +134,75 @@ fn add_objects(
                 let pos = object_pos.as_ivec2() + pos;
                 let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
                     .unwrap_or_else(|| panic!("position out of bounds: {}", pos.as_vec2()));
-                let tile_def = grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
+                let tile_def = &mut grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
                 tile_def.passability &= Passability::Never;
             }
         }
-    }
 
-    flush_assets(layout_map, TextureAtlasData::layout_resolver());
+        for child in children {
+            let (sprite_tag, sprite, sprite_transform) = object_sprite_query
+                .get(*child)
+                .unwrap_or_else(|e| panic!("missing object sprite {child} - {e}"));
+            let sprite_kind = sprite
+                .texture_atlas
+                .as_ref()
+                .map(|atlas| TextureAtlasDataDef {
+                    layout: object_kind_id.to_string(),
+                    kind: SpriteKindDef::Static { idx: atlas.index },
+                });
+
+            let sprite_def = GameObjectSpriteDef {
+                image: object_kind_id.to_string(),
+                sprite_kind,
+                world_position: sprite_transform.translation(),
+            };
+            match sprite_tag {
+                GameObjectSprite::Main { id } => {
+                    object_sprite_map.entry(id.clone()).or_insert(sprite_def);
+                }
+                GameObjectSprite::Door { id, door } => {
+                    object_sprite_map.entry(id.clone()).or_insert(sprite_def);
+                    let door_pos = grid_size
+                        .world_to_grid(transform.translation.truncate() + door.offset().as_vec2())
+                        .ok_or_else(|| "door position out of bounds")?;
+                    let door_tile =
+                        grid[*door_pos.as_index()].get_or_insert_with(|| TileDef::default());
+                    door_tile.passability = Passability::Always;
+                    door_tile
+                        .events
+                        .entry(TileEventTrigger::CharReached)
+                        .or_insert_with(|| Vec::new())
+                        .push(TileEventActionDef::ActivateNextLozo);
+                    if let Some(door_front) = door_pos.bottom() {
+                        let events = &mut grid[*door_front.as_index()]
+                            .get_or_insert_with(|| TileDef::default())
+                            .events;
+                        events
+                            .entry(TileEventTrigger::CharLeftTo)
+                            .or_insert_with(|| Vec::new())
+                            .push(TileEventActionDef::LoadNextLozo(
+                                door.target_lozo().to_string(),
+                            ));
+                        events
+                            .entry(TileEventTrigger::CharEntered)
+                            .or_insert_with(|| Vec::new())
+                            .push(TileEventActionDef::SpriteAnimation {
+                                sprite_id: id.clone(),
+                                animation: door.open_animation_path()?,
+                            });
+                        let left_from_events = events
+                            .entry(TileEventTrigger::CharLeftFrom)
+                            .or_insert_with(|| Vec::new());
+                        // left_from_events.push(TileEventActionDef::UnloadNextLozo);
+                        left_from_events.push(TileEventActionDef::SpriteAnimation {
+                            sprite_id: id.clone(),
+                            animation: door.close_animation_path()?,
+                        });
+                    }
+                }
+            }
+        }
+    }
 
     let object_ids = object_sprite_map.keys().cloned().collect();
     flush_assets(object_sprite_map, LozoAsset::objects_resolver());
@@ -190,10 +210,12 @@ fn add_objects(
     let lozo_def = LozoDef {
         width: grid_size.width(),
         height: grid_size.height(),
-        tile_grid: grid.0,
+        tile_grid: grid,
         objects: object_ids,
     };
     flush_assets(vec![("world".to_string(), lozo_def)], LozoAsset::resolver());
+
+    Ok(())
 }
 
 fn flush_assets<A: Serialize>(

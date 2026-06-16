@@ -33,6 +33,13 @@ pub trait StaticAssetResolver {
     fn resolve(asset_id: &str) -> Result<AssetPath<'static>, FromDefError>;
 }
 
+pub struct PathResolver;
+impl AssetResolver for PathResolver {
+    fn resolve(&self, asset_path: &str) -> Result<AssetPath<'static>, FromDefError> {
+        Ok(AssetPath::from(asset_path.to_string()))
+    }
+}
+
 pub fn extract_id_from(asset_path: AssetPath) -> String {
     asset_path
         .path()
@@ -405,6 +412,7 @@ from_def_self![
     IVec2,
     Vec2,
     Vec3,
+    UVec2,
     TextureAtlasLayout,
     Duration
 ];

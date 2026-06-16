@@ -1,0 +1,13 @@
+(
+    timer: "sand_tiles",
+    frames: [
+        148,
+        151,
+        154,
+        157,
+        160,
+        163,
+        166,
+    ],
+    kind: Repeating,
+)

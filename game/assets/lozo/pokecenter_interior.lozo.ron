@@ -1,0 +1,1351 @@
+(
+    width: 12,
+    height: 8,
+    tile_grid: [
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+            events: {},
+        )),
+    ],
+    objects: [],
+)

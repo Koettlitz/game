@@ -1,3 +1,4 @@
+pub mod character;
 pub mod lozo;
 pub mod object;
 pub mod tile;

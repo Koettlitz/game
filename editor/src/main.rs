@@ -1,6 +1,7 @@
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use engine::{
     animation::SpriteAnimationPlugin,
+    asset::RonAssetLoader,
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 
@@ -32,6 +33,7 @@ fn main() {
             SpriteAnimationPlugin,
             IoPlugin,
         ))
+        .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
         .add_systems(Startup, init)
         .add_systems(OnEnter(ProgressState::Finished), remove_progress_screen)
         .run();

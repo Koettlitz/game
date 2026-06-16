@@ -1,7 +1,18 @@
 (
     spritesheet: (
-        z_divide_at_y: Some(Halve),
+        kind: DepthSplit (
+            top: 0,
+            bottom: 1,
+        ),
     ),
+    doors: [
+        (
+            offset: (-16, -42),
+            open_animation: "pokecenter_door_open",
+            close_animation: "pokecenter_door_close",
+            target_lozo: "pokecenter_interior",
+        ),
+    ],
     collision_box: Some((
         min: (-2, -1),
         max: (1, 1),

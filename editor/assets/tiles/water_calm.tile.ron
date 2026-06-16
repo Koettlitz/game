@@ -1,3 +1,4 @@
 (
     passability: Always,
+    spritesheet: (),
 )

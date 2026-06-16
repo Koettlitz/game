@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref, time::Duration};
 
 use crate::asset::duration_millis;
 use bevy::prelude::*;
-use macros::{FromDef, asset_set};
+use macros::FromDef;
 use serde::{Deserialize, Serialize};
 
 use crate::asset::RonAssetPlugin;
@@ -20,10 +20,10 @@ impl Plugin for SpriteAnimationAssetPlugin {
 }
 
 #[derive(FromDef, Asset, TypePath, Debug)]
-#[asset_set(base_path = "sprite_animations", progress_name = "sprite_animations")]
 pub struct SpriteAnimationAsset {
     pub frames: Vec<usize>,
     pub timer: AnimationTimerApi,
+    pub kind: AnimationKind,
 }
 
 #[derive(Serialize, Deserialize, FromDef, Debug)]
@@ -32,6 +32,18 @@ pub struct SpriteAnimationAsset {
 pub enum AnimationTimerApi {
     TimerGroup(String),
     FrameDuration(#[serde(with = "duration_millis")] Duration),
+}
+
+#[derive(FromDef, Debug, Clone, Copy)]
+pub enum AnimationKind {
+    Repeating,
+    Once,
+}
+
+impl AnimationKind {
+    pub fn is_repeating(&self) -> bool {
+        matches!(self, Self::Repeating)
+    }
 }
 
 #[derive(Asset, TypePath, Debug, Serialize, Deserialize, FromDef)]

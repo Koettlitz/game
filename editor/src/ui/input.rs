@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
 use engine::{
     animation::Animated,
-    asset::{AssetRef, AssetsExt},
+    asset::{AssetRef, AssetsExt, animation::sprite::SpriteAnimationAsset},
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };
@@ -14,7 +14,6 @@ use crate::{
         tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
     },
     io::export::ExportLozo,
-    object::create_object_sprites_for,
     tile::edge::create_tile_sprite,
     ui::{
         ShowGridLines,
@@ -168,44 +167,55 @@ fn switch_cursor(
 }
 
 fn update_cursor_visuals(
-    cursor: Query<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
+    cursor: Single<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
     object_kinds: Res<Assets<GameObjectKindAsset>>,
+    animations: Res<Assets<SpriteAnimationAsset>>,
     mut commands: Commands,
 ) -> Result<()> {
-    for (entity, cursor, children) in &cursor {
-        if let Some(children) = children {
-            for child in children {
-                commands.entity(*child).despawn();
+    let (entity, cursor, children) = cursor.into_inner();
+    if let Some(children) = children {
+        for child in children {
+            commands.entity(*child).despawn();
+        }
+    }
+    match *cursor {
+        Cursor::GroundTile(ref tile_kind_handle) => {
+            let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
+            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+            let (mut sprite, animation_ref) =
+                create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
+            sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
+            let mut cursor_commands = commands.entity(entity);
+            if let Some(animation_ref) = animation_ref {
+                cursor_commands.with_child((sprite, Animated::by(animation_ref.handle().clone())));
+            } else {
+                cursor_commands.with_child(sprite);
             }
         }
-        match *cursor {
-            Cursor::GroundTile(ref tile_kind_handle) => {
-                let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
-                let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-                let (mut sprite, animation_ref) =
-                    create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
+        Cursor::Object(ref object_handle) => {
+            let object_kind = object_kinds.require_handle(object_handle.handle())?;
+            let sprites = object_kind.create_sprites(&animations)?;
+            let mut parent = if let Some(offset) = object_kind.offset() {
+                let offset = commands
+                    .spawn((
+                        Visibility::default(),
+                        Transform::from_translation(offset.extend(0.0)),
+                    ))
+                    .id();
+                commands.entity(entity).add_child(offset);
+                commands.entity(offset)
+            } else {
+                commands.entity(entity)
+            };
+
+            for (mut sprite, transform) in sprites {
                 sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
-                let mut cursor_commands = commands.entity(entity);
-                if let Some(animation_ref) = animation_ref {
-                    cursor_commands
-                        .with_child((sprite, Animated::by(animation_ref.handle().clone())));
-                } else {
-                    cursor_commands.with_child(sprite);
-                }
+                parent.with_child((sprite, transform));
             }
-            Cursor::Object(ref object_handle) => {
-                let object_kind = object_kinds.require_handle(object_handle.handle())?;
-                let sprites = create_object_sprites_for(object_kind);
-                let mut cursor_commands = commands.entity(entity);
-                for (tag, mut sprite, transform) in sprites {
-                    sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
-                    cursor_commands.with_child((tag, sprite, transform));
-                }
-            }
-            Cursor::Default => {}
         }
+        Cursor::Default => {}
     }
 
     Ok(())
@@ -235,7 +245,7 @@ fn place_tiles(
     if let Some(mouse_motion) = mouse_motion.read().next() {
         let delta = mouse_motion.delta * window.scale_factor();
         let mut starting_pos = cursor_position - delta;
-        let tile_step_size = (TILE_SIZE.x as f32 + TILE_SIZE.y as f32) / 2.0;
+        let tile_step_size = TILE_SIZE as f32;
         let tile_step = mouse_motion
             .delta
             .clamp_length(tile_step_size, tile_step_size);

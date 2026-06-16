@@ -1,8 +1,8 @@
 use engine::{
     asset::{
-        AssetMap, AssetRef, AssetResolver, AssetSetPlugin, AssetsExt, FromDef, FromDefError,
-        RonAssetPlugin, animation::sprite::SpriteAnimationAsset, one_or_many,
-        overworld::TILE_LAYER, spritesheet::SpritesheetKind,
+        AssetMap, AssetRef, AssetSetPlugin, AssetsExt, FromDef, FromDefError, RonAssetPlugin,
+        animation::sprite::SpriteAnimationAsset, one_or_many, overworld::TILE_LAYER,
+        spritesheet::SpritesheetKind,
     },
     overworld::tile::{GridCursor, Neighbor, Passability},
 };
@@ -64,39 +64,24 @@ fn derive_layouts(
 pub struct TileKindAsset {
     pub passability: Passability,
 
-    #[from_def(implicit)]
     pub spritesheet: TileKindSpritesheet,
 
     #[from_def(implicit)]
     pub edge_config: Handle<TileEdgeConfig>,
 }
 
-#[derive(TypePath, Debug)]
+#[derive(FromDef, TypePath, Debug)]
 pub struct TileKindSpritesheet {
-    image: AssetRef<Image>,
+    #[from_def(implicit, with_resolver(SpritesheetKind::Tile))]
+    image: Handle<Image>,
+
+    #[from_def(default)]
     layout: Option<Handle<TextureAtlasLayout>>,
 }
 
-impl FromDef for TileKindSpritesheet {
-    type Def = String;
-    type Error = FromDefError;
-
-    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error> {
-        let handle = ctx.load(SpritesheetKind::Tile.resolve(&def)?);
-        Ok(Self {
-            image: AssetRef::new(def, handle),
-            layout: None,
-        })
-    }
-}
-
 impl TileKindSpritesheet {
-    pub fn id(&self) -> &str {
-        self.image.id()
-    }
-
     pub fn image(&self) -> &Handle<Image> {
-        &self.image.handle()
+        &self.image
     }
 
     pub fn layout(&self) -> Result<&Handle<TextureAtlasLayout>, TileSpriteLayoutError> {
@@ -109,18 +94,12 @@ impl TileKindSpritesheet {
         &'a mut self,
         images: &Assets<Image>,
         layouts: &'a mut Assets<TextureAtlasLayout>,
-    ) -> Result<&'a Handle<TextureAtlasLayout>, TextureAtlasLayoutError> {
-        let image =
-            images
-                .get(self.image.handle().id())
-                .ok_or_else(|| TextureAtlasLayoutError {
-                    id: self.image.id().to_string(),
-                    kind: TextureAtlasLayoutErrorKind::MissingImage,
-                })?;
-        let layout = derive_texture_atlas_layout(image).ok_or_else(|| TextureAtlasLayoutError {
-            id: self.image.id().to_string(),
-            kind: TextureAtlasLayoutErrorKind::InvalidSize,
-        })?;
+    ) -> Result<&'a Handle<TextureAtlasLayout>> {
+        let image = images.require_handle(&self.image)?;
+        let layout =
+            derive_texture_atlas_layout(image).ok_or_else(|| InvalidTileSpritesheetSize {
+                id: self.image.id().to_string(),
+            })?;
         let handle = layouts.add(layout);
         self.layout = Some(handle.clone());
         Ok(self.layout.as_ref().unwrap())
@@ -128,31 +107,17 @@ impl TileKindSpritesheet {
 }
 
 #[derive(Error, Debug)]
-pub struct TextureAtlasLayoutError {
+pub struct InvalidTileSpritesheetSize {
     pub id: String,
-    pub kind: TextureAtlasLayoutErrorKind,
 }
 
-#[derive(Debug)]
-pub enum TextureAtlasLayoutErrorKind {
-    InvalidSize,
-    MissingImage,
-}
-
-impl Display for TextureAtlasLayoutError {
+impl Display for InvalidTileSpritesheetSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.kind {
-            TextureAtlasLayoutErrorKind::InvalidSize => {
-                write!(
-                    f,
-                    "size of sprite sheet \"{}\" not a multiple of tile size: {TILE_SIZE}",
-                    self.id
-                )
-            }
-            TextureAtlasLayoutErrorKind::MissingImage => {
-                write!(f, "missing image for sprite sheet {}", self.id)
-            }
-        }
+        write!(
+            f,
+            "size of sprite sheet \"{}\" not a multiple of tile size: {TILE_SIZE}",
+            self.id
+        )
     }
 }
 
@@ -164,9 +129,14 @@ fn derive_texture_atlas_layout(image: &Image) -> Option<TextureAtlasLayout> {
     if image.size() % TILE_SIZE != UVec2::splat(0) {
         return None;
     }
-    let size_in_tiles = image.size() / TILE_SIZE;
-    let layout =
-        TextureAtlasLayout::from_grid(TILE_SIZE, size_in_tiles.x, size_in_tiles.y, None, None);
+    let size_in_tiles = image.size() / UVec2::splat(TILE_SIZE);
+    let layout = TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+        size_in_tiles.x,
+        size_in_tiles.y,
+        None,
+        None,
+    );
     Some(layout)
 }
 
@@ -457,36 +427,12 @@ impl AdjacentRequirementDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(FromDef, Debug)]
+#[def_type(GroundTileVisualLayersDef)]
 pub struct GroundTileVisualLayers {
     below: Vec<GroundTileVisual>,
     base: GroundTileVisual,
     above: Vec<GroundTileVisual>,
-}
-
-impl FromDef for GroundTileVisualLayers {
-    type Def = GroundTileVisualLayersDef;
-    type Error = FromDefError;
-    fn from_def(
-        config: Self::Def,
-        load_context: &mut LoadContext,
-    ) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            below: config
-                .below
-                .into_iter()
-                .map(|c| GroundTileVisual::from_def(c, load_context))
-                .filter_map(|result| result.inspect_err(|e| error!("{e}")).ok())
-                .collect(),
-            base: GroundTileVisual::from_def(config.base, load_context)?,
-            above: config
-                .above
-                .into_iter()
-                .map(|c| GroundTileVisual::from_def(c, load_context))
-                .filter_map(|result| result.inspect_err(|e| error!("{e}")).ok())
-                .collect(),
-        })
-    }
 }
 
 impl GroundTileVisualLayers {
@@ -513,7 +459,7 @@ enum VisualLayer {
 impl VisualLayer {
     fn z(&self) -> f32 {
         match self {
-            Self::Below => TILE_LAYER - 20.0,
+            Self::Below => TILE_LAYER - 10.0,
             Self::Base => TILE_LAYER,
             Self::Above => TILE_LAYER + 1.0,
         }
@@ -537,7 +483,7 @@ impl LayerCursor {
     fn next(&mut self) -> Option<(f32, LayerItem)> {
         if matches!(self.current_layer, VisualLayer::Below) {
             if self.current_idx < self.below_len {
-                let z = VisualLayer::Below.z() + self.current_idx as f32;
+                let z = VisualLayer::Below.z() + self.current_idx as f32 / 10.0;
                 self.current_idx += 1;
                 Some((z, LayerItem::Below))
             } else {
@@ -546,7 +492,7 @@ impl LayerCursor {
                 Some((VisualLayer::Base.z(), LayerItem::Base))
             }
         } else if self.current_idx < self.above_len {
-            let z = VisualLayer::Above.z() + self.current_idx as f32;
+            let z = VisualLayer::Above.z() + self.current_idx as f32 / 10.0;
             self.current_idx += 1;
             Some((z, LayerItem::Above))
         } else {
@@ -684,7 +630,10 @@ impl Debug for GroundTileVisualLayersDef {
 #[derive(FromDef, Debug)]
 pub enum GroundTileVisual {
     Static(usize),
-    Animated(AssetRef<SpriteAnimationAsset>),
+    Animated(
+        #[from_def(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
+        AssetRef<SpriteAnimationAsset>,
+    ),
     Neighbor(Neighbor),
 }
 

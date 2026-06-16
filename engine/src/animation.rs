@@ -11,7 +11,8 @@ use thiserror::Error;
 use crate::asset::{
     AssetsExt,
     animation::sprite::{
-        AnimationTimerApi, AnimationTimersAsset, SpriteAnimationAsset, SpriteAnimationAssetPlugin,
+        AnimationKind, AnimationTimerApi, AnimationTimersAsset, SpriteAnimationAsset,
+        SpriteAnimationAssetPlugin,
     },
 };
 
@@ -75,6 +76,7 @@ struct AnimationTimer {
     timer: Timer,
     current: usize,
     frame_count: usize,
+    last_applied: Option<usize>,
 }
 
 #[derive(Component)]
@@ -108,6 +110,7 @@ impl DerefMut for TimerMap {
 struct SpriteAnimation {
     handle: Handle<SpriteAnimationAsset>,
     frames: Vec<usize>,
+    kind: AnimationKind,
 }
 
 fn update_changed_sprites(
@@ -127,12 +130,12 @@ fn update_changed_sprites(
             &timer_query,
             &timers_asset,
             &mut commands,
-            None,
         )?;
         commands.entity(sprite_entity).insert((
             SpriteAnimation {
                 handle: handle.clone(),
                 frames: asset.frames.clone(),
+                kind: asset.kind,
             },
             TimedBy(spawned_timer.entity),
         ));
@@ -195,19 +198,34 @@ fn update_timers(mut timers: Query<&mut AnimationTimer>, time: Res<Time>) {
 }
 
 fn apply_animations(
-    timers: Query<(&AnimationTimer, &Times), Changed<AnimationTimer>>,
-    mut animations: Query<(&SpriteAnimation, &mut Sprite), With<TimedBy>>,
+    mut timers: Query<(&mut AnimationTimer, &Times), Changed<AnimationTimer>>,
+    mut animations: Query<(&mut SpriteAnimation, &mut Sprite), With<TimedBy>>,
+    mut commands: Commands,
 ) -> Result<()> {
-    for (timer, Times(entities)) in &timers {
+    for (mut timer, Times(entities)) in &mut timers {
+        if let Some(last_applied) = timer.last_applied {
+            if last_applied == timer.current {
+                continue;
+            }
+        }
+
         for entity in entities {
-            let (animation, mut sprite) = animations.get_mut(*entity)?;
+            let (mut animation, mut sprite) = animations.get_mut(*entity)?;
             if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = animation.frames[timer.current];
             } else {
                 warn!("animated sprite had no texture atlas to animate on");
             }
+            if let AnimationKind::Once = &mut animation.kind {
+                if timer.current == animation.frames.len() - 1 {
+                    commands.entity(*entity).remove::<Animated>();
+                }
+            }
         }
+
+        timer.last_applied = Some(timer.current);
     }
+
     Ok(())
 }
 
@@ -256,6 +274,7 @@ fn hot_reload_animations(
             }
             let asset = assets.require(*id)?;
             animation.frames = asset.frames.clone();
+            animation.kind = asset.kind;
 
             let spawned_timer = spawn_timer(
                 &assets,
@@ -264,7 +283,6 @@ fn hot_reload_animations(
                 &timers.p0(),
                 &timers_asset,
                 &mut commands,
-                None,
             )?;
             if spawned_timer.existed {
                 let mut query = timers.p1();
@@ -287,24 +305,21 @@ fn spawn_timer(
     timer_query: &Query<(Entity, &AnimationTimer, &TimerId)>,
     timers_asset: &Assets<AnimationTimersAsset>,
     commands: &mut Commands,
-    current: Option<usize>,
 ) -> Result<TimerSpawnResult> {
     let asset = assets.require_handle(handle)?;
-    let current_idx = current
-        .map(|current| current % asset.frames.len())
-        .unwrap_or(0);
     match &asset.timer {
         AnimationTimerApi::FrameDuration(frame_duration) => {
             let entity = commands
                 .spawn(AnimationTimer {
                     timer: Timer::new(*frame_duration, TimerMode::Repeating),
-                    current: current_idx,
+                    current: 0,
                     frame_count: asset.frames.len(),
+                    last_applied: None,
                 })
                 .id();
             Ok(TimerSpawnResult {
                 entity,
-                current_idx,
+                current_idx: 0,
                 existed: false,
             })
         }
@@ -336,15 +351,16 @@ fn spawn_timer(
                     .spawn((
                         AnimationTimer {
                             timer: Timer::new(frame_duration, TimerMode::Repeating),
-                            current: current_idx,
+                            current: 0,
                             frame_count: asset.frames.len(),
+                            last_applied: None,
                         },
                         TimerId(timer_id.clone()),
                     ))
                     .id();
                 Ok(TimerSpawnResult {
                     entity,
-                    current_idx,
+                    current_idx: 0,
                     existed: false,
                 })
             }

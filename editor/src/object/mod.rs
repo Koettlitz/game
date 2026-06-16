@@ -1,11 +1,11 @@
+use crate::asset::object::Door;
 use crate::asset::object::GameObjectKindAsset;
-use crate::asset::object::GameObjectSpritesheetKind;
 use crate::ui::PlaceObject;
 use bevy::prelude::*;
 use engine::asset::AssetRef;
 use engine::asset::AssetsExt;
-use engine::asset::overworld::OBJECT_LAYER_BOTTOM;
-use engine::asset::overworld::OBJECT_LAYER_TOP;
+use engine::asset::animation::sprite::SpriteAnimationAsset;
+use engine::asset::overworld::CHARACTER_LAYER;
 use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
 
@@ -21,66 +21,50 @@ impl Plugin for GameObjectPlugin {
 
 fn place_object(
     object_kinds: Res<Assets<GameObjectKindAsset>>,
+    animations: Res<Assets<SpriteAnimationAsset>>,
     mut message_reader: MessageReader<PlaceObject>,
     mut commands: Commands,
     grid_size: Single<&GridSize>,
 ) -> Result<()> {
     for PlaceObject { pos, object_kind } in message_reader.read() {
         let kind = object_kinds.require_handle(object_kind.handle())?;
+        let position = grid_size.grid_to_world(pos.as_vec2());
         let mut game_object = commands.spawn((
             GameObject {
                 kind_ref: object_kind.clone(),
             },
-            Transform::from_translation(grid_size.grid_to_world(pos.as_vec2()).extend(0.0)),
+            Transform::from_translation(
+                kind.offset()
+                    .map_or_else(|| position, |offset| position + offset)
+                    .extend(CHARACTER_LAYER),
+            ),
         ));
-        for sprite in create_object_sprites_for(kind) {
-            game_object.with_child(sprite);
+
+        for (id_suffix, (sprite, transform)) in kind.create_main_sprites() {
+            let id = if let Some(id_suffix) = id_suffix {
+                format!("{}_{id_suffix}", object_kind.id())
+            } else {
+                object_kind.id().to_string()
+            };
+            game_object.with_child((GameObjectSprite::Main { id }, sprite, transform));
+        }
+
+        for (i, (door, (sprite, transform))) in kind
+            .create_door_sprites(&animations)?
+            .into_iter()
+            .enumerate()
+        {
+            game_object.with_child((
+                GameObjectSprite::Door {
+                    id: format!("{}_door{i}", object_kind.id().to_string()),
+                    door: door.clone(),
+                },
+                sprite,
+                transform,
+            ));
         }
     }
     Ok(())
-}
-
-pub fn create_object_sprites_for(
-    kind: &GameObjectKindAsset,
-) -> Vec<(GameObjectSprite, Sprite, Transform)> {
-    match kind.spritesheet().kind() {
-        GameObjectSpritesheetKind::Single { offset } => {
-            let translation = if let Some(offset) = offset {
-                offset.extend(OBJECT_LAYER_BOTTOM)
-            } else {
-                Vec3::new(0.0, 0.0, OBJECT_LAYER_BOTTOM)
-            };
-            vec![(
-                GameObjectSprite(kind.spritesheet().image().id().to_string()),
-                Sprite::from_image(kind.spritesheet().image().handle().clone()),
-                Transform::from_translation(translation),
-            )]
-        }
-        GameObjectSpritesheetKind::Divided {
-            layout,
-            top,
-            bottom,
-        } => [(top, OBJECT_LAYER_TOP), (bottom, OBJECT_LAYER_BOTTOM)]
-            .iter()
-            .map(|(part, z)| {
-                (
-                    GameObjectSprite(format!(
-                        "{}_{}",
-                        kind.spritesheet().image().id(),
-                        part.name()
-                    )),
-                    Sprite::from_atlas_image(
-                        kind.spritesheet().image().handle().clone(),
-                        TextureAtlas {
-                            index: part.layout_index(),
-                            layout: layout.clone(),
-                        },
-                    ),
-                    Transform::from_translation(part.offset().extend(*z)),
-                )
-            })
-            .collect(),
-    }
 }
 
 #[derive(Component)]
@@ -95,11 +79,8 @@ impl GameObject {
     }
 }
 
-#[derive(Component)]
-pub struct GameObjectSprite(String);
-
-impl GameObjectSprite {
-    pub fn id(&self) -> &str {
-        &self.0
-    }
+#[derive(Component, Clone)]
+pub enum GameObjectSprite {
+    Main { id: String },
+    Door { id: String, door: Door },
 }

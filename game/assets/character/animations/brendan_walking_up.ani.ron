@@ -6,4 +6,5 @@
         8,
         6,
     ],
+    kind: Repeating,
 )

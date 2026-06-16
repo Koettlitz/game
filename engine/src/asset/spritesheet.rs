@@ -39,6 +39,7 @@ pub enum SpriteKind {
         idx: usize,
     },
     Animated {
+        #[from_def(implicit, with_spec(sub_path = "animations", extension = "ani.ron"))]
         animation: Handle<SpriteAnimationAsset>,
     },
 }

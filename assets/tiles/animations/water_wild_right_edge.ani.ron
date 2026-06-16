@@ -1,0 +1,14 @@
+(
+    timer: "water_wild_tiles",
+    frames: [
+        26,
+        29,
+        32,
+        35,
+        38,
+        41,
+        44,
+        47,
+    ],
+    kind: Repeating,
+)

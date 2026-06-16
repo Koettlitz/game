@@ -65,27 +65,29 @@ fn update_sprites(
     let (mut tile_grid, grid_size) = tile_grid.into_inner();
     let position =
         GridPosition::new(event.0, &grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
-    let tile_kind_asset = if let Some(tile) = &mut tile_grid[position] {
+    let (id, tile_kind_asset) = if let Some(tile) = &mut tile_grid[position] {
         for old_sprite in tile.sprite_stack.drain(..) {
             commands.entity(old_sprite).despawn();
         }
-        tile_kinds.require_handle(tile.kind.handle())?
+        (
+            tile.kind.id().to_string(),
+            tile_kinds.require_handle(tile.kind.handle())?,
+        )
     } else {
         return Ok(());
     };
     let layers = &edge_configs.require_handle(&tile_kind_asset.edge_config)?
         .edge_cases
         .iter()
-        .find(|(req, _)| {
-            let matches = req.matches(&tile_grid.cursor_at(position));
-            if matches {
-            }
-            matches
-        })
+        .find(|(req, _)| 
+            req.matches(&tile_grid.cursor_at(position))
+        )
         .expect("no adjacent requirement matched the current surroundings - this should never happen because there needs to be a default")
         .1;
     for (z, layer) in layers.iter() {
         let sprite_entity = spawn_tile_sprite(
+            // TODO: id is not always the same as tile kind id
+            &id,
             &position,
             layer,
             &tile_kind_asset.spritesheet,
@@ -117,6 +119,7 @@ impl TileSprite {
 }
 
 fn spawn_tile_sprite(
+    id: &str,
     position: &GridPosition,
     layer: &GroundTileVisual,
     spritesheet: &TileKindSpritesheet,
@@ -137,7 +140,7 @@ fn spawn_tile_sprite(
             };
             let sprite = Sprite::from_atlas_image(spritesheet.image().clone(), atlas);
             let entity = commands
-                .spawn((TileSprite(spritesheet.id().to_string()), transform, sprite))
+                .spawn((TileSprite(id.to_string()), transform, sprite))
                 .id();
             Ok(Some(entity))
         }
@@ -149,7 +152,7 @@ fn spawn_tile_sprite(
             let sprite = Sprite::from_atlas_image(spritesheet.image().clone(), atlas);
             let entity = commands
                 .spawn((
-                    TileSprite(spritesheet.id().to_string()),
+                    TileSprite(id.to_string()),
                     transform,
                     sprite,
                     Animated::by(animation_asset.handle().clone()),
@@ -162,18 +165,19 @@ fn spawn_tile_sprite(
             let Some(neighbor_position) = position.neighbor(&neighbor) else {
                 return Ok(None);
             };
-            let Some(neighbor) = &tile_grid[neighbor_position] else {
+            let Some(neighbor_tile) = &tile_grid[neighbor_position] else {
                 return Ok(None);
             };
-            let neighbor = tile_kinds.require_handle(neighbor.kind.handle())?;
+            let neighbor_tile_kind = tile_kinds.require_handle(neighbor_tile.kind.handle())?;
             let layer = edge_configs
-                .require_handle(&neighbor.edge_config)?
+                .require_handle(&neighbor_tile_kind.edge_config)?
                 .get_default()
                 .base();
             return spawn_tile_sprite(
+                neighbor_tile.kind.id(),
                 &position,
                 layer,
-                &neighbor.spritesheet,
+                &neighbor_tile_kind.spritesheet,
                 z,
                 commands,
                 tile_kinds,

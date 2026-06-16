@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use bevy::prelude::*;
 use engine::{
-    overworld::tile::{GridSize, TILE_SIZE},
+    overworld::tile::{GridSize, TILE_SIZE_VEC2},
     progress::ProgressState,
 };
 use input::InputPlugin;
@@ -72,14 +72,14 @@ fn draw_grid_bounds(mut gizmos: Gizmos, grid: Query<(&GridSize, &ShowGridLines)>
                 .grid_2d(
                     Isometry2d::IDENTITY,
                     grid_size.as_uvec2(),
-                    TILE_SIZE.as_vec2(),
+                    TILE_SIZE_VEC2,
                     Color::BLACK,
                 )
                 .outer_edges();
         } else {
             gizmos.rect_2d(
                 Isometry2d::IDENTITY,
-                grid_size.as_vec2() * TILE_SIZE.as_vec2(),
+                grid_size.as_vec2() * TILE_SIZE_VEC2,
                 Color::BLACK,
             );
         }

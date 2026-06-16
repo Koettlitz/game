@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-
-use crate::overworld::character::CharacterController;
+use engine::overworld::{character::CharacterController, input::InputSystems};
 
 pub struct InputPlugin;
 
@@ -9,9 +8,6 @@ impl Plugin for InputPlugin {
         app.add_systems(PreUpdate, move_character.in_set(InputSystems));
     }
 }
-
-#[derive(SystemSet, PartialEq, Eq, Hash, Clone, Debug)]
-pub struct InputSystems;
 
 fn move_character(input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut CharacterController>) {
     for mut controller in &mut query {
