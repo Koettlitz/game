@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{Ident, LitStr, Token, parse::Parse};
 
-use crate::{ASSET_MODULE_PATH, CratePath};
+use crate::CratePath;
 
 pub struct SpecArgs<'a> {
     pub base_path: Cow<'a, LitStr>,
@@ -57,7 +57,7 @@ pub fn create_spec_impl(
     type_ident: &impl ToTokens,
     args: &SpecArgs,
 ) -> Result<TokenStream, syn::Error> {
-    let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+    let asset_module = CratePath::try_from("bevy_elf")?;
     let base_path = &args.base_path;
     let extension = args
         .extension

@@ -5,14 +5,17 @@ pub use game_asset_impl::*;
 use proc_macro2::Span;
 use syn::{Attribute, Expr, Ident, LitStr, Token, parenthesized, parse::Parse, spanned::Spanned};
 
-use crate::{ASSET_MODULE_PATH, CratePath};
+use crate::CratePath;
 
 #[derive(Debug)]
-struct FieldAttr {
-    default: bool,
-    implicit: bool,
-    spec: Option<FieldSpec>,
-    resolver: Option<Expr>,
+enum FieldAttr {
+    FromDef {
+        default: bool,
+        implicit: bool,
+        spec: Option<FieldSpec>,
+        resolver: Option<Expr>,
+    },
+    FromDefault,
 }
 
 impl Parse for FieldAttr {
@@ -51,7 +54,7 @@ impl Parse for FieldAttr {
             }
         }
 
-        Ok(Self {
+        Ok(Self::FromDef {
             implicit,
             default,
             spec,
@@ -61,29 +64,59 @@ impl Parse for FieldAttr {
 }
 
 impl FieldAttr {
+    fn parse<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> syn::Result<Option<Self>> {
+        let mut result = None;
+        let err = |attr: &Attribute| {
+            syn::Error::new(
+                attr.span(),
+                "only one `#[from_def]` or `#[from_def_ault]` attribute is allowed",
+            )
+        };
+
+        for attr in attrs {
+            if attr.path().is_ident("from_def") {
+                if result.is_some() {
+                    return Err(err(attr));
+                }
+                let field_attr: Self = attr.parse_args()?;
+                field_attr.validate(attr.path().span())?;
+                result = Some(field_attr);
+            } else if attr.path().is_ident("from_def_ault") {
+                if result.is_some() {
+                    return Err(err(attr));
+                }
+                result = Some(Self::FromDefault);
+            }
+        }
+        Ok(result)
+    }
+
     fn validate(&self, span: Span) -> syn::Result<()> {
-        if !self.implicit && !self.default && self.spec.is_none() && self.resolver.is_none() {
+        let Self::FromDef {
+            default,
+            implicit,
+            spec,
+            resolver,
+        } = self
+        else {
+            return Ok(());
+        };
+        if !default && !implicit && spec.is_none() && resolver.is_none() {
             Err(syn::Error::new(
                 span,
                 "expected at least one of `implicit`, `default`, `with_spec` or `with_resolver`",
             ))
-        } else if self.implicit
-            && self
-                .spec
-                .as_ref()
-                .is_some_and(|spec| spec.extension.is_none())
-        {
+        } else if *implicit && spec.as_ref().is_some_and(|spec| spec.extension.is_none()) {
             Err(syn::Error::new(
                 span,
                 "expected `extension` on implicit field",
             ))
-        } else if self.spec.is_some() && self.resolver.is_some() {
+        } else if spec.is_some() && resolver.is_some() {
             Err(syn::Error::new(
                 span,
                 "cannot use both `with_spec` and `with_resolver`",
             ))
-        } else if self.default && (self.implicit || self.spec.is_some() || self.resolver.is_some())
-        {
+        } else if *default && (*implicit || spec.is_some() || resolver.is_some()) {
             Err(syn::Error::new(
                 span,
                 "`default` cannot be combined with other parameters",
@@ -92,18 +125,14 @@ impl FieldAttr {
             Ok(())
         }
     }
-}
 
-impl FieldAttr {
-    fn parse<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> syn::Result<Option<Self>> {
-        for attr in attrs {
-            if attr.path().is_ident("from_def") {
-                let field_attr: Self = attr.parse_args()?;
-                field_attr.validate(attr.path().span())?;
-                return Ok(Some(field_attr));
-            }
+    fn omit_def_field(&self) -> bool {
+        match self {
+            Self::FromDefault => true,
+            Self::FromDef {
+                default, implicit, ..
+            } => *default || *implicit,
         }
-        Ok(None)
     }
 }
 
@@ -208,7 +237,7 @@ mod def_generation {
         punctuated::Punctuated, token::Comma,
     };
 
-    use crate::{ASSET_MODULE_PATH, CratePath, from_def::FieldAttr};
+    use crate::{CratePath, from_def::FieldAttr};
 
     pub fn generate_def_for(
         derive_input: &DeriveInput,
@@ -300,18 +329,18 @@ mod def_generation {
 
     fn generate_def_field(mut field: Field) -> syn::Result<Option<Field>> {
         let from_def_trait = match FieldAttr::parse(&field.attrs)? {
-            Some(FieldAttr { implicit: true, .. }) | Some(FieldAttr { default: true, .. }) => {
+            Some(attr) if attr.omit_def_field() => {
                 return Ok(None);
             }
-            Some(FieldAttr { spec: Some(_), .. })
-            | Some(FieldAttr {
+            Some(FieldAttr::FromDef { spec: Some(_), .. })
+            | Some(FieldAttr::FromDef {
                 resolver: Some(_), ..
             }) => {
-                let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+                let asset_module = CratePath::try_from("bevy_elf")?;
                 quote!(#asset_module::FromDefWithResolver)
             }
             _ => {
-                let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+                let asset_module = CratePath::try_from("bevy_elf")?;
                 quote!(#asset_module::FromDef)
             }
         };
@@ -342,11 +371,12 @@ mod def_generation {
             let def_type = syn::parse_str("TestDef").unwrap();
             let generated = generate_def_for(&derive_input, &def_type).unwrap();
             let expected = quote! {
+                #[derive(serde::Serialize, serde::Deserialize)]
                 struct TestDef<T: ops::Add> {
-                    name: <String as engine::assets::FromDef>::Def,
-                    fancy: <Vec<Rc<RefCell<T::Output>>> as engine::assets::FromDef>::Def,
-                    handle: <String as engine::assets::FromDef>::Def,
-                    nested: <Vec<Rc<RefCell<String>>> as engine::assets::FromDef>::Def
+                    name: <String as engine::asset::FromDef>::Def,
+                    fancy: <Vec<Rc<RefCell<T::Output>>> as engine::asset::FromDef>::Def,
+                    handle: <Handle<HurensohnAsset<'_>> as engine::asset::FromDef>::Def,
+                    nested: <Vec<Rc<RefCell<Handle<T::Output>>>> as engine::asset::FromDef>::Def
                 }
             };
             let generated: ItemStruct = parse2(generated).unwrap();
@@ -369,7 +399,7 @@ mod game_asset_impl {
     };
 
     use crate::{
-        ASSET_MODULE_PATH, CratePath,
+        CratePath,
         from_def::{FieldAttr, FieldSpec, PathKind},
     };
 
@@ -587,19 +617,28 @@ mod game_asset_impl {
         ctx: &FromDefImplContext,
     ) -> Result<FieldResult, syn::Error> {
         let from_def_attr = FieldAttr::parse(&field.attrs)?;
-        let resolver_expr =
-            if let Some(field_spec) = from_def_attr.as_ref().and_then(|a| a.spec.as_ref()) {
-                Some(generate_resolver_from(&field.ty, field_spec, ctx)?)
+        let resolver_expr = if let Some(field_spec) = from_def_attr.as_ref().and_then(|a| {
+            if let FieldAttr::FromDef { spec, .. } = a {
+                spec.as_ref()
             } else {
-                from_def_attr
-                    .as_ref()
-                    .and_then(|a| a.resolver.as_ref().map(|r| r.to_token_stream()))
-            };
+                None
+            }
+        }) {
+            Some(generate_resolver_from(&field.ty, field_spec, ctx)?)
+        } else {
+            from_def_attr.as_ref().and_then(|a| {
+                if let FieldAttr::FromDef { resolver, .. } = a {
+                    resolver.as_ref().map(|r| r.to_token_stream())
+                } else {
+                    None
+                }
+            })
+        };
 
         Ok(FieldResult {
             def_field: if from_def_attr
                 .as_ref()
-                .is_some_and(|attr| attr.implicit || attr.default)
+                .is_some_and(|attr| attr.omit_def_field())
             {
                 None
             } else {
@@ -630,20 +669,23 @@ mod game_asset_impl {
         field_access: impl ToTokens,
         ctx: &FromDefImplContext,
     ) -> Result<TokenStream, syn::Error> {
-        let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+        let asset_module = CratePath::try_from("bevy_elf")?;
         let colon = &field.colon_token;
         let field_type = &field.ty;
         let from_def_trait = from_def_trait()?;
         let field_ident = &field.ident;
         let ctx_var_ident = &ctx.load_context_var_ident;
 
-        if let Some(FieldAttr { default: true, .. }) = from_def_attr {
+        if let Some(FieldAttr::FromDef { default: true, .. }) = from_def_attr {
             return Ok(quote! {
                 #field_ident #colon <#field_type as std::default::Default>::default()
             });
         }
-
-        let def_expr = if let Some(FieldAttr { implicit: true, .. }) = &from_def_attr {
+        let def_expr = if let Some(FieldAttr::FromDefault) = &from_def_attr {
+            quote! {
+                <<#field_type as #asset_module::FromDef>::Def as std::default::Default>::default()
+            }
+        } else if let Some(FieldAttr::FromDef { implicit: true, .. }) = &from_def_attr {
             quote! {
                 #asset_module::extract_id_from(#ctx_var_ident.path().clone())
             }
@@ -674,7 +716,7 @@ mod game_asset_impl {
         resolver_expr: Option<&TokenStream>,
         artificial_field_ident: &Ident,
     ) -> Result<TokenStream, syn::Error> {
-        let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+        let asset_module = CratePath::try_from("bevy_elf")?;
         let resolver_expr = if let Some(resolver_expr) = resolver_expr {
             resolver_expr
         } else {
@@ -700,7 +742,7 @@ mod game_asset_impl {
         spec: &FieldSpec,
         ctx: &FromDefImplContext,
     ) -> syn::Result<TokenStream> {
-        let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+        let asset_module = CratePath::try_from("bevy_elf")?;
         let provider_expr = match &spec.path_kind {
             PathKind::Root(base_path) => {
                 let extension = if let Some(extension) = spec.extension.as_ref() {
@@ -803,7 +845,7 @@ mod game_asset_impl {
 }
 
 pub fn from_def_trait() -> Result<CratePath, syn::Error> {
-    let path = ASSET_MODULE_PATH.to_string() + "::FromDef";
+    let path = "bevy_elf".to_string() + "::FromDef";
     CratePath::try_from(path.as_str())
 }
 

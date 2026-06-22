@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { workspace = true }
+bevy_elf = { workspace = true }
 engine = { path = "../engine" }
 macros = { path = "../macros" }
 serde = { workspace = true }

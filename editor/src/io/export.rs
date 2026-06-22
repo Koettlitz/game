@@ -11,18 +11,18 @@ use bevy::{
     prelude::*,
     tasks::IoTaskPool,
 };
+use bevy_elf::{AssetResolver, HasResolver};
 use engine::{
     asset::{
-        AssetResolver, AssetsExt, HasResolver,
+        AssetsExt,
         overworld::{
             lozo::{LozoAsset, LozoDef},
-            object::{GameObjectSpriteDef, TextureAtlasDataDef},
+            object::{GameObjectSpriteDef, SpriteKindDef, TextureAtlasDataDef},
             tile::{
                 TileDef, TileEventActionDef, TileEventTrigger, TileVisualKindDef, TileVisualsAsset,
                 TileVisualsDef,
             },
         },
-        spritesheet::SpriteKindDef,
     },
     overworld::tile::{Grid, GridPosition, GridSize, Passability},
 };

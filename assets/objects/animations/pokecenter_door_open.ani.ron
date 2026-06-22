@@ -1,5 +1,5 @@
 (
-    timer: "pokecenter_door",
+    timer: 64,
     frames: [2, 3, 4, 5,],
     kind: Once,
 )

@@ -5,7 +5,7 @@ use std::ops;
 use std::ops::Deref;
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use macros::FromDef;
+use bevy_elf::FromDef;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -240,12 +240,12 @@ impl<'a> Iterator for IterAround<'a> {
                 })
             }
         } else if current_pos.x == 0 {
-            if current_pos.y < self.grid_size.height() {
+            if current_pos.y < self.grid_size.height() - 1 {
+                current_pos.y += 1;
                 let grid_pos = GridPosition {
                     pos: *current_pos,
                     grid_size: self.grid_size,
                 };
-                current_pos.y += 1;
                 Some(grid_pos)
             } else {
                 current_pos.x = self.grid_size.width() - 1;
@@ -255,22 +255,23 @@ impl<'a> Iterator for IterAround<'a> {
                     grid_size: self.grid_size,
                 })
             }
-        } else if current_pos.y < self.grid_size.height() {
+        } else if current_pos.y < self.grid_size.height() - 1 {
+            current_pos.y += 1;
             let grid_pos = GridPosition {
                 pos: *current_pos,
                 grid_size: self.grid_size,
             };
-            current_pos.y += 1;
             Some(grid_pos)
-        } else if current_pos.x > 0 {
+        } else {
             current_pos.x -= 1;
-            Some(GridPosition {
+            let next = Some(GridPosition {
                 pos: UVec2::new(current_pos.x, self.grid_size.height() - 1),
                 grid_size: self.grid_size,
-            })
-        } else {
-            self.current_pos = None;
-            None
+            });
+            if current_pos.x == 1 {
+                self.current_pos = None;
+            }
+            next
         }
     }
 }
@@ -608,7 +609,7 @@ impl ops::Deref for GridIndex {
 }
 
 #[derive(FromDef, Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-#[def_type(Self)]
+#[elf(def_type(Self))]
 pub enum Neighbor {
     TopLeft,
     Top,
@@ -725,5 +726,48 @@ mod test {
             panic!("expected grid center, but got None");
         };
         assert_eq!(*result, expected.into());
+    }
+
+    #[test]
+    fn iter_around_3x3() {
+        test_iter_around(
+            &GridSize::new(3, 3),
+            vec![
+                UVec2::new(0, 0),
+                UVec2::new(1, 0),
+                UVec2::new(2, 0),
+                UVec2::new(0, 1),
+                UVec2::new(0, 2),
+                UVec2::new(2, 1),
+                UVec2::new(2, 2),
+                UVec2::new(1, 2),
+            ],
+        );
+    }
+
+    #[test]
+    fn iter_around_4x4() {
+        test_iter_around(
+            &GridSize::new(4, 4),
+            vec![
+                UVec2::new(0, 0),
+                UVec2::new(1, 0),
+                UVec2::new(2, 0),
+                UVec2::new(3, 0),
+                UVec2::new(0, 1),
+                UVec2::new(0, 2),
+                UVec2::new(0, 3),
+                UVec2::new(3, 1),
+                UVec2::new(3, 2),
+                UVec2::new(3, 3),
+                UVec2::new(2, 3),
+                UVec2::new(1, 3),
+            ],
+        );
+    }
+
+    fn test_iter_around(grid_size: &GridSize, expected: Vec<UVec2>) {
+        let result: Vec<UVec2> = grid_size.iter_around().map(|p| *p).collect();
+        assert_eq!(expected, result);
     }
 }

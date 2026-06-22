@@ -1,7 +1,7 @@
 use crate::{
     animation::{Animated, AnimationUpdate},
     asset::{
-        AssetResolver, AssetsExt, HasResolver,
+        AssetsExt,
         overworld::{
             CHARACTER_LAYER,
             character::{CharacterAsset, CharacterVisual},
@@ -13,6 +13,7 @@ use crate::{
     },
 };
 use bevy::prelude::*;
+use bevy_elf::RonAssetPlugin;
 use std::{
     ops::{Deref, DerefMut},
     time::Duration,
@@ -25,7 +26,7 @@ pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_character_asset)
+        app.add_plugins(RonAssetPlugin::<CharacterAsset>::default())
             .add_systems(
                 PreUpdate,
                 (update_character_state, update_turning_delay)
@@ -141,7 +142,7 @@ impl Default for TurningDelay {
 }
 
 #[derive(Component)]
-pub struct TileTransition {
+struct TileTransition {
     from: UVec2,
     to: UVec2,
     state: TileTransitionState,
@@ -157,7 +158,7 @@ enum TileTransitionState {
 struct StartTileTransition(Entity);
 
 #[derive(Resource)]
-struct LoadingCharacter(Handle<CharacterAsset>);
+pub struct LoadingCharacter(pub Handle<CharacterAsset>);
 
 impl Deref for LoadingCharacter {
     type Target = Handle<CharacterAsset>;
@@ -165,12 +166,6 @@ impl Deref for LoadingCharacter {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-}
-
-fn load_character_asset(mut commands: Commands, asset_server: ResMut<AssetServer>) -> Result<()> {
-    let handle = asset_server.load(<CharacterAsset as HasResolver>::resolver().resolve("brendan")?);
-    commands.insert_resource(LoadingCharacter(handle));
-    Ok(())
 }
 
 fn spawn_character(
@@ -196,10 +191,10 @@ fn spawn_character(
         Visibility::default(),
         children![(
             Sprite {
-                image: asset.spritesheet.clone(),
+                image: asset.spritesheet.image.clone(),
                 texture_atlas: Some(TextureAtlas {
                     index: 0,
-                    layout: asset.spritesheet_layout.clone(),
+                    layout: asset.spritesheet.layout.clone(),
                 }),
                 ..Default::default()
             },

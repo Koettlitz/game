@@ -1,0 +1,114 @@
+use bevy_elf::RonAssetPlugin;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
+use thiserror::Error;
+
+use bevy::prelude::*;
+
+use crate::{
+    animation::Animated,
+    asset::{
+        AssetsExt,
+        overworld::{
+            lozo::LozoAsset,
+            object::{GameObjectSpriteAsset, SpriteKind, TextureAtlasData},
+        },
+    },
+    overworld::lozo::{Lozo, LozoCommands, LozoSpawned},
+};
+
+pub struct GameObjectPlugin;
+
+impl Plugin for GameObjectPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(RonAssetPlugin::<GameObjectSpriteAsset>::default())
+            .add_observer(spawn_objects);
+    }
+}
+
+fn spawn_objects(
+    event: On<LozoSpawned>,
+    lozo: Query<&Lozo>,
+    lozo_assets: Res<Assets<LozoAsset>>,
+    mut object_lookup: Single<&mut ObjectSpriteLookup, With<Lozo>>,
+    mut commands: LozoCommands,
+    object_assets: Res<Assets<GameObjectSpriteAsset>>,
+) -> Result {
+    let lozo = lozo.get(event.entity())?;
+    let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
+
+    for object in &lozo_asset.objects {
+        let asset = object_assets.require_handle(object.handle())?;
+        let entity = spawn_object_sprite(asset, &mut commands);
+        object_lookup.insert(object.id().to_string(), entity);
+    }
+
+    Ok(())
+}
+
+fn spawn_object_sprite(
+    object_asset: &GameObjectSpriteAsset,
+    commands: &mut LozoCommands,
+) -> Entity {
+    let transform = Transform::from_translation(object_asset.world_position);
+    if let Some(TextureAtlasData { layout, kind }) = &object_asset.sprite_kind {
+        match kind {
+            SpriteKind::Static { idx } => commands.spawn_into_lozo((
+                Sprite::from_atlas_image(
+                    object_asset.image.clone(),
+                    TextureAtlas {
+                        layout: layout.clone(),
+                        index: *idx,
+                    },
+                ),
+                transform,
+            )),
+            SpriteKind::Animated { animation } => commands.spawn_into_lozo((
+                Sprite::from_atlas_image(
+                    object_asset.image.clone(),
+                    TextureAtlas {
+                        layout: layout.clone(),
+                        ..Default::default()
+                    },
+                ),
+                Animated::by(animation.clone()),
+                transform,
+            )),
+        }
+    } else {
+        commands.spawn_into_lozo((Sprite::from_image(object_asset.image.clone()), transform))
+    }
+    .id()
+}
+
+#[derive(Component, Default)]
+pub struct ObjectSpriteLookup(HashMap<String, Entity>);
+
+impl Deref for ObjectSpriteLookup {
+    type Target = HashMap<String, Entity>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ObjectSpriteLookup {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl ObjectSpriteLookup {
+    pub fn lookup(&self, id: &str) -> Result<Entity> {
+        Ok(self
+            .get(id)
+            .ok_or_else(|| ObjectSpriteLookupFailed(id.to_string()))
+            .map(|e| *e)?)
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("missing object sprite \"{0}\" in ObjectSpriteLookup")]
+pub struct ObjectSpriteLookupFailed(String);

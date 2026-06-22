@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
 use bevy::prelude::*;
+use bevy_elf::AssetRef;
 use engine::{
-    asset::{AssetMap, AssetRef, AssetsExt, LoadState},
+    asset::{AssetMap, AssetsExt, LoadState},
     overworld::tile::{Grid, GridCommands, GridSize},
     progress::{Progress, ProgressPanel, ProgressState},
 };
@@ -180,7 +181,7 @@ fn hot_reload_tile_kinds(
         let AssetEvent::LoadedWithDependencies { id } = msg else {
             continue;
         };
-        let tile_kind = tile_kinds.require_mut(*id)?;
+        let mut tile_kind = tile_kinds.require_mut(*id)?;
         let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
         tile_kind
             .spritesheet

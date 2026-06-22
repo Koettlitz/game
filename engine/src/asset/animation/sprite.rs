@@ -2,10 +2,8 @@ use std::{collections::HashMap, ops::Deref, time::Duration};
 
 use crate::asset::duration_millis;
 use bevy::prelude::*;
-use macros::FromDef;
+use bevy_elf::{FromDef, RonAssetPlugin};
 use serde::{Deserialize, Serialize};
-
-use crate::asset::RonAssetPlugin;
 
 #[derive(Default)]
 pub struct SpriteAnimationAssetPlugin;
@@ -27,7 +25,7 @@ pub struct SpriteAnimationAsset {
 }
 
 #[derive(Serialize, Deserialize, FromDef, Debug)]
-#[def_type(Self)]
+#[elf(def_type(Self))]
 #[serde(untagged)]
 pub enum AnimationTimerApi {
     TimerGroup(String),
@@ -47,7 +45,7 @@ impl AnimationKind {
 }
 
 #[derive(Asset, TypePath, Debug, Serialize, Deserialize, FromDef)]
-#[def_type(Self)]
+#[elf(def_type(Self))]
 pub struct AnimationTimersAsset(HashMap<String, u64>);
 
 impl Deref for AnimationTimersAsset {

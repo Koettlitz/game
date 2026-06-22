@@ -3,10 +3,11 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use engine::{
     animation::Animated,
-    asset::{AssetRef, AssetsExt, animation::sprite::SpriteAnimationAsset},
+    asset::{AssetsExt, animation::sprite::SpriteAnimationAsset},
     overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };
+use bevy_elf::AssetRef;
 
 use super::spawn_tile_grid;
 use crate::{
@@ -86,7 +87,6 @@ fn update_sprites(
         .1;
     for (z, layer) in layers.iter() {
         let sprite_entity = spawn_tile_sprite(
-            // TODO: id is not always the same as tile kind id
             &id,
             &position,
             layer,

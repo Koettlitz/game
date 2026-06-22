@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use macros::{FromDef, asset_spec};
+use bevy_elf::{AssetRef, FromDef, asset_spec};
 
-use crate::asset::{AssetRef, overworld::{object::GameObjectSpriteAsset, tile::TileAsset}};
+use crate::asset::overworld::{object::GameObjectSpriteAsset, tile::TileAsset};
 
 #[derive(FromDef, Asset, TypePath)]
 #[asset_spec(base_path = "game://lozo", extension = "lozo.ron")]
@@ -10,7 +10,7 @@ pub struct LozoAsset {
     pub height: u32,
     pub tile_grid: Vec<Option<TileAsset>>,
 
-    #[expose_resolver]
+    #[elf(expose_resolver)]
     pub objects: Vec<AssetRef<GameObjectSpriteAsset>>,
 }
 

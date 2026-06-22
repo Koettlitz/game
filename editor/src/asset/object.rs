@@ -1,15 +1,15 @@
 use bevy::asset::AssetEventSystems;
 use bevy::prelude::*;
+use bevy_elf::AssetRef;
+use bevy_elf::AssetResolver;
+use bevy_elf::FromDef;
+use bevy_elf::RonAssetPlugin;
 use engine::asset::AssetMap;
-use engine::asset::AssetRef;
-use engine::asset::AssetResolver;
 use engine::asset::AssetSetPlugin;
 use engine::asset::AssetsExt;
-use engine::asset::RonAssetPlugin;
 use engine::asset::animation::sprite::SpriteAnimationAsset;
 use engine::asset::spritesheet::SpritesheetKind;
 use engine::overworld::tile::TILE_SIZE;
-use macros::FromDef;
 use macros::asset_set;
 use serde::{Deserialize, Serialize};
 use std::cmp;
@@ -38,7 +38,7 @@ fn derive_image_data(
             continue;
         };
         for handle in object_kind_map.0.values() {
-            let object_kind = object_kinds.require_handle_mut(handle)?;
+            let mut object_kind = object_kinds.require_handle_mut(handle)?;
             if &object_kind.spritesheet.layout().id() == id {
                 object_kind.derive_offsets(&mut layouts)?;
             }
@@ -48,14 +48,14 @@ fn derive_image_data(
 }
 
 #[derive(FromDef, Asset, TypePath)]
-#[def_type(GameObjectKindDef)]
+#[elf(def_type(GameObjectKindDef))]
 #[asset_set(base_path = "objects")]
 pub struct GameObjectKindAsset {
     collision_box: Option<IRect>,
     spritesheet: GameObjectSpritesheet,
     doors: Vec<Door>,
 
-    #[from_def(default)]
+    #[elf(default)]
     offset: Option<Vec2>,
 }
 
@@ -248,10 +248,10 @@ impl GameObjectKindAsset {
 
 #[derive(FromDef)]
 pub struct GameObjectSpritesheet {
-    #[from_def(implicit, with_resolver(SpritesheetKind::Object))]
+    #[elf(implicit, with_resolver(SpritesheetKind::Object))]
     image: Handle<Image>,
 
-    #[from_def(
+    #[elf(
         implicit,
         with_spec(base_path = "objects/spritesheets/layouts", extension = "layout.ron")
     )]
@@ -280,10 +280,10 @@ pub enum ObjectSpriteKind {
         top: usize,
         bottom: usize,
 
-        #[from_def(default)]
+        #[elf(default)]
         top_offset: Option<Vec2>,
 
-        #[from_def(default)]
+        #[elf(default)]
         bottom_offset: Option<Vec2>,
     },
 }
@@ -304,12 +304,16 @@ pub struct Door {
     offset: IVec2,
     target_lozo: String,
 
-    #[from_def(with_spec(base_path = "objects/animations", extension = "ani.ron"))]
-    #[expose_resolver]
+    #[elf(
+        with_spec(base_path = "objects/animations", extension = "ani.ron"),
+        expose_resolver
+    )]
     open_animation: AssetRef<SpriteAnimationAsset>,
 
-    #[from_def(with_spec(base_path = "objects/animations", extension = "ani.ron"))]
-    #[expose_resolver]
+    #[elf(
+        with_spec(base_path = "objects/animations", extension = "ani.ron"),
+        expose_resolver
+    )]
     close_animation: AssetRef<SpriteAnimationAsset>,
 }
 

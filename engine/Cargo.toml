@@ -11,6 +11,7 @@ strum_macros = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 ron = { workspace = true }
+bevy_elf = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }

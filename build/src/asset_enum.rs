@@ -8,7 +8,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{ASSET_MODULE_PATH, ASSET_SET_MODULE_PATH, AssetSource, CratePath, resolve_crate_name};
+use crate::{ASSET_SET_MODULE_PATH, AssetSource, CratePath, resolve_crate_name};
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
@@ -98,7 +98,7 @@ fn generate_resolver_enum(
     let default_variant_string = variant_strings.remove(0);
     let enum_type: syn::Type = syn::parse_str(&enum_name)?;
     let bevy_crate = resolve_crate_name("bevy")?;
-    let asset_module = CratePath::try_from(ASSET_MODULE_PATH)?;
+    let elf_module = CratePath::try_from("bevy_elf")?;
     let asset_set_module = CratePath::try_from(ASSET_SET_MODULE_PATH)?;
     Ok(quote! {
         #[derive(Default, Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
@@ -110,6 +110,7 @@ fn generate_resolver_enum(
 
         impl std::str::FromStr for #enum_type {
             type Err = #asset_set_module::InvalidAssetLinkError;
+
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     #default_variant_string => Ok(Self::#default_variant_ident),
@@ -134,8 +135,8 @@ fn generate_resolver_enum(
             }
         }
 
-        impl #asset_module::StaticAssetResolver for #enum_type {
-            fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #asset_module::FromDefError> {
+        impl #elf_module::StaticAssetResolver for #enum_type {
+            fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #elf_module::ResolveError> {
                 let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
                 Ok(<Self as #asset_set_module::AsAssetPath>::as_asset_path(&instance))
             }

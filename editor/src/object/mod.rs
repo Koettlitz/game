@@ -2,7 +2,7 @@ use crate::asset::object::Door;
 use crate::asset::object::GameObjectKindAsset;
 use crate::ui::PlaceObject;
 use bevy::prelude::*;
-use engine::asset::AssetRef;
+use bevy_elf::AssetRef;
 use engine::asset::AssetsExt;
 use engine::asset::animation::sprite::SpriteAnimationAsset;
 use engine::asset::overworld::CHARACTER_LAYER;

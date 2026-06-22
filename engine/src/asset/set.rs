@@ -1,3 +1,4 @@
+use bevy_elf::ResolveError;
 use std::{borrow::Cow, hash::Hash, marker::PhantomData};
 use strum::IntoEnumIterator;
 use thiserror::Error;
@@ -84,6 +85,12 @@ where
 #[derive(Error, Debug)]
 #[error("invalid asset link: \"{0}\"")]
 pub struct InvalidAssetLinkError(pub String);
+
+impl From<InvalidAssetLinkError> for ResolveError {
+    fn from(value: InvalidAssetLinkError) -> Self {
+        ResolveError::InvalidAssetLink(value.0)
+    }
+}
 
 #[derive(Clone)]
 pub struct AssetSetPluginParams {

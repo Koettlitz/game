@@ -1,27 +1,14 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
-use crate::{
-    animation::Animated,
-    asset::{
-        AssetResolver, AssetsExt, HasResolver,
-        overworld::{
-            CHARACTER_LAYER,
-            lozo::LozoAsset,
-            object::{GameObjectSpriteAsset, TextureAtlasData},
-            tile::TileVisualKind,
-        },
-        spritesheet::SpriteKind,
-    },
-    overworld::{ObjectSpriteLookup, character::Character, tile::create_grid_bundle},
-};
+use crate::{asset::overworld::lozo::LozoAsset, overworld::object::ObjectSpriteLookup};
 use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
-
-use crate::overworld::tile::Tile;
+use bevy_elf::{AssetResolver, HasResolver, RonAssetPlugin};
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NextLozo>()
+        app.add_plugins(RonAssetPlugin::<LozoAsset>::default())
+            .init_resource::<NextLozo>()
             .init_state::<LozoState>()
             .add_systems(
                 PostUpdate,
@@ -32,32 +19,36 @@ impl Plugin for LozoPlugin {
                     (abort_transition, change_transition_target)
                         .before(detect_lozo_loaded)
                         .run_if(
-                            resource_changed::<NextLozo>.and(
+                            resource_changed::<NextLozo>.and_then(
                                 in_state(LozoState::LoadingLozoAsset)
-                                    .or(in_state(LozoState::NextReady)),
+                                    .or_else(in_state(LozoState::NextReady)),
                             ),
                         ),
                     detect_lozo_loaded.run_if(in_state(LozoState::LoadingLozoAsset)),
                     activate_switch.after(detect_lozo_loaded).run_if(
-                        in_state(LozoState::LoadingLozoAsset).or(in_state(LozoState::NextReady)),
+                        in_state(LozoState::LoadingLozoAsset)
+                            .or_else(in_state(LozoState::NextReady)),
                     ),
                 ),
             )
             .add_systems(
                 OnEnter(LozoState::Switching),
-                (despawn_lozo_entities, spawn_next_lozo, spawn_lozo_entities).chain(),
+                (
+                    despawn_lozo_entities,
+                    spawn_next_lozo,
+                    commit_lozo_transition,
+                )
+                    .chain(),
             );
     }
 }
 
 #[derive(Component, Default)]
 #[require(Visibility, Transform, ObjectSpriteLookup)]
-pub struct CurrentLozo(String);
+pub struct Lozo(Handle<LozoAsset>);
 
-impl Deref for CurrentLozo {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
+impl Lozo {
+    pub fn handle(&self) -> &Handle<LozoAsset> {
         &self.0
     }
 }
@@ -65,14 +56,28 @@ impl Deref for CurrentLozo {
 #[derive(SystemParam)]
 pub struct LozoCommands<'w, 's> {
     commands: Commands<'w, 's>,
-    query: Single<'w, 's, Entity, With<CurrentLozo>>,
+    query: Single<'w, 's, Entity, With<Lozo>>,
 }
 
 impl<'w, 's> LozoCommands<'w, 's> {
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
+    pub fn spawn_into_lozo(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
         let entity = self.commands.spawn(bundle).id();
         self.commands.entity(*self.query).add_child(entity);
         self.commands.entity(entity)
+    }
+}
+
+impl<'w, 's> Deref for LozoCommands<'w, 's> {
+    type Target = Commands<'w, 's>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
+}
+
+impl<'w, 's> DerefMut for LozoCommands<'w, 's> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commands
     }
 }
 
@@ -113,6 +118,15 @@ pub struct ReadyNextLozo {
 impl ReadyNextLozo {
     pub fn activate(&mut self) {
         self.activate = true;
+    }
+}
+
+#[derive(EntityEvent)]
+pub struct LozoSpawned(#[event_target] Entity);
+
+impl LozoSpawned {
+    pub fn entity(&self) -> Entity {
+        self.0
     }
 }
 
@@ -213,157 +227,31 @@ fn activate_switch(mut next_lozo: ResMut<NextLozo>, mut next_state: ResMut<NextS
     }
 }
 
-fn despawn_lozo_entities(mut commands: Commands, current: Single<Entity, With<CurrentLozo>>) {
+fn despawn_lozo_entities(mut commands: Commands, current: Single<Entity, With<Lozo>>) {
     commands.entity(*current).despawn_children();
 }
 
 fn spawn_next_lozo(
     mut commands: Commands,
     transition: Option<Res<LozoTransition>>,
-    mut current: Query<&mut CurrentLozo>,
+    mut current: Query<(Entity, &mut Lozo)>,
 ) {
     let Some(transition) = transition else {
         return;
     };
-    match current.single_mut() {
-        Ok(mut current) => {
-            current.0 = transition.next_lozo.clone();
+    let current = match current.single_mut() {
+        Ok((current_entity, mut current)) => {
+            current.0 = transition.asset_handle.clone();
+            current_entity
         }
-        Err(_) => {
-            commands.spawn(CurrentLozo(transition.next_lozo.clone()));
-        }
-    }
+        Err(_) => commands.spawn(Lozo(transition.asset_handle.clone())).id(),
+    };
+    commands.trigger(LozoSpawned(current));
 }
 
-fn spawn_lozo_entities(
-    mut object_lookup: Single<&mut ObjectSpriteLookup, With<CurrentLozo>>,
-    mut commands: LozoCommands,
-    transition: Res<LozoTransition>,
-    lozo_assets: Res<Assets<LozoAsset>>,
-    object_assets: Res<Assets<GameObjectSpriteAsset>>,
-    character: Option<Single<&mut Transform, With<Character>>>,
-    mut next_state: ResMut<NextState<LozoState>>,
-) -> Result<()> {
-    let lozo_asset = lozo_assets.require_handle(&transition.asset_handle)?;
-
-    let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
-        let Some(tile_asset) = &lozo_asset.tile_grid[*pos.as_index()] else {
-            return Ok(None);
-        };
-        let mut sprite_stack = Vec::new();
-        for visual in tile_asset.sprite_stack.iter() {
-            let spritesheet = &visual.spritesheet;
-            let entity = spawn_tile_sprite(
-                &visual.kind,
-                spritesheet.clone(),
-                Some(visual.layout.clone()),
-                visual.z,
-                &mut commands.commands,
-            )?;
-            sprite_stack.push(entity);
-        }
-
-        let tile_entity = commands
-            .spawn((
-                Tile::new(tile_asset.passability, tile_asset.events.clone()),
-                Transform::from_translation(pos.to_world_pos().extend(0.0)),
-            ))
-            .id();
-        commands
-            .commands
-            .entity(tile_entity)
-            .add_children(&sprite_stack);
-        Ok(Some(tile_entity))
-    })?;
-
-    for object in &lozo_asset.objects {
-        let object_asset = object_assets.require_handle(object.handle())?;
-        let transform = Transform::from_translation(object_asset.world_position);
-        let entity = if let Some(TextureAtlasData { layout, kind }) = &object_asset.sprite_kind {
-            match kind {
-                SpriteKind::Static { idx } => commands.spawn((
-                    Sprite::from_atlas_image(
-                        object_asset.image.clone(),
-                        TextureAtlas {
-                            layout: layout.clone(),
-                            index: *idx,
-                        },
-                    ),
-                    transform,
-                )),
-                SpriteKind::Animated { animation } => commands.spawn((
-                    Sprite::from_atlas_image(
-                        object_asset.image.clone(),
-                        TextureAtlas {
-                            layout: layout.clone(),
-                            ..Default::default()
-                        },
-                    ),
-                    Animated::by(animation.clone()),
-                    transform,
-                )),
-            }
-        } else {
-            commands.spawn((Sprite::from_image(object_asset.image.clone()), transform))
-        }
-        .id();
-        object_lookup.insert(object.id().to_string(), entity);
-    }
-
-    if let Some(mut character) = character {
-        character.translation = grid_size
-            .snap_to_tile(Vec2::new(0.0, 0.0))
-            .extend(CHARACTER_LAYER);
-    }
-
-    commands.spawn((grid, grid_size));
-
-    commands.commands.remove_resource::<LozoTransition>();
+fn commit_lozo_transition(mut commands: Commands, mut next_state: ResMut<NextState<LozoState>>) {
+    commands.remove_resource::<LozoTransition>();
     next_state.set(LozoState::Default);
-
-    Ok(())
-}
-
-fn spawn_tile_sprite(
-    visual: &TileVisualKind,
-    image_handle: Handle<Image>,
-    layout_handle: Option<Handle<TextureAtlasLayout>>,
-    z: f32,
-    commands: &mut Commands,
-) -> Result<Entity> {
-    let transform = Transform::from_translation(Vec3::new(0.0, 0.0, z));
-    Ok(match &visual {
-        TileVisualKind::Static { idx } => {
-            let sprite = if let Some(layout_handle) = layout_handle {
-                Sprite::from_atlas_image(
-                    image_handle.clone(),
-                    TextureAtlas {
-                        layout: layout_handle,
-                        index: *idx,
-                    },
-                )
-            } else {
-                Sprite::from_image(image_handle.clone())
-            };
-            commands.spawn((sprite, transform)).id()
-        }
-        TileVisualKind::Animated { animation } => {
-            let sprite = if let Some(layout_handle) = layout_handle {
-                Sprite::from_atlas_image(
-                    image_handle.clone(),
-                    TextureAtlas {
-                        layout: layout_handle,
-                        ..Default::default()
-                    },
-                )
-            } else {
-                Sprite::from_image(image_handle.clone())
-            };
-            commands
-                .spawn((sprite, transform, Animated::by(animation.clone())))
-                .id()
-        }
-    })
 }
 
 #[derive(States, Default, PartialEq, Eq, Hash, Clone, Copy, Debug)]

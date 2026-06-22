@@ -15,7 +15,6 @@ pub mod asset_set;
 pub mod from_def;
 pub mod spec;
 
-pub const ASSET_MODULE_PATH: &'static str = "engine::asset";
 pub const ASSET_SET_MODULE_PATH: &'static str = "engine::asset::set";
 
 #[derive(Clone, Copy, Debug)]

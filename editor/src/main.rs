@@ -1,7 +1,7 @@
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
+use bevy_elf::RonAssetLoader;
 use engine::{
     animation::SpriteAnimationPlugin,
-    asset::RonAssetLoader,
     progress::{ProgressPlugin, ProgressScreen, ProgressState},
 };
 

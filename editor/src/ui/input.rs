@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
+use bevy_elf::AssetRef;
 use engine::{
     animation::Animated,
-    asset::{AssetRef, AssetsExt, animation::sprite::SpriteAnimationAsset},
+    asset::{AssetsExt, animation::sprite::SpriteAnimationAsset},
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };

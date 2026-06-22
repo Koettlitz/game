@@ -2,12 +2,16 @@ use std::ops;
 use std::{collections::HashMap, fmt::Debug};
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use macros::FromDef;
+use bevy_elf::FromDef;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::animation::Animated;
-use crate::overworld::ObjectSpriteLookup;
+use crate::asset::AssetsExt;
+use crate::asset::overworld::lozo::LozoAsset;
+use crate::asset::overworld::tile::TileVisualKind;
+use crate::overworld::lozo::{Lozo, LozoCommands, LozoSpawned};
+use crate::overworld::object::ObjectSpriteLookup;
 use crate::{
     asset::{
         animation::sprite::SpriteAnimationAsset,
@@ -32,7 +36,8 @@ mod grid;
 pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(on_char_left)
+        app.add_observer(spawn_tile_grid)
+            .add_observer(on_char_left)
             .add_observer(on_char_entered)
             .add_observer(on_char_reached)
             .add_observer(on_load_next_lozo)
@@ -62,7 +67,7 @@ impl Tile {
 }
 
 #[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash)]
-#[def_type(Self)]
+#[elf(def_type(Self))]
 pub enum Passability {
     Always,
     Never,
@@ -103,6 +108,99 @@ impl ops::BitAndAssign for Passability {
     fn bitand_assign(&mut self, rhs: Self) {
         *self = *self & rhs;
     }
+}
+
+#[derive(EntityEvent)]
+pub struct TileGridSpawned(#[event_target] Entity);
+
+impl TileGridSpawned {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+fn spawn_tile_grid(
+    event: On<LozoSpawned>,
+    lozo: Query<&Lozo>,
+    lozo_assets: Res<Assets<LozoAsset>>,
+    mut commands: LozoCommands,
+) -> Result {
+    let lozo = lozo.get(event.entity())?;
+    let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
+
+    let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
+        let Some(tile_asset) = &lozo_asset.tile_grid[*pos.as_index()] else {
+            return Ok(None);
+        };
+        let mut sprite_stack = Vec::new();
+        for visual in tile_asset.sprite_stack.iter() {
+            let spritesheet = &visual.spritesheet;
+            let entity = spawn_tile_sprite(
+                &visual.kind,
+                spritesheet.clone(),
+                Some(visual.layout.clone()),
+                visual.z,
+                &mut commands,
+            )?;
+            sprite_stack.push(entity);
+        }
+
+        let tile_entity = commands
+            .spawn_into_lozo((
+                Tile::new(tile_asset.passability, tile_asset.events.clone()),
+                Transform::from_translation(pos.to_world_pos().extend(0.0)),
+            ))
+            .id();
+        commands.entity(tile_entity).add_children(&sprite_stack);
+        Ok(Some(tile_entity))
+    })?;
+
+    let entity = commands.spawn_into_lozo((grid, grid_size)).id();
+    commands.trigger(TileGridSpawned(entity));
+
+    Ok(())
+}
+
+pub fn spawn_tile_sprite(
+    visual: &TileVisualKind,
+    image_handle: Handle<Image>,
+    layout_handle: Option<Handle<TextureAtlasLayout>>,
+    z: f32,
+    commands: &mut Commands,
+) -> Result<Entity> {
+    let transform = Transform::from_translation(Vec3::new(0.0, 0.0, z));
+    Ok(match &visual {
+        TileVisualKind::Static { idx } => {
+            let sprite = if let Some(layout_handle) = layout_handle {
+                Sprite::from_atlas_image(
+                    image_handle.clone(),
+                    TextureAtlas {
+                        layout: layout_handle,
+                        index: *idx,
+                    },
+                )
+            } else {
+                Sprite::from_image(image_handle.clone())
+            };
+            commands.spawn((sprite, transform)).id()
+        }
+        TileVisualKind::Animated { animation } => {
+            let sprite = if let Some(layout_handle) = layout_handle {
+                Sprite::from_atlas_image(
+                    image_handle.clone(),
+                    TextureAtlas {
+                        layout: layout_handle,
+                        ..Default::default()
+                    },
+                )
+            } else {
+                Sprite::from_image(image_handle.clone())
+            };
+            commands
+                .spawn((sprite, transform, Animated::by(animation.clone())))
+                .id()
+        }
+    })
 }
 
 impl TileEventAction {

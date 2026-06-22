@@ -1,12 +1,12 @@
+use bevy_elf::{AssetRef, FromDef, FromDefError, RonAssetPlugin, asset_spec};
 use engine::{
     asset::{
-        AssetMap, AssetRef, AssetSetPlugin, AssetsExt, FromDef, FromDefError, RonAssetPlugin,
-        animation::sprite::SpriteAnimationAsset, one_or_many, overworld::TILE_LAYER,
-        spritesheet::SpritesheetKind,
+        AssetMap, AssetSetPlugin, AssetsExt, animation::sprite::SpriteAnimationAsset, one_or_many,
+        overworld::TILE_LAYER, spritesheet::SpritesheetKind,
     },
     overworld::tile::{GridCursor, Neighbor, Passability},
 };
-use macros::{FromDef, asset_set, asset_spec};
+use macros::asset_set;
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display},
@@ -49,7 +49,7 @@ fn derive_layouts(
             continue;
         };
         for tile_kind in tile_kind_map.0.values() {
-            let tile_kind = tile_kinds.require_handle_mut(tile_kind)?;
+            let mut tile_kind = tile_kinds.require_handle_mut(tile_kind)?;
             if &tile_kind.spritesheet.image().id() != id {
                 continue;
             }
@@ -64,18 +64,20 @@ fn derive_layouts(
 pub struct TileKindAsset {
     pub passability: Passability,
 
+    #[elf(from_default)]
     pub spritesheet: TileKindSpritesheet,
 
-    #[from_def(implicit)]
+    #[elf(implicit)]
     pub edge_config: Handle<TileEdgeConfig>,
 }
 
 #[derive(FromDef, TypePath, Debug)]
+#[elf(def_type(()))]
 pub struct TileKindSpritesheet {
-    #[from_def(implicit, with_resolver(SpritesheetKind::Tile))]
+    #[elf(implicit, with_resolver(SpritesheetKind::Tile))]
     image: Handle<Image>,
 
-    #[from_def(default)]
+    #[elf(default)]
     layout: Option<Handle<TextureAtlasLayout>>,
 }
 
@@ -188,37 +190,50 @@ impl TileEdgeConfig {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(FromDef, Debug, Default, PartialEq, Eq)]
+#[elf(on_def(
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+))]
 pub struct AdjacentRequirements {
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub top_left: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub top: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub top_right: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub left: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub right: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub bottom_left: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub bottom: AdjacentRequirement,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
+    ))]
     pub bottom_right: AdjacentRequirement,
-}
-
-impl FromDef for AdjacentRequirements {
-    type Def = AdjacentRequirementsDef;
-    type Error = FromDefError;
-
-    fn from_def(
-        config: Self::Def,
-        load_context: &mut LoadContext,
-    ) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            top_left: AdjacentRequirement::from_def(config.top_left, load_context)?,
-            top: AdjacentRequirement::from_def(config.top, load_context)?,
-            top_right: AdjacentRequirement::from_def(config.top_right, load_context)?,
-            left: AdjacentRequirement::from_def(config.left, load_context)?,
-            right: AdjacentRequirement::from_def(config.right, load_context)?,
-            bottom_left: AdjacentRequirement::from_def(config.bottom_left, load_context)?,
-            bottom: AdjacentRequirement::from_def(config.bottom, load_context)?,
-            bottom_right: AdjacentRequirement::from_def(config.bottom_right, load_context)?,
-        })
-    }
 }
 
 impl AdjacentRequirements {
@@ -260,26 +275,6 @@ impl PartialOrd for AdjacentRequirements {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub struct AdjacentRequirementsDef {
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub top_left: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub top: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub top_right: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub left: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub right: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub bottom_left: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub bottom: AdjacentRequirementDef,
-    #[serde(default, skip_serializing_if = "AdjacentRequirementDef::is_any")]
-    pub bottom_right: AdjacentRequirementDef,
-}
-
 impl AdjacentRequirementsDef {
     fn all(&self) -> [&AdjacentRequirementDef; 8] {
         [
@@ -316,14 +311,21 @@ impl PartialOrd for AdjacentRequirementsDef {
 }
 
 #[derive(FromDef, Default, Clone, Debug)]
-#[def_type(AdjacentRequirementDef)]
+#[elf(on_def(
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Default)]
+))]
 pub enum AdjacentRequirement {
     #[default]
+    #[elf(on_def(#[default]))]
     Any,
     Same,
     Other,
     SameGroup,
     OtherGroup,
+
+    #[elf(on_def(
+        #[serde(with = "one_or_many")]
+    ))]
     Either(Vec<String>),
 }
 
@@ -386,18 +388,6 @@ impl PartialOrd for AdjacentRequirement {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub enum AdjacentRequirementDef {
-    #[default]
-    Any,
-    Same,
-    SameGroup,
-    Other,
-    OtherGroup,
-    #[serde(with = "one_or_many")]
-    Either(Vec<String>),
-}
-
 impl AdjacentRequirementDef {
     fn prio(&self) -> usize {
         match self {
@@ -428,10 +418,19 @@ impl AdjacentRequirementDef {
 }
 
 #[derive(FromDef, Debug)]
-#[def_type(GroundTileVisualLayersDef)]
+#[elf(on_def(
+    #[derive(Serialize, Deserialize, Debug)]
+))]
 pub struct GroundTileVisualLayers {
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    ))]
     below: Vec<GroundTileVisual>,
     base: GroundTileVisual,
+
+    #[elf(on_def(
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    ))]
     above: Vec<GroundTileVisual>,
 }
 
@@ -574,15 +573,6 @@ impl<'a> Iterator for _LayerIteratorMut<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct GroundTileVisualLayersDef {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub below: Vec<GroundTileVisualDef>,
-    pub base: GroundTileVisualDef,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub above: Vec<GroundTileVisualDef>,
-}
-
 impl From<GroundTileVisualDef> for GroundTileVisualLayersDef {
     fn from(value: GroundTileVisualDef) -> Self {
         Self {
@@ -593,60 +583,15 @@ impl From<GroundTileVisualDef> for GroundTileVisualLayersDef {
     }
 }
 
-impl Debug for GroundTileVisualLayersDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.below.is_empty() {
-            if self.above.is_empty() {
-                write!(
-                    f,
-                    "GroundTileVisualLayersConfig {{ base: {:?} }}",
-                    self.base
-                )
-            } else {
-                write!(
-                    f,
-                    "GroundTileVisualLayersConfig {{ base: {:?}, above: {:?}",
-                    self.base, self.above
-                )
-            }
-        } else {
-            if self.above.is_empty() {
-                write!(
-                    f,
-                    "GroundTileVisualLayersConfig {{ below: {:?}, base: {:?}",
-                    self.below, self.base
-                )
-            } else {
-                write!(
-                    f,
-                    "GroundTileVisualLayersConfig {{ below: {:?}, base: {:?}, above: {:?}",
-                    self.below, self.base, self.above
-                )
-            }
-        }
-    }
-}
-
 #[derive(FromDef, Debug)]
+#[elf(on_def(
+    #[derive(Serialize, Deserialize, Debug)]
+))]
 pub enum GroundTileVisual {
     Static(usize),
     Animated(
-        #[from_def(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
+        #[elf(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
         AssetRef<SpriteAnimationAsset>,
     ),
     Neighbor(Neighbor),
-}
-
-impl Debug for GroundTileVisualDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Static(idx) => {
-                write!(f, "GroundTileVisualDef::Static({idx})")
-            }
-            Self::Animated(animation) => {
-                write!(f, "GroundTileVisualDef::Animated({animation})")
-            }
-            Self::Neighbor(neighbor) => write!(f, "GroundTileVisualDef::Neighbor({neighbor:?})"),
-        }
-    }
 }

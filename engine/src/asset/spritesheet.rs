@@ -1,47 +1,17 @@
 use std::borrow::Cow;
 
 use bevy::prelude::*;
-use macros::FromDef;
+use bevy_elf::{AssetPathSpecProvider, FromDef};
 use serde::{Deserialize, Serialize};
 
-use crate::asset::{
-    AssetPathSpecProvider, AssetResolver, FromDef, FromDefError,
-    animation::sprite::SpriteAnimationAsset,
-};
-
+#[derive(FromDef, Clone)]
+#[elf(def_type(()))]
 pub struct Spritesheet {
+    #[elf(implicit, with_spec(sub_path = "images", extension = "png"))]
     pub image: Handle<Image>,
-    pub layout: Option<TextureAtlasLayout>,
-}
 
-#[derive(Serialize, Deserialize)]
-pub struct SpritesheetDef {
-    pub image: String,
-    pub layout: Option<TextureAtlasLayout>,
-    pub kind: SpritesheetKind,
-}
-
-impl FromDef for Spritesheet {
-    type Def = SpritesheetDef;
-    type Error = FromDefError;
-
-    fn from_def(def: Self::Def, ctx: &mut bevy::asset::LoadContext) -> Result<Self, Self::Error> {
-        Ok(Self {
-            image: ctx.load(def.kind.resolve(&def.image)?),
-            layout: def.layout,
-        })
-    }
-}
-
-#[derive(FromDef)]
-pub enum SpriteKind {
-    Static {
-        idx: usize,
-    },
-    Animated {
-        #[from_def(implicit, with_spec(sub_path = "animations", extension = "ani.ron"))]
-        animation: Handle<SpriteAnimationAsset>,
-    },
+    #[elf(implicit, with_spec(sub_path = "layouts", extension = "tl.ron"))]
+    pub layout: Handle<TextureAtlasLayout>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]

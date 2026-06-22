@@ -1,29 +1,23 @@
-use crate::asset::animation::sprite::SpriteAnimationAsset;
+use crate::asset::{animation::sprite::SpriteAnimationAsset, spritesheet::Spritesheet};
 use bevy::prelude::*;
-use macros::{FromDef, asset_spec};
+use bevy_elf::{FromDef, asset_spec};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Asset, TypePath, FromDef)]
 #[asset_spec(base_path = "game://character", extension = "char.ron")]
 pub struct CharacterAsset {
-    #[from_def(implicit, with_spec(sub_path = "spritesheet", extension = "png"))]
-    pub spritesheet: Handle<Image>,
-
-    #[from_def(
-        implicit,
-        with_spec(sub_path = "spritesheet/layout", extension = "tl.ron")
-    )]
-    pub spritesheet_layout: Handle<TextureAtlasLayout>,
-
     pub animations: HashMap<CharacterState, CharacterVisual>,
+
+    #[elf(from_default)]
+    pub spritesheet: Spritesheet,
 }
 
 #[derive(FromDef, Debug)]
 pub enum CharacterVisual {
     Static(usize),
     Animated(
-        #[from_def(with_spec(sub_path = "game://character/animations", extension = "ani.ron"))]
+        #[elf(with_spec(sub_path = "game://character/animations", extension = "ani.ron"))]
         Handle<SpriteAnimationAsset>,
     ),
 }

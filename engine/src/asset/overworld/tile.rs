@@ -3,31 +3,22 @@ use std::{collections::HashMap, hash::Hash};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    asset::{PathResolver, animation::sprite::SpriteAnimationAsset, spritesheet::SpritesheetKind},
+    asset::{animation::sprite::SpriteAnimationAsset, spritesheet::SpritesheetKind},
     overworld::tile::Passability,
 };
 use bevy::prelude::*;
-use macros::FromDef;
+use bevy_elf::{FromDef, PathResolver};
 
 #[derive(FromDef)]
+#[elf(on_def(#[derive(Serialize, Deserialize, Default)]))]
 pub struct TileAsset {
     pub passability: Passability,
     pub sprite_stack: Vec<TileVisualsAsset>,
     pub events: HashMap<TileEventTrigger, Vec<TileEventAction>>,
 }
 
-impl Default for TileDef {
-    fn default() -> Self {
-        Self {
-            passability: Passability::default(),
-            sprite_stack: Vec::default(),
-            events: HashMap::new(),
-        }
-    }
-}
-
 #[derive(FromDef, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
-#[def_type(Self)]
+#[elf(def_type(Self))]
 pub enum TileEventTrigger {
     CharLeftFrom,
     CharLeftTo,
@@ -44,7 +35,7 @@ pub enum TileEventAction {
     SpriteAnimation {
         sprite_id: String,
 
-        #[from_def(with_resolver(PathResolver))]
+        #[elf(with_resolver(PathResolver))]
         animation: Handle<SpriteAnimationAsset>,
     },
     ActivateNextLozo,
@@ -52,24 +43,26 @@ pub enum TileEventAction {
 
 #[derive(FromDef)]
 pub struct TileVisualsAsset {
-    #[from_def(with_resolver(SpritesheetKind::Tile))]
+    #[elf(with_resolver(SpritesheetKind::Tile))]
     pub spritesheet: Handle<Image>,
 
-    #[from_def(with_spec(base_path = "tiles/spritesheets/layouts", extension = "layout.ron"))]
-    #[expose_resolver]
+    #[elf(
+        with_spec(base_path = "tiles/spritesheets/layouts", extension = "layout.ron"),
+        expose_resolver
+    )]
     pub layout: Handle<TextureAtlasLayout>,
     pub kind: TileVisualKind,
     pub z: f32,
 }
 
 #[derive(FromDef)]
-#[def_type(TileVisualKindDef)]
+#[elf(def_type(TileVisualKindDef))]
 pub enum TileVisualKind {
     Static {
         idx: usize,
     },
     Animated {
-        #[from_def(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
+        #[elf(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
         animation: Handle<SpriteAnimationAsset>,
     },
 }
