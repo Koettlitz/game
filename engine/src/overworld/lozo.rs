@@ -168,7 +168,7 @@ fn change_transition_target(
     };
 
     if id != &transition.next_lozo {
-        log::debug!(
+        log::info!(
             "next lozo changed from {} to {id} - loading {id} now instead",
             transition.next_lozo
         );
@@ -189,6 +189,7 @@ fn abort_transition(
     mut next_state: ResMut<NextState<LozoState>>,
 ) {
     if next_lozo.id.is_none() {
+        log::info!("unloading next lozo");
         commands.remove_resource::<LozoTransition>();
         next_state.set(LozoState::Default);
     }
@@ -248,6 +249,8 @@ fn spawn_next_lozo(
     };
     commands.trigger(LozoSpawned(current));
 }
+
+// TODO: Spawn CharTileEvents
 
 fn commit_lozo_transition(mut commands: Commands, mut next_state: ResMut<NextState<LozoState>>) {
     commands.remove_resource::<LozoTransition>();

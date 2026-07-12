@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
@@ -7,41 +7,16 @@ use crate::{
     overworld::tile::Passability,
 };
 use bevy::prelude::*;
-use bevy_elf::{FromDef, PathResolver};
+use bevy_elf::FromDef;
 
-#[derive(FromDef)]
+#[derive(FromDef, Debug)]
 #[elf(on_def(#[derive(Serialize, Deserialize, Default)]))]
 pub struct TileAsset {
     pub passability: Passability,
     pub sprite_stack: Vec<TileVisualsAsset>,
-    pub events: HashMap<TileEventTrigger, Vec<TileEventAction>>,
 }
 
-#[derive(FromDef, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
-#[elf(def_type(Self))]
-pub enum TileEventTrigger {
-    CharLeftFrom,
-    CharLeftTo,
-    CharEnteredFrom,
-    CharEntered,
-    CharReachedFrom,
-    CharReached,
-}
-
-#[derive(FromDef, Debug, Clone)]
-pub enum TileEventAction {
-    LoadNextLozo(String),
-    UnloadNextLozo,
-    SpriteAnimation {
-        sprite_id: String,
-
-        #[elf(with_resolver(PathResolver))]
-        animation: Handle<SpriteAnimationAsset>,
-    },
-    ActivateNextLozo,
-}
-
-#[derive(FromDef)]
+#[derive(FromDef, Debug)]
 pub struct TileVisualsAsset {
     #[elf(with_resolver(SpritesheetKind::Tile))]
     pub spritesheet: Handle<Image>,
@@ -55,7 +30,7 @@ pub struct TileVisualsAsset {
     pub z: f32,
 }
 
-#[derive(FromDef)]
+#[derive(FromDef, Debug)]
 #[elf(def_type(TileVisualKindDef))]
 pub enum TileVisualKind {
     Static {

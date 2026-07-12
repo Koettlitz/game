@@ -1,27 +1,18 @@
 use std::ops;
 use std::{collections::HashMap, fmt::Debug};
 
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_elf::FromDef;
+use bevy::prelude::*;
+use bevy_elf::{FromDef, PathResolver};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::animation::Animated;
-use crate::asset::AssetsExt;
 use crate::asset::overworld::lozo::LozoAsset;
 use crate::asset::overworld::tile::TileVisualKind;
+use crate::asset::{AssetsExt, Phantom};
 use crate::overworld::lozo::{Lozo, LozoCommands, LozoSpawned};
 use crate::overworld::object::ObjectSpriteLookup;
-use crate::{
-    asset::{
-        animation::sprite::SpriteAnimationAsset,
-        overworld::tile::{TileEventAction, TileEventTrigger},
-    },
-    overworld::{
-        character::{CharEnteredTile, CharLeftTile, CharReachedTile},
-        lozo::NextLozo,
-    },
-};
+use crate::{asset::animation::sprite::SpriteAnimationAsset, overworld::lozo::NextLozo};
 
 pub use grid::{
     Grid, GridCommands, GridCursor, GridIndex, GridPosition, GridSize, IterAll, IterAround,
@@ -37,9 +28,7 @@ pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(spawn_tile_grid)
-            .add_observer(on_char_left)
-            .add_observer(on_char_entered)
-            .add_observer(on_char_reached)
+            .add_observer(spawn_edge_events)
             .add_observer(on_load_next_lozo)
             .add_observer(on_activate_next_lozo)
             .add_observer(on_unload_next_lozo)
@@ -51,19 +40,6 @@ impl Plugin for TilePlugin {
 #[require(Visibility, Transform)]
 pub struct Tile {
     pub passability: Passability,
-    pub events: HashMap<TileEventTrigger, Vec<TileEventAction>>,
-}
-
-impl Tile {
-    pub fn new(
-        passability: Passability,
-        events: HashMap<TileEventTrigger, Vec<TileEventAction>>,
-    ) -> Self {
-        Self {
-            passability,
-            events,
-        }
-    }
 }
 
 #[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash)]
@@ -110,6 +86,61 @@ impl ops::BitAndAssign for Passability {
     }
 }
 
+#[derive(Hash, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct TileEdge {
+    pub from: UVec2,
+    pub to: UVec2,
+}
+
+impl From<(UVec2, UVec2)> for TileEdge {
+    fn from((from, to): (UVec2, UVec2)) -> Self {
+        Self { from, to }
+    }
+}
+
+impl TileEdge {
+    pub fn reverse(&self) -> Self {
+        Self {
+            from: self.to,
+            to: self.from,
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct TileEdgeEvents<T: Send + Sync>(HashMap<TileEdge, Vec<TileEventAction>>, Phantom<T>);
+
+impl<T: Send + Sync> TileEdgeEvents<T> {
+    fn new(events: HashMap<TileEdge, Vec<TileEventAction>>) -> Self {
+        Self(events, Phantom::default())
+    }
+
+    pub fn trigger(&self, edge: &TileEdge, commands: &mut Commands) {
+        if let Some(actions) = self.0.get(edge) {
+            for action in actions {
+                action.trigger_event(commands);
+            }
+        }
+    }
+}
+
+pub struct CharLeftTile;
+pub struct CharEnteredTile;
+pub struct CharReachedTile;
+
+#[derive(FromDef, Debug, Clone)]
+pub enum TileEventAction {
+    LoadNextLozo(String),
+    UnloadNextLozo,
+    SpriteAnimation {
+        sprite_id: String,
+
+        #[elf(with_resolver(PathResolver))]
+        animation: Handle<SpriteAnimationAsset>,
+    },
+    ActivateNextLozo,
+}
+
 #[derive(EntityEvent)]
 pub struct TileGridSpawned(#[event_target] Entity);
 
@@ -147,7 +178,9 @@ fn spawn_tile_grid(
 
         let tile_entity = commands
             .spawn_into_lozo((
-                Tile::new(tile_asset.passability, tile_asset.events.clone()),
+                Tile {
+                    passability: tile_asset.passability,
+                },
                 Transform::from_translation(pos.to_world_pos().extend(0.0)),
             ))
             .id();
@@ -169,42 +202,42 @@ pub fn spawn_tile_sprite(
     commands: &mut Commands,
 ) -> Result<Entity> {
     let transform = Transform::from_translation(Vec3::new(0.0, 0.0, z));
+    let sprite = |index: usize| match layout_handle {
+        Some(layout) => Sprite::from_atlas_image(image_handle, TextureAtlas { layout, index }),
+        None => Sprite::from_image(image_handle),
+    };
     Ok(match &visual {
-        TileVisualKind::Static { idx } => {
-            let sprite = if let Some(layout_handle) = layout_handle {
-                Sprite::from_atlas_image(
-                    image_handle.clone(),
-                    TextureAtlas {
-                        layout: layout_handle,
-                        index: *idx,
-                    },
-                )
-            } else {
-                Sprite::from_image(image_handle.clone())
-            };
-            commands.spawn((sprite, transform)).id()
-        }
-        TileVisualKind::Animated { animation } => {
-            let sprite = if let Some(layout_handle) = layout_handle {
-                Sprite::from_atlas_image(
-                    image_handle.clone(),
-                    TextureAtlas {
-                        layout: layout_handle,
-                        ..Default::default()
-                    },
-                )
-            } else {
-                Sprite::from_image(image_handle.clone())
-            };
-            commands
-                .spawn((sprite, transform, Animated::by(animation.clone())))
-                .id()
-        }
+        TileVisualKind::Static { idx } => commands.spawn((sprite(*idx), transform)).id(),
+        TileVisualKind::Animated { animation } => commands
+            .spawn((sprite(0), transform, Animated::by(animation.clone())))
+            .id(),
     })
 }
 
+fn spawn_edge_events(
+    event: On<LozoSpawned>,
+    mut commands: LozoCommands,
+    lozo_query: Query<&Lozo>,
+    lozo_assets: Res<Assets<LozoAsset>>,
+) -> Result {
+    let lozo = lozo_query.get(event.entity())?;
+    let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
+
+    commands.spawn_into_lozo(TileEdgeEvents::<CharLeftTile>::new(
+        lozo_asset.char_left_events.clone(),
+    ));
+    commands.spawn_into_lozo(TileEdgeEvents::<CharEnteredTile>::new(
+        lozo_asset.char_entered_events.clone(),
+    ));
+    commands.spawn_into_lozo(TileEdgeEvents::<CharReachedTile>::new(
+        lozo_asset.char_reached_events.clone(),
+    ));
+
+    Ok(())
+}
+
 impl TileEventAction {
-    fn trigger_event(&self, commands: &mut Commands) {
+    pub fn trigger_event(&self, commands: &mut Commands) {
         match self {
             Self::LoadNextLozo(id) => commands.trigger(LoadNextLozoEvent(id.clone())),
             Self::SpriteAnimation {
@@ -235,56 +268,13 @@ struct PlaySpriteAnimationEvent {
     animation: Handle<SpriteAnimationAsset>,
 }
 
-#[derive(SystemParam)]
-struct CharTileEvents<'w, 's> {
-    tile_grid: Single<'w, 's, (&'static Grid<Option<Entity>>, &'static GridSize)>,
-    tiles: Query<'w, 's, &'static Tile>,
-    commands: Commands<'w, 's>,
-}
-
-impl<'w, 's> CharTileEvents<'w, 's> {
-    fn dispatch_tile_events(&mut self, trigger: &TileEventTrigger, tile: UVec2) -> Result<()> {
-        let tile =
-            GridPosition::new(tile, self.tile_grid.1).ok_or_else(|| InvalidTilePosition(tile))?;
-        let Some(tile) = self.tile_grid.0[tile] else {
-            return Ok(());
-        };
-        let tile = self.tiles.get(tile)?;
-        let Some(actions) = tile.events.get(trigger) else {
-            return Ok(());
-        };
-        for action in actions {
-            action.trigger_event(&mut self.commands);
-        }
-        Ok(())
-    }
-}
-
-fn on_char_left(event: On<CharLeftTile>, mut char_tile_events: CharTileEvents) -> Result<()> {
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharLeftFrom, event.from)?;
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharLeftTo, event.to)?;
-    Ok(())
-}
-
-fn on_char_entered(event: On<CharEnteredTile>, mut char_tile_events: CharTileEvents) -> Result<()> {
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharEnteredFrom, event.from)?;
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharEntered, event.to)?;
-    Ok(())
-}
-
-fn on_char_reached(event: On<CharReachedTile>, mut char_tile_events: CharTileEvents) -> Result<()> {
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharReachedFrom, event.from)?;
-    char_tile_events.dispatch_tile_events(&TileEventTrigger::CharReached, event.to)?;
-    Ok(())
-}
-
 fn on_load_next_lozo(event: On<LoadNextLozoEvent>, mut next_lozo: ResMut<NextLozo>) {
     next_lozo.set(event.event().0.clone());
 }
 
 fn on_activate_next_lozo(_: On<ActivateNextLozoEvent>, mut next_lozo: ResMut<NextLozo>) {
-    if let Some(next_lozo) = next_lozo.ready() {
-        next_lozo.activate();
+    if let Some(ready) = next_lozo.ready() {
+        ready.activate();
     } else {
         next_lozo.auto_activate = true;
     }

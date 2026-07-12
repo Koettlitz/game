@@ -518,6 +518,10 @@ impl<'a> GridPosition<'a> {
         GridIndex::from_position(self)
     }
 
+    pub fn as_uvec2(&self) -> UVec2 {
+        self.pos
+    }
+
     pub fn to_world_pos(&self) -> Vec2 {
         self.grid_size.grid_to_world(self.as_vec2())
     }
@@ -534,6 +538,7 @@ impl<'a> GridPosition<'a> {
             self.bottom_right(),
         ]
     }
+
     pub fn around_inclusive(&self) -> [Option<Self>; 9] {
         [
             self.top_left(),
@@ -546,6 +551,10 @@ impl<'a> GridPosition<'a> {
             self.bottom(),
             self.bottom_right(),
         ]
+    }
+
+    pub fn reachable_neigbors(&self) -> [Option<Self>; 4] {
+        [self.top(), self.left(), self.right(), self.bottom()]
     }
 
     pub fn neighbor(&self, neighbor: &Neighbor) -> Option<Self> {

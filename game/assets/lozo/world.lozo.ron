@@ -1,81 +1,7 @@
 (
-    width: 34,
-    height: 22,
+    width: 32,
+    height: 20,
     tile_grid: [
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some((
-            passability: Surf,
-            sprite_stack: [
-                (
-                    spritesheet: "water_wild",
-                    layout: "water_wild",
-                    kind: Animated(
-                        animation: "water_wild",
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Surf,
-            sprite_stack: [
-                (
-                    spritesheet: "water_wild",
-                    layout: "water_wild",
-                    kind: Animated(
-                        animation: "water_wild",
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Surf,
-            sprite_stack: [
-                (
-                    spritesheet: "water_wild",
-                    layout: "water_wild",
-                    kind: Animated(
-                        animation: "water_wild",
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -88,7 +14,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -102,7 +27,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -116,7 +40,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -130,7 +53,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -144,7 +66,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -158,7 +79,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -172,7 +92,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -186,7 +105,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -200,7 +118,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -214,7 +131,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -228,7 +144,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -242,7 +157,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -256,7 +170,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -270,7 +183,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -284,7 +196,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -298,7 +209,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -312,7 +222,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -326,7 +235,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -340,7 +248,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -354,7 +261,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -368,7 +274,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -382,7 +287,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -396,7 +300,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -410,7 +313,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -424,35 +326,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -474,7 +347,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -488,7 +360,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -502,7 +373,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -516,21 +386,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "sand",
-                    layout: "sand",
-                    kind: Animated(
-                        animation: "sand_surrounded_by_water",
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -544,36 +399,32 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -587,7 +438,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -601,7 +451,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -615,7 +464,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -629,7 +477,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -643,7 +490,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -657,7 +503,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -671,7 +516,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -685,7 +529,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -699,7 +542,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -713,7 +555,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -727,7 +568,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -741,7 +581,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -755,7 +594,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -769,7 +607,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -783,7 +620,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -797,7 +633,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -811,7 +646,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -825,7 +659,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -839,7 +672,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -853,7 +685,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -867,7 +698,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -881,7 +711,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -895,7 +724,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -909,7 +737,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -923,7 +750,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -945,7 +771,6 @@
                     z: 21.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -967,7 +792,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -981,7 +805,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -995,7 +818,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -1009,7 +831,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -1023,22 +844,19 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1052,7 +870,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1066,7 +883,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1080,7 +896,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1094,7 +909,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1108,7 +922,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1122,7 +935,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1136,7 +948,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1150,7 +961,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1164,7 +974,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1178,7 +987,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1192,7 +1000,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1206,7 +1013,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1220,7 +1026,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1234,7 +1039,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1248,7 +1052,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1262,7 +1065,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1276,7 +1078,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1290,7 +1091,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1304,7 +1104,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1318,7 +1117,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1332,7 +1130,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1346,7 +1143,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1360,7 +1156,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1374,7 +1169,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1388,7 +1182,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1402,21 +1195,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1438,7 +1216,6 @@
                     z: 21.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1460,7 +1237,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -1474,7 +1250,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -1488,37 +1263,32 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1532,7 +1302,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1546,7 +1315,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1560,7 +1328,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1574,7 +1341,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1588,7 +1354,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1602,7 +1367,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1616,7 +1380,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1630,7 +1393,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1644,7 +1406,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1658,7 +1419,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1672,7 +1432,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1686,7 +1445,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1700,7 +1458,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1714,7 +1471,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1728,7 +1484,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1742,7 +1497,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1756,7 +1510,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1770,7 +1523,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1784,7 +1536,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1798,7 +1549,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1812,7 +1562,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1826,7 +1575,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1840,7 +1588,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1854,7 +1601,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1868,7 +1614,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1882,7 +1627,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1896,7 +1640,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1918,7 +1661,6 @@
                     z: 21.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1940,7 +1682,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Surf,
@@ -1954,37 +1695,32 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -1998,7 +1734,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2012,7 +1747,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2026,7 +1760,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2040,7 +1773,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2054,7 +1786,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2068,7 +1799,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2082,7 +1812,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2096,7 +1825,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2110,7 +1838,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2124,7 +1851,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2138,7 +1864,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2152,7 +1877,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2166,7 +1890,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2180,7 +1903,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2194,7 +1916,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2208,7 +1929,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2222,7 +1942,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2236,7 +1955,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2250,7 +1968,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2264,7 +1981,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2278,7 +1994,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2292,7 +2007,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2306,7 +2020,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2320,7 +2033,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2334,7 +2046,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2348,7 +2059,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2362,7 +2072,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2376,7 +2085,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2398,7 +2106,6 @@
                     z: 21.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -2420,865 +2127,40 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        None,
-        None,
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
-                    z: 20.0,
+                    z: 10.0,
                 ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "sand",
+                    layout: "sand",
+                    kind: Animated(
+                        animation: "sand_top_right_corner",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
-            passability: Always,
+            passability: Surf,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3292,7 +2174,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3306,7 +2187,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3320,10 +2200,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -3336,7 +2213,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3350,7 +2226,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3364,7 +2239,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3378,7 +2252,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3392,7 +2265,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3406,7 +2278,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3420,7 +2291,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3434,7 +2304,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3448,7 +2317,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3462,7 +2330,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3476,7 +2343,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3490,7 +2356,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3504,7 +2369,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3518,7 +2382,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3532,7 +2395,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3546,7 +2408,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3560,7 +2421,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3574,7 +2434,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3588,7 +2447,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3602,7 +2460,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3616,7 +2473,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3630,7 +2486,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3644,7 +2499,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3658,7 +2512,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3672,7 +2525,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3686,77 +2538,61 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
+                    spritesheet: "sand",
+                    layout: "sand",
                     kind: Static(
-                        idx: 0,
+                        idx: 43,
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
+                    spritesheet: "sand",
+                    layout: "sand",
                     kind: Static(
-                        idx: 0,
+                        idx: 43,
                     ),
                     z: 20.0,
                 ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "sand",
+                    layout: "sand",
+                    kind: Animated(
+                        animation: "sand_top_right_water_corner",
                     ),
-                    z: 20.0,
+                    z: 21.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
             sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "water_wild",
+                    layout: "water_wild",
+                    kind: Animated(
+                        animation: "water_wild",
                     ),
-                    z: 20.0,
+                    z: 10.0,
                 ),
-            ],
-            events: {},
-        )),
-        Some((
-            passability: Always,
-            sprite_stack: [
                 (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
+                    spritesheet: "sand",
+                    layout: "sand",
+                    kind: Animated(
+                        animation: "sand_top_edge",
                     ),
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3770,10 +2606,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -3786,7 +2619,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3800,7 +2632,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3814,7 +2645,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3828,7 +2658,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3842,7 +2671,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3856,7 +2684,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3870,7 +2697,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3884,7 +2710,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3898,7 +2723,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3912,7 +2736,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3926,7 +2749,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3940,7 +2762,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3954,7 +2775,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3968,7 +2788,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3982,7 +2801,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -3996,7 +2814,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4010,7 +2827,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4024,7 +2840,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4038,7 +2853,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4052,7 +2866,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4066,7 +2879,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4080,7 +2892,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4094,7 +2905,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4108,7 +2918,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4122,7 +2931,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4136,7 +2944,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4150,7 +2957,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4164,7 +2970,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4178,7 +2983,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4192,7 +2996,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4206,7 +3009,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4220,10 +3022,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -4236,7 +3035,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4250,7 +3048,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4264,7 +3061,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4278,7 +3074,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4292,7 +3087,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4306,7 +3100,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4320,7 +3113,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4334,7 +3126,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4348,7 +3139,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4362,7 +3152,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4376,7 +3165,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4390,7 +3178,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4404,7 +3191,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4418,7 +3204,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4432,7 +3217,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4446,7 +3230,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4460,7 +3243,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4474,7 +3256,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4488,7 +3269,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4502,7 +3282,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4516,7 +3295,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4530,7 +3308,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4544,7 +3321,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4558,7 +3334,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4572,7 +3347,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4586,7 +3360,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4600,7 +3373,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4614,7 +3386,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4628,7 +3399,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4642,7 +3412,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4656,7 +3425,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4670,10 +3438,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -4686,7 +3451,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4700,7 +3464,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4714,7 +3477,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4728,7 +3490,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4742,7 +3503,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4756,7 +3516,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4770,7 +3529,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4784,7 +3542,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4798,7 +3555,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4812,7 +3568,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4826,7 +3581,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4840,7 +3594,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4854,7 +3607,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4868,7 +3620,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4882,7 +3633,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4896,7 +3646,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4910,7 +3659,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4924,7 +3672,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4938,7 +3685,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4952,7 +3698,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4966,7 +3711,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4980,7 +3724,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -4994,7 +3737,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5008,7 +3750,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5022,7 +3763,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5036,7 +3776,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5050,7 +3789,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5064,7 +3802,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5078,7 +3815,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5092,7 +3828,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5106,7 +3841,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5120,10 +3854,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -5136,7 +3867,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5150,7 +3880,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5164,7 +3893,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5178,7 +3906,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5192,7 +3919,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5206,7 +3932,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5220,7 +3945,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5234,7 +3958,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5248,7 +3971,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5262,7 +3984,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5276,7 +3997,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5290,7 +4010,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5304,7 +4023,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5318,7 +4036,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5332,7 +4049,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5346,7 +4062,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5360,7 +4075,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5374,7 +4088,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5388,7 +4101,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5402,7 +4114,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5416,7 +4127,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5430,7 +4140,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5444,7 +4153,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5458,7 +4166,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5472,7 +4179,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5486,7 +4192,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5500,7 +4205,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5514,7 +4218,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5528,7 +4231,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5542,7 +4244,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5556,7 +4257,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5570,10 +4270,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -5586,7 +4283,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5600,7 +4296,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5614,7 +4309,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5628,7 +4322,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5642,7 +4335,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5656,7 +4348,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5670,7 +4361,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5684,7 +4374,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5698,7 +4387,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5712,7 +4400,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5726,7 +4413,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5740,7 +4426,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5754,7 +4439,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5768,7 +4452,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5782,7 +4465,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5796,7 +4478,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5810,7 +4491,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5824,7 +4504,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5838,7 +4517,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5852,7 +4530,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5866,7 +4543,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5880,7 +4556,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5894,7 +4569,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5908,7 +4582,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5922,7 +4595,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5936,7 +4608,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5950,7 +4621,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5964,7 +4634,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5978,7 +4647,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -5992,7 +4660,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6006,7 +4673,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6020,10 +4686,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -6036,7 +4699,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6050,7 +4712,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6064,7 +4725,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6078,7 +4738,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6092,7 +4751,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6106,7 +4764,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6120,7 +4777,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6134,7 +4790,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6148,7 +4803,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6162,7 +4816,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6176,7 +4829,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6190,7 +4842,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6204,7 +4855,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6218,7 +4868,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6232,7 +4881,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6246,7 +4894,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6260,7 +4907,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6274,7 +4920,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6288,7 +4933,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6302,7 +4946,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6316,7 +4959,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6330,7 +4972,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6344,7 +4985,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6358,7 +4998,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6372,7 +5011,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6386,7 +5024,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6400,7 +5037,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6414,7 +5050,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6428,7 +5063,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6442,7 +5076,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6456,7 +5089,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6470,23 +5102,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
-        )),
-        None,
-        None,
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6500,7 +5115,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6514,7 +5128,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6528,7 +5141,19 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
         )),
         Some((
             passability: Never,
@@ -6542,7 +5167,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6556,7 +5180,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6570,7 +5193,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -6584,7 +5206,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6598,7 +5219,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6612,7 +5232,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6626,7 +5245,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6640,7 +5258,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6654,7 +5271,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6668,7 +5284,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6682,7 +5297,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6696,7 +5310,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6710,7 +5323,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6724,7 +5336,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6738,7 +5349,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6752,7 +5362,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6766,7 +5375,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6780,7 +5388,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6794,7 +5401,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6808,7 +5414,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6822,7 +5427,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6836,7 +5440,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6850,7 +5453,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6864,7 +5466,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6878,7 +5479,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6892,7 +5492,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6906,7 +5505,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6920,23 +5518,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
-        )),
-        None,
-        None,
-        Some((
-            passability: Always,
-            sprite_stack: [
-                (
-                    spritesheet: "grass",
-                    layout: "grass",
-                    kind: Static(
-                        idx: 0,
-                    ),
-                    z: 20.0,
-                ),
-            ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6950,7 +5531,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6964,7 +5544,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -6978,7 +5557,19 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
         )),
         Some((
             passability: Never,
@@ -6992,7 +5583,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7006,11 +5596,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {
-                CharReached: [
-                    ActivateNextLozo,
-                ],
-            },
         )),
         Some((
             passability: Never,
@@ -7024,7 +5609,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Never,
@@ -7038,7 +5622,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7052,7 +5635,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7066,7 +5648,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7080,7 +5661,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7094,7 +5674,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7108,7 +5687,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7122,7 +5700,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7136,7 +5713,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7150,7 +5726,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7164,7 +5739,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7178,7 +5752,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7192,7 +5765,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7206,7 +5778,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7220,7 +5791,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7234,7 +5804,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7248,7 +5817,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7262,7 +5830,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7276,7 +5843,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7290,7 +5856,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7304,7 +5869,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7318,7 +5882,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7332,7 +5895,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7346,7 +5908,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7360,7 +5921,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7374,10 +5934,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -7390,7 +5947,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7404,7 +5960,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7418,7 +5973,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7432,7 +5986,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7446,7 +5999,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7460,23 +6012,825 @@
                     z: 20.0,
                 ),
             ],
-            events: {
-                CharLeftFrom: [
-                    SpriteAnimation(
-                        sprite_id: "pokecenter_door0",
-                        animation: "objects/animations/pokecenter_door_close.ani.ron",
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
+                    ),
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
                     ),
-                ],
-                CharEntered: [
-                    SpriteAnimation(
-                        sprite_id: "pokecenter_door0",
-                        animation: "objects/animations/pokecenter_door_open.ani.ron",
+                    z: 20.0,
+                ),
+            ],
+        )),
+        Some((
+            passability: Always,
+            sprite_stack: [
+                (
+                    spritesheet: "grass",
+                    layout: "grass",
+                    kind: Static(
+                        idx: 0,
                     ),
-                ],
-                CharLeftTo: [
-                    LoadNextLozo("pokecenter_interior"),
-                ],
-            },
+                    z: 20.0,
+                ),
+            ],
         )),
         Some((
             passability: Always,
@@ -7490,7 +6844,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7504,7 +6857,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7518,7 +6870,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7532,7 +6883,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7546,7 +6896,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7560,7 +6909,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7574,7 +6922,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7588,7 +6935,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7602,7 +6948,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7616,7 +6961,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7630,7 +6974,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7644,7 +6987,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7658,7 +7000,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7672,7 +7013,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7686,7 +7026,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7700,7 +7039,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7714,7 +7052,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7728,7 +7065,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7742,7 +7078,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7756,7 +7091,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7770,7 +7104,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7784,7 +7117,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7798,7 +7130,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7812,7 +7143,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7826,7 +7156,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7840,10 +7169,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -7856,7 +7182,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7870,7 +7195,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7884,7 +7208,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7898,7 +7221,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7912,7 +7234,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7926,7 +7247,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7940,7 +7260,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7954,7 +7273,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7968,7 +7286,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7982,7 +7299,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -7996,7 +7312,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8010,7 +7325,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8024,7 +7338,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8038,7 +7351,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8052,7 +7364,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8066,7 +7377,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8080,7 +7390,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8094,7 +7403,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8108,7 +7416,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8122,7 +7429,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8136,7 +7442,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8150,7 +7455,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8164,7 +7468,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8178,7 +7481,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8192,7 +7494,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8206,7 +7507,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8220,7 +7520,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8234,7 +7533,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8248,7 +7546,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8262,7 +7559,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8276,7 +7572,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8290,10 +7585,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -8306,7 +7598,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8320,7 +7611,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8334,7 +7624,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8348,7 +7637,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8362,7 +7650,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8376,7 +7663,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8390,7 +7676,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8404,7 +7689,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8418,7 +7702,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8432,7 +7715,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8446,7 +7728,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8460,7 +7741,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8474,7 +7754,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8488,7 +7767,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8502,7 +7780,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8516,7 +7793,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8530,7 +7806,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8544,7 +7819,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8558,7 +7832,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8572,7 +7845,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8586,7 +7858,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8600,7 +7871,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8614,7 +7884,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8628,7 +7897,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8642,7 +7910,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8656,7 +7923,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8670,7 +7936,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8684,7 +7949,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8698,7 +7962,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8712,7 +7975,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8726,7 +7988,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8740,10 +8001,7 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
         Some((
             passability: Always,
             sprite_stack: [
@@ -8756,7 +8014,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8770,7 +8027,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8784,7 +8040,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8798,7 +8053,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8812,7 +8066,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8826,7 +8079,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8840,7 +8092,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8854,7 +8105,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8868,7 +8118,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8882,7 +8131,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8896,7 +8144,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8910,7 +8157,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8924,7 +8170,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8938,7 +8183,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8952,7 +8196,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8966,7 +8209,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8980,7 +8222,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -8994,7 +8235,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9008,7 +8248,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9022,7 +8261,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9036,7 +8274,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9050,7 +8287,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9064,7 +8300,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9078,7 +8313,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9092,7 +8326,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9106,7 +8339,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9120,7 +8352,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9134,7 +8365,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9148,7 +8378,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9162,7 +8391,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9176,7 +8404,6 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
         Some((
             passability: Always,
@@ -9190,47 +8417,401 @@
                     z: 20.0,
                 ),
             ],
-            events: {},
         )),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
     ],
+    char_left_events: {
+        (
+            from: (6, 15),
+            to: (6, 14),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (8, 13),
+            to: (7, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (7, 14),
+            to: (6, 14),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (5, 12),
+            to: (5, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (6, 12),
+            to: (6, 11),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (7, 12),
+            to: (6, 12),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (6, 11),
+            to: (6, 12),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (6, 12),
+            to: (5, 12),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (5, 13),
+            to: (4, 13),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (7, 13),
+            to: (7, 14),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (5, 13),
+            to: (5, 14),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (6, 14),
+            to: (6, 15),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (7, 13),
+            to: (7, 12),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (5, 12),
+            to: (6, 12),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (5, 13),
+            to: (5, 12),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (4, 13),
+            to: (5, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (7, 12),
+            to: (7, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (7, 14),
+            to: (7, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (6, 12),
+            to: (7, 12),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (5, 14),
+            to: (6, 14),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (7, 13),
+            to: (8, 13),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (6, 14),
+            to: (5, 14),
+        ): [
+            UnloadNextLozo,
+        ],
+        (
+            from: (5, 14),
+            to: (5, 13),
+        ): [
+            LoadNextLozo("pokecenter_interior"),
+        ],
+        (
+            from: (6, 14),
+            to: (7, 14),
+        ): [
+            UnloadNextLozo,
+        ],
+    },
+    char_entered_events: {
+        (
+            from: (6, 14),
+            to: (7, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 11),
+            to: (6, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 12),
+            to: (5, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (4, 13),
+            to: (5, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 14),
+            to: (5, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 14),
+            to: (7, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 13),
+            to: (5, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 14),
+            to: (5, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 13),
+            to: (8, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 12),
+            to: (6, 11),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 12),
+            to: (7, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 12),
+            to: (7, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 15),
+            to: (6, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 13),
+            to: (7, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (8, 13),
+            to: (7, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 12),
+            to: (6, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 13),
+            to: (7, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 12),
+            to: (5, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 14),
+            to: (6, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 14),
+            to: (6, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+        (
+            from: (6, 14),
+            to: (6, 15),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 13),
+            to: (4, 13),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (5, 13),
+            to: (5, 14),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_close.ani.ron",
+            ),
+        ],
+        (
+            from: (7, 12),
+            to: (6, 12),
+        ): [
+            SpriteAnimation(
+                sprite_id: "pokecenter_door0",
+                animation: "objects/animations/pokecenter_door_open.ani.ron",
+            ),
+        ],
+    },
+    char_reached_events: {
+        (
+            from: (6, 12),
+            to: (6, 13),
+        ): [
+            ActivateNextLozo,
+        ],
+        (
+            from: (6, 14),
+            to: (6, 13),
+        ): [
+            ActivateNextLozo,
+        ],
+        (
+            from: (5, 13),
+            to: (6, 13),
+        ): [
+            ActivateNextLozo,
+        ],
+        (
+            from: (7, 13),
+            to: (6, 13),
+        ): [
+            ActivateNextLozo,
+        ],
+    },
     objects: [
-        "pokecenter_top",
-        "pokecenter_bottom",
         "pokecenter_door0",
+        "pokecenter_bottom",
+        "pokecenter_top",
     ],
 )

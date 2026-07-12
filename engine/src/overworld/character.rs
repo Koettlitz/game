@@ -9,7 +9,10 @@ use crate::{
     },
     overworld::{
         input::InputSystems,
-        tile::{Grid, GridSize, Neighbor, Passability, TILE_SIZE, Tile},
+        tile::{
+            CharEnteredTile, CharLeftTile, CharReachedTile, Grid, GridSize, Neighbor, Passability,
+            TILE_SIZE, Tile, TileEdge, TileEdgeEvents,
+        },
     },
 };
 use bevy::prelude::*;
@@ -58,30 +61,6 @@ impl DerefMut for Character {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
-}
-
-/// Emitted when a character starts going from tile [`Self::from`] to tile [`Self::to`].
-#[derive(Event)]
-pub struct CharLeftTile {
-    pub _character: Entity,
-    pub from: UVec2,
-    pub to: UVec2,
-}
-
-/// Emitted when a character is on half the way between tile [`Self::from`] and tile [`Self::to`].
-#[derive(Event)]
-pub struct CharEnteredTile {
-    pub _character: Entity,
-    pub from: UVec2,
-    pub to: UVec2,
-}
-
-/// Emitted when a character reached tile [`Self::to`].
-#[derive(Event)]
-pub struct CharReachedTile {
-    pub _character: Entity,
-    pub from: UVec2,
-    pub to: UVec2,
 }
 
 #[derive(Component, Default, PartialEq, Eq, Clone, Copy, Debug)]
@@ -305,6 +284,7 @@ fn start_tile_transition(
     mut character: Query<(Entity, &Transform, &Orientation), With<Character>>,
     tile_grid: Single<(&GridSize, &Grid<Option<Entity>>)>,
     tiles: Query<&Tile>,
+    tile_edge_events: Single<&TileEdgeEvents<CharLeftTile>>,
     mut commands: Commands,
 ) -> Result<()> {
     let (entity, transform, orientation) = character.get_mut(event.0)?;
@@ -313,16 +293,13 @@ fn start_tile_transition(
         .world_to_grid(transform.translation.truncate())
         .ok_or_else(|| "character at invalid grid position")?;
     let Some(target) = origin.neighbor(&orientation.as_neighbor()) else {
-        // *state = CharacterState::Standing;
         return Ok(());
     };
     let Some(ref target_tile) = tile_grid.1[target] else {
-        // *state = CharacterState::Standing;
         return Ok(());
     };
     let target_tile = tiles.get(*target_tile)?;
     if !matches!(target_tile.passability, Passability::Always) {
-        // *state = CharacterState::Standing;
         return Ok(());
     }
 
@@ -331,11 +308,15 @@ fn start_tile_transition(
         to: *target,
         state: TileTransitionState::LeavingTile,
     });
-    commands.trigger(CharLeftTile {
-        _character: entity,
-        from: *origin,
-        to: *target,
-    });
+
+    tile_edge_events.trigger(
+        &TileEdge {
+            from: *origin,
+            to: *target,
+        },
+        &mut commands,
+    );
+
     Ok(())
 }
 
@@ -345,6 +326,8 @@ fn move_character(
         With<Character>,
     >,
     grid_size: Single<&GridSize>,
+    entered_events: Single<&TileEdgeEvents<CharEnteredTile>>,
+    reached_events: Single<&TileEdgeEvents<CharReachedTile>>,
     mut commands: Commands,
 ) {
     for (entity, orientation, mut transform, mut tt) in &mut character {
@@ -354,16 +337,15 @@ fn move_character(
         let distance_to_from =
             (new_translation.truncate() - grid_size.grid_to_world(tt.from.as_vec2())).length();
 
+        let edge = TileEdge {
+            from: tt.from,
+            to: tt.to,
+        };
         match &tt.state {
             TileTransitionState::LeavingTile => {
                 if distance_to_from >= TILE_SIZE as f32 / 2.0 {
                     tt.state = TileTransitionState::EnteringTile;
-
-                    commands.trigger(CharEnteredTile {
-                        _character: entity,
-                        from: tt.from,
-                        to: tt.to,
-                    });
+                    entered_events.trigger(&edge, &mut commands);
                 }
             }
             TileTransitionState::EnteringTile => {
@@ -373,11 +355,7 @@ fn move_character(
                         .grid_to_world(tt.to.as_vec2())
                         .extend(new_translation.z);
 
-                    commands.trigger(CharReachedTile {
-                        _character: entity,
-                        from: tt.from,
-                        to: tt.to,
-                    });
+                    reached_events.trigger(&edge, &mut commands);
                 }
             }
         }
