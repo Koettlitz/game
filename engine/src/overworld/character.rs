@@ -9,6 +9,7 @@ use crate::{
     },
     overworld::{
         input::InputSystems,
+        lozo::{InLozo, LozoCommands, SurviveLozoTransition},
         tile::{
             CharEnteredTile, CharLeftTile, CharReachedTile, Grid, GridSize, Neighbor, Passability,
             TILE_SIZE, Tile, TileEdge, TileEdgeEvents,
@@ -47,7 +48,7 @@ impl Plugin for CharacterPlugin {
 }
 
 #[derive(Component)]
-#[require(Orientation, CharacterState)]
+#[require(Orientation, CharacterState, Visibility)]
 pub struct Character(Handle<CharacterAsset>);
 impl Deref for Character {
     type Target = Handle<CharacterAsset>;
@@ -148,42 +149,48 @@ impl Deref for LoadingCharacter {
 }
 
 fn spawn_character(
-    mut commands: Commands,
+    mut commands: LozoCommands,
     asset_server: Res<AssetServer>,
     loading_character: Res<LoadingCharacter>,
     character_assets: Res<Assets<CharacterAsset>>,
-    grid_size: Single<&GridSize>,
+
+    // TODO: This singleton assumption works for now, but has to be changed at some point
+    grid_size: Single<(Entity, &GridSize)>,
 ) -> Result<()> {
     if !asset_server.is_loaded_with_dependencies(loading_character.id()) {
         return Ok(());
     }
     let asset = character_assets.require_handle(&**loading_character)?;
+    let (lozo_entity, grid_size) = grid_size.into_inner();
     let position = grid_size.snap_to_tile((0.0, 0.0));
-    commands.spawn((
-        Character(loading_character.clone()),
-        Transform {
-            translation: position.extend(CHARACTER_LAYER),
-            scale: Vec3::new(2.0, 2.0, 1.0),
-            ..Default::default()
-        },
-        CharacterController::default(),
-        Visibility::default(),
-        children![(
-            Sprite {
-                image: asset.spritesheet.image.clone(),
-                texture_atlas: Some(TextureAtlas {
-                    index: 0,
-                    layout: asset.spritesheet.layout.clone(),
-                }),
+    commands.spawn_into_lozo(
+        lozo_entity,
+        (
+            Character(loading_character.clone()),
+            Transform {
+                translation: position.extend(CHARACTER_LAYER),
+                scale: Vec3::new(2.0, 2.0, 1.0),
                 ..Default::default()
             },
-            Transform::from_translation(Vec3 {
-                x: 0.0,
-                y: 5.0,
-                z: 0.0
-            })
-        )],
-    ));
+            CharacterController::default(),
+            children![(
+                Sprite {
+                    image: asset.spritesheet.image.clone(),
+                    texture_atlas: Some(TextureAtlas {
+                        index: 0,
+                        layout: asset.spritesheet.layout.clone(),
+                    }),
+                    ..Default::default()
+                },
+                Transform::from_translation(Vec3 {
+                    x: 0.0,
+                    y: 5.0,
+                    z: 0.0
+                })
+            )],
+            SurviveLozoTransition,
+        ),
+    )?;
 
     commands.remove_resource::<LoadingCharacter>();
     Ok(())
@@ -281,21 +288,25 @@ fn update_turning_delay(
 
 fn start_tile_transition(
     event: On<StartTileTransition>,
-    mut character: Query<(Entity, &Transform, &Orientation), With<Character>>,
-    tile_grid: Single<(&GridSize, &Grid<Option<Entity>>)>,
+    mut character: Query<(Entity, &Transform, &Orientation, &InLozo), With<Character>>,
+    lozo_query: Query<(
+        &GridSize,
+        &Grid<Option<Entity>>,
+        &TileEdgeEvents<CharLeftTile>,
+    )>,
     tiles: Query<&Tile>,
-    tile_edge_events: Single<&TileEdgeEvents<CharLeftTile>>,
     mut commands: Commands,
 ) -> Result<()> {
-    let (entity, transform, orientation) = character.get_mut(event.0)?;
-    let origin = tile_grid
-        .0
+    let (entity, transform, orientation, in_lozo) = character.get_mut(event.0)?;
+    let (grid_size, grid, tile_edge_events) = lozo_query.get(**in_lozo)?;
+    let origin = grid_size
         .world_to_grid(transform.translation.truncate())
         .ok_or_else(|| "character at invalid grid position")?;
+
     let Some(target) = origin.neighbor(&orientation.as_neighbor()) else {
         return Ok(());
     };
-    let Some(ref target_tile) = tile_grid.1[target] else {
+    let Some(ref target_tile) = grid[target] else {
         return Ok(());
     };
     let target_tile = tiles.get(*target_tile)?;
@@ -314,6 +325,7 @@ fn start_tile_transition(
             from: *origin,
             to: *target,
         },
+        **in_lozo,
         &mut commands,
     );
 
@@ -322,18 +334,27 @@ fn start_tile_transition(
 
 fn move_character(
     mut character: Query<
-        (Entity, &Orientation, &mut Transform, &mut TileTransition),
+        (
+            Entity,
+            &Orientation,
+            &mut Transform,
+            &mut TileTransition,
+            &InLozo,
+        ),
         With<Character>,
     >,
-    grid_size: Single<&GridSize>,
-    entered_events: Single<&TileEdgeEvents<CharEnteredTile>>,
-    reached_events: Single<&TileEdgeEvents<CharReachedTile>>,
+    lozo_query: Query<(
+        &GridSize,
+        &TileEdgeEvents<CharEnteredTile>,
+        &TileEdgeEvents<CharReachedTile>,
+    )>,
     mut commands: Commands,
-) {
-    for (entity, orientation, mut transform, mut tt) in &mut character {
+) -> Result {
+    for (entity, orientation, mut transform, mut tt, in_lozo) in &mut character {
         let mut new_translation =
             transform.translation + (orientation.as_vec2() * PLAYER_SPEED).extend(0.0);
 
+        let (grid_size, entered_events, reached_events) = lozo_query.get(**in_lozo)?;
         let distance_to_from =
             (new_translation.truncate() - grid_size.grid_to_world(tt.from.as_vec2())).length();
 
@@ -345,7 +366,7 @@ fn move_character(
             TileTransitionState::LeavingTile => {
                 if distance_to_from >= TILE_SIZE as f32 / 2.0 {
                     tt.state = TileTransitionState::EnteringTile;
-                    entered_events.trigger(&edge, &mut commands);
+                    entered_events.trigger(&edge, **in_lozo, &mut commands);
                 }
             }
             TileTransitionState::EnteringTile => {
@@ -355,13 +376,15 @@ fn move_character(
                         .grid_to_world(tt.to.as_vec2())
                         .extend(new_translation.z);
 
-                    reached_events.trigger(&edge, &mut commands);
+                    reached_events.trigger(&edge, **in_lozo, &mut commands);
                 }
             }
         }
 
         transform.translation = new_translation;
     }
+
+    Ok(())
 }
 
 fn update_visuals(

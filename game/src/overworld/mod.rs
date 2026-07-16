@@ -5,7 +5,7 @@ use engine::{
     asset::overworld::{CHARACTER_LAYER, character::CharacterAsset},
     overworld::{
         character::{Character, CharacterPlugin, LoadingCharacter},
-        lozo::{LozoPlugin, NextLozo},
+        lozo::{LozoCommands, LozoPlugin},
         object::GameObjectPlugin,
         tile::{GridSize, TileGridSpawned, TilePlugin},
     },
@@ -24,14 +24,13 @@ impl Plugin for OverworldPlugin {
             TilePlugin,
             GameObjectPlugin,
         ))
-        .add_systems(Startup, (init_lozo, load_character_asset))
+        .add_systems(Startup, (spawn_lozo, load_character_asset))
         .add_observer(on_tile_grid_spawned);
     }
 }
 
-fn init_lozo(mut next_lozo: ResMut<NextLozo>) {
-    next_lozo.set("world".to_string());
-    next_lozo.auto_activate = true;
+fn spawn_lozo(mut commands: LozoCommands) {
+    commands.spawn_lozo("world".to_owned());
 }
 
 fn load_character_asset(mut commands: Commands, asset_server: ResMut<AssetServer>) -> Result {

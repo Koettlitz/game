@@ -32,16 +32,17 @@ fn spawn_objects(
     event: On<LozoSpawned>,
     lozo: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
-    mut object_lookup: Single<&mut ObjectSpriteLookup, With<Lozo>>,
+    mut object_lookup: Query<&mut ObjectSpriteLookup, With<Lozo>>,
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,
 ) -> Result {
     let lozo = lozo.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
+    let mut object_lookup = object_lookup.get_mut(event.entity())?;
 
     for object in &lozo_asset.objects {
         let asset = object_assets.require_handle(object.handle())?;
-        let entity = spawn_object_sprite(asset, &mut commands);
+        let entity = spawn_object_sprite(event.entity(), asset, &mut commands)?;
         object_lookup.insert(object.id().to_string(), entity);
     }
 
@@ -49,38 +50,48 @@ fn spawn_objects(
 }
 
 fn spawn_object_sprite(
+    lozo_entity: Entity,
     object_asset: &GameObjectSpriteAsset,
     commands: &mut LozoCommands,
-) -> Entity {
+) -> Result<Entity> {
     let transform = Transform::from_translation(object_asset.world_position);
     if let Some(TextureAtlasData { layout, kind }) = &object_asset.sprite_kind {
         match kind {
-            SpriteKind::Static { idx } => commands.spawn_into_lozo((
-                Sprite::from_atlas_image(
-                    object_asset.image.clone(),
-                    TextureAtlas {
-                        layout: layout.clone(),
-                        index: *idx,
-                    },
+            SpriteKind::Static { idx } => commands.spawn_into_lozo(
+                lozo_entity,
+                (
+                    Sprite::from_atlas_image(
+                        object_asset.image.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            index: *idx,
+                        },
+                    ),
+                    transform,
                 ),
-                transform,
-            )),
-            SpriteKind::Animated { animation } => commands.spawn_into_lozo((
-                Sprite::from_atlas_image(
-                    object_asset.image.clone(),
-                    TextureAtlas {
-                        layout: layout.clone(),
-                        ..Default::default()
-                    },
+            ),
+            SpriteKind::Animated { animation } => commands.spawn_into_lozo(
+                lozo_entity,
+                (
+                    Sprite::from_atlas_image(
+                        object_asset.image.clone(),
+                        TextureAtlas {
+                            layout: layout.clone(),
+                            ..Default::default()
+                        },
+                    ),
+                    Animated::by(animation.clone()),
+                    transform,
                 ),
-                Animated::by(animation.clone()),
-                transform,
-            )),
+            ),
         }
     } else {
-        commands.spawn_into_lozo((Sprite::from_image(object_asset.image.clone()), transform))
+        commands.spawn_into_lozo(
+            lozo_entity,
+            (Sprite::from_image(object_asset.image.clone()), transform),
+        )
     }
-    .id()
+    .map(|e| e.id())
 }
 
 #[derive(Component, Default)]

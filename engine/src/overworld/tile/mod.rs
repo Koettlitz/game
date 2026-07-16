@@ -115,10 +115,10 @@ impl<T: Send + Sync> TileEdgeEvents<T> {
         Self(events, Phantom::default())
     }
 
-    pub fn trigger(&self, edge: &TileEdge, commands: &mut Commands) {
+    pub fn trigger(&self, edge: &TileEdge, lozo_entity: Entity, commands: &mut Commands) {
         if let Some(actions) = self.0.get(edge) {
             for action in actions {
-                action.trigger_event(commands);
+                action.trigger_event(lozo_entity, commands);
             }
         }
     }
@@ -177,19 +177,22 @@ fn spawn_tile_grid(
         }
 
         let tile_entity = commands
-            .spawn_into_lozo((
-                Tile {
-                    passability: tile_asset.passability,
-                },
-                Transform::from_translation(pos.to_world_pos().extend(0.0)),
-            ))
+            .spawn_into_lozo(
+                event.entity(),
+                (
+                    Tile {
+                        passability: tile_asset.passability,
+                    },
+                    Transform::from_translation(pos.to_world_pos().extend(0.0)),
+                ),
+            )?
+            .add_children(&sprite_stack)
             .id();
-        commands.entity(tile_entity).add_children(&sprite_stack);
         Ok(Some(tile_entity))
     })?;
 
-    let entity = commands.spawn_into_lozo((grid, grid_size)).id();
-    commands.trigger(TileGridSpawned(entity));
+    commands.entity(event.entity()).insert((grid, grid_size));
+    commands.trigger(TileGridSpawned(event.entity()));
 
     Ok(())
 }
@@ -223,73 +226,91 @@ fn spawn_edge_events(
     let lozo = lozo_query.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
-    commands.spawn_into_lozo(TileEdgeEvents::<CharLeftTile>::new(
-        lozo_asset.char_left_events.clone(),
-    ));
-    commands.spawn_into_lozo(TileEdgeEvents::<CharEnteredTile>::new(
-        lozo_asset.char_entered_events.clone(),
-    ));
-    commands.spawn_into_lozo(TileEdgeEvents::<CharReachedTile>::new(
-        lozo_asset.char_reached_events.clone(),
+    commands.entity(event.entity()).insert((
+        TileEdgeEvents::<CharLeftTile>::new(lozo_asset.char_left_events.clone()),
+        TileEdgeEvents::<CharEnteredTile>::new(lozo_asset.char_entered_events.clone()),
+        TileEdgeEvents::<CharReachedTile>::new(lozo_asset.char_reached_events.clone()),
     ));
 
     Ok(())
 }
 
 impl TileEventAction {
-    pub fn trigger_event(&self, commands: &mut Commands) {
+    pub fn trigger_event(&self, lozo_entity: Entity, commands: &mut Commands) {
         match self {
-            Self::LoadNextLozo(id) => commands.trigger(LoadNextLozoEvent(id.clone())),
+            Self::LoadNextLozo(id) => commands.trigger(LoadNextLozoEvent {
+                current: lozo_entity,
+                next: id.clone(),
+            }),
             Self::SpriteAnimation {
                 sprite_id,
                 animation: open_animation,
             } => commands.trigger(PlaySpriteAnimationEvent {
                 sprite_id: sprite_id.clone(),
                 animation: open_animation.clone(),
+                lozo_entity: lozo_entity,
             }),
-            Self::ActivateNextLozo => commands.trigger(ActivateNextLozoEvent),
-            Self::UnloadNextLozo => commands.trigger(UnloadNextLozoEvent),
+            Self::ActivateNextLozo => commands.trigger(ActivateNextLozoEvent(lozo_entity)),
+            Self::UnloadNextLozo => commands.trigger(UnloadNextLozoEvent(lozo_entity)),
         };
     }
 }
 
 #[derive(Event)]
-struct LoadNextLozoEvent(String);
+struct LoadNextLozoEvent {
+    current: Entity,
+    next: String,
+}
 
 #[derive(Event)]
-struct UnloadNextLozoEvent;
+struct UnloadNextLozoEvent(Entity);
 
 #[derive(Event)]
-struct ActivateNextLozoEvent;
+struct ActivateNextLozoEvent(Entity);
 
 #[derive(Event)]
 struct PlaySpriteAnimationEvent {
     sprite_id: String,
     animation: Handle<SpriteAnimationAsset>,
+    lozo_entity: Entity,
 }
 
-fn on_load_next_lozo(event: On<LoadNextLozoEvent>, mut next_lozo: ResMut<NextLozo>) {
-    next_lozo.set(event.event().0.clone());
+fn on_load_next_lozo(event: On<LoadNextLozoEvent>, mut next_lozo: Query<&mut NextLozo>) -> Result {
+    next_lozo
+        .get_mut(event.current)?
+        .set(event.event().next.clone());
+
+    Ok(())
 }
 
-fn on_activate_next_lozo(_: On<ActivateNextLozoEvent>, mut next_lozo: ResMut<NextLozo>) {
+fn on_activate_next_lozo(
+    event: On<ActivateNextLozoEvent>,
+    mut next_lozo: Query<&mut NextLozo>,
+) -> Result {
+    let mut next_lozo = next_lozo.get_mut(event.0)?;
     if let Some(ready) = next_lozo.ready() {
         ready.activate();
     } else {
         next_lozo.auto_activate = true;
     }
+
+    Ok(())
 }
 
-fn on_unload_next_lozo(_: On<UnloadNextLozoEvent>, mut next_lozo: ResMut<NextLozo>) {
-    next_lozo.reset();
+fn on_unload_next_lozo(
+    event: On<UnloadNextLozoEvent>,
+    mut next_lozo: Query<&mut NextLozo>,
+) -> Result {
+    Ok(next_lozo.get_mut(event.0)?.reset())
 }
 
 fn on_play_sprite_animation(
     event: On<PlaySpriteAnimationEvent>,
-    object_lookup: Single<&ObjectSpriteLookup>,
+    object_lookups: Query<&ObjectSpriteLookup>,
     mut commands: Commands,
 ) -> Result {
-    let object_entity = object_lookup.lookup(&event.sprite_id)?;
+    let lookup = object_lookups.get(event.lozo_entity)?;
+    let object_entity = lookup.lookup(&event.sprite_id)?;
     commands
         .entity(object_entity)
         .insert(Animated::by(event.animation.clone()));
