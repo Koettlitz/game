@@ -158,12 +158,11 @@ pub struct TileEdgeConfigDef {
 
 impl FromDef for TileEdgeConfig {
     type Def = TileEdgeConfigDef;
-    type Error = FromDefError;
 
     fn from_def(
         def: Self::Def,
         load_context: &mut LoadContext,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> std::result::Result<Self, FromDefError> {
         if !def.edge_cases.keys().any(|k| k.is_default()) {
             let path = load_context.path().path().to_string_lossy();
             return Err(FromDefError::InvalidDef(format!(
