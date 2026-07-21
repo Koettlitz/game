@@ -48,7 +48,7 @@ impl<'a> Parse for SpecArgs<'a> {
 
         Ok(SpecArgs {
             base_path: Cow::Owned(base_path),
-            extension: extension.map(|e| Cow::Owned(e)),
+            extension: extension.map(Cow::Owned),
         })
     }
 }

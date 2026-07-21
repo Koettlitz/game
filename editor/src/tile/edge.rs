@@ -47,7 +47,7 @@ fn on_ground_tile_changed(
             error!("invalid position in GroundTilesChangedEvent: {position}");
             continue;
         };
-        for neighbor in position.around_inclusive().into_iter().filter_map(|p| p) {
+        for neighbor in position.around_inclusive().into_iter().flatten() {
             sprites_to_update.insert(*neighbor);
         }
     }
@@ -65,7 +65,7 @@ fn update_sprites(
 ) -> Result<()> {
     let (mut tile_grid, grid_size) = tile_grid.into_inner();
     let position =
-        GridPosition::new(event.0, &grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
+        GridPosition::new(event.0, grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
     let (id, tile_kind_asset) = if let Some(tile) = &mut tile_grid[position] {
         for old_sprite in tile.sprite_stack.drain(..) {
             commands.entity(old_sprite).despawn();
@@ -95,7 +95,7 @@ fn update_sprites(
             &mut commands,
             &tile_kinds,
             &edge_configs,
-            &grid_size,
+            grid_size,
             &tile_grid,
         )?;
         if let Some(entity) = sprite_entity {
@@ -162,7 +162,7 @@ fn spawn_tile_sprite(
             Ok(Some(entity))
         }
         GroundTileVisual::Neighbor(neighbor) => {
-            let Some(neighbor_position) = position.neighbor(&neighbor) else {
+            let Some(neighbor_position) = position.neighbor(neighbor) else {
                 return Ok(None);
             };
             let Some(neighbor_tile) = &tile_grid[neighbor_position] else {
@@ -173,9 +173,9 @@ fn spawn_tile_sprite(
                 .require_handle(&neighbor_tile_kind.edge_config)?
                 .get_default()
                 .base();
-            return spawn_tile_sprite(
+            spawn_tile_sprite(
                 neighbor_tile.kind.id(),
-                &position,
+                position,
                 layer,
                 &neighbor_tile_kind.spritesheet,
                 z,
@@ -184,7 +184,7 @@ fn spawn_tile_sprite(
                 edge_configs,
                 grid_size,
                 tile_grid,
-            );
+            )
         }
     }
 }

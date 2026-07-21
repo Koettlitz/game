@@ -12,10 +12,9 @@ use crate::asset_enum::BsError;
 
 pub mod asset_enum;
 pub mod asset_set;
-pub mod from_def;
 pub mod spec;
 
-pub const ASSET_SET_MODULE_PATH: &'static str = "engine::asset::set";
+pub const ASSET_SET_MODULE_PATH: &str = "engine::asset::set";
 
 #[derive(Clone, Copy, Debug)]
 pub enum AssetSource {

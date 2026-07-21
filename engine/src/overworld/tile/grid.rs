@@ -114,7 +114,7 @@ impl GridSize {
         }
     }
 
-    fn to_grid_space(&self, world_position: impl Into<Vec2>) -> Vec2 {
+    fn to_grid_space(self, world_position: impl Into<Vec2>) -> Vec2 {
         let world_position = world_position.into();
         let half_size = self.half_world_size();
         Vec2 {
@@ -183,9 +183,7 @@ impl<'a> Iterator for IterAll<'a> {
     type Item = GridPosition<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(current_pos) = self.current_pos.as_mut() else {
-            return None;
-        };
+        let current_pos = self.current_pos.as_mut()?;
         let result = Some(GridPosition {
             pos: *current_pos,
             grid_size: self.grid_size,
@@ -198,7 +196,7 @@ impl<'a> Iterator for IterAll<'a> {
         } else {
             self.current_pos = None;
         }
-        return result;
+        result
     }
 }
 
@@ -220,9 +218,7 @@ impl<'a> Iterator for IterAround<'a> {
     type Item = GridPosition<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(current_pos) = self.current_pos.as_mut() else {
-            return None;
-        };
+        let current_pos = self.current_pos.as_mut()?;
         if current_pos.y == 0 {
             if current_pos.x < self.grid_size.width() {
                 let grid_pos = GridPosition {
@@ -276,9 +272,9 @@ impl<'a> Iterator for IterAround<'a> {
     }
 }
 
-impl Into<UVec2> for GridSize {
-    fn into(self) -> UVec2 {
-        self.0
+impl From<GridSize> for UVec2 {
+    fn from(value: GridSize) -> Self {
+        value.0
     }
 }
 
@@ -293,11 +289,7 @@ impl<T: Default> Grid<T> {
 
 impl<T: Copy> Grid<T> {
     fn with_tile(size: &GridSize, tile: T) -> Self {
-        Self(
-            iter::repeat(tile)
-                .take((size.width() * size.height()) as usize)
-                .collect(),
-        )
+        Self(iter::repeat_n(tile, (size.width() * size.height()) as usize).collect())
     }
 }
 
@@ -481,9 +473,9 @@ pub struct GridPosition<'a> {
     grid_size: &'a GridSize,
 }
 
-impl<'a> Into<UVec2> for GridPosition<'a> {
-    fn into(self) -> UVec2 {
-        self.pos
+impl<'a> From<GridPosition<'a>> for UVec2 {
+    fn from(value: GridPosition) -> Self {
+        value.pos
     }
 }
 

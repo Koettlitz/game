@@ -238,7 +238,7 @@ impl GameObjectKindAsset {
 
     fn grid_align_offset(length: u32) -> f32 {
         let length_in_tiles = length.div_ceil(TILE_SIZE);
-        if length_in_tiles % 2 == 0 {
+        if length_in_tiles.is_multiple_of(2) {
             TILE_SIZE as f32 / 2.0
         } else {
             0.0

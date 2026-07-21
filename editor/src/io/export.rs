@@ -74,7 +74,7 @@ fn create_grid(
             let atlas = sprite
                 .texture_atlas
                 .as_ref()
-                .ok_or_else(|| "missing texture atlas on tile sprite")?;
+                .ok_or("missing texture atlas on tile sprite")?;
             let layout = layouts.require_handle(&atlas.layout)?;
             let layout_id = sprite_tag.id().to_string();
             layout_map
@@ -98,7 +98,6 @@ fn create_grid(
         grid.push(Some(TileDef {
             passability: tile_kind.passability,
             sprite_stack: visuals,
-            ..Default::default()
         }));
     }
 
@@ -136,7 +135,7 @@ fn add_objects(
                 let pos = object_pos.as_ivec2() + pos;
                 let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
                     .ok_or_else(|| format!("position out of bounds: {}", pos.as_vec2()))?;
-                let tile_def = grid[*pos.as_index()].get_or_insert_with(|| TileDef::default());
+                let tile_def = grid[*pos.as_index()].get_or_insert_with(TileDef::default);
                 tile_def.passability &= Passability::Never;
             }
         }
@@ -165,13 +164,12 @@ fn add_objects(
 
                     let door_pos = grid_size
                         .world_to_grid(transform.translation.truncate() + door.offset().as_vec2())
-                        .ok_or_else(|| "door position out of bounds")?;
-                    let door_tile =
-                        grid[*door_pos.as_index()].get_or_insert_with(|| TileDef::default());
+                        .ok_or("door position out of bounds")?;
+                    let door_tile = grid[*door_pos.as_index()].get_or_insert_with(TileDef::default);
 
                     door_tile.passability = Passability::Always;
                     register_door_events(
-                        &id,
+                        id,
                         door,
                         &door_pos,
                         &mut char_left_events,

@@ -228,6 +228,7 @@ impl CharacterController {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn update_character_state(
     mut query: Query<
         (
@@ -243,14 +244,14 @@ fn update_character_state(
 ) -> Result<()> {
     for (entity, mut orientation, mut state, controller, delay) in &mut query {
         let mut orientation_changed = false;
-        if let Some(new_orientation) = controller.orientation() {
-            if new_orientation != *orientation {
-                *orientation = new_orientation;
-                if !state.is_moving() {
-                    commands.entity(entity).insert(TurningDelay::default());
-                }
-                orientation_changed = true;
+        if let Some(new_orientation) = controller.orientation()
+            && new_orientation != *orientation
+        {
+            *orientation = new_orientation;
+            if !state.is_moving() {
+                commands.entity(entity).insert(TurningDelay::default());
             }
+            orientation_changed = true;
         }
         let new_state = controller.state();
         if new_state != *state {
@@ -286,6 +287,7 @@ fn update_turning_delay(
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn start_tile_transition(
     event: On<StartTileTransition>,
     mut character: Query<(Entity, &Transform, &Orientation, &InLozo), With<Character>>,
@@ -301,7 +303,7 @@ fn start_tile_transition(
     let (grid_size, grid, tile_edge_events) = lozo_query.get(**in_lozo)?;
     let origin = grid_size
         .world_to_grid(transform.translation.truncate())
-        .ok_or_else(|| "character at invalid grid position")?;
+        .ok_or("character at invalid grid position")?;
 
     let Some(target) = origin.neighbor(&orientation.as_neighbor()) else {
         return Ok(());

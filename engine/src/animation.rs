@@ -178,6 +178,7 @@ fn on_remove_timer(
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn cleanup_unused_timers(
     timers: Query<(Entity, &Times), (Changed<Times>, With<AnimationTimer>)>,
     mut commands: Commands,
@@ -203,10 +204,10 @@ fn apply_animations(
     mut commands: Commands,
 ) -> Result<()> {
     for (mut timer, Times(entities)) in &mut timers {
-        if let Some(last_applied) = timer.last_applied {
-            if last_applied == timer.current {
-                continue;
-            }
+        if let Some(last_applied) = timer.last_applied
+            && last_applied == timer.current
+        {
+            continue;
         }
 
         for entity in entities {
@@ -216,10 +217,10 @@ fn apply_animations(
             } else {
                 warn!("animated sprite had no texture atlas to animate on");
             }
-            if let AnimationKind::Once = &mut animation.kind {
-                if timer.current == animation.frames.len() - 1 {
-                    commands.entity(*entity).remove::<Animated>();
-                }
+            if let AnimationKind::Once = &mut animation.kind
+                && timer.current == animation.frames.len() - 1
+            {
+                commands.entity(*entity).remove::<Animated>();
             }
         }
 
@@ -252,6 +253,7 @@ fn hot_reload_timers(
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn hot_reload_animations(
     mut message_reader: MessageReader<AssetEvent<SpriteAnimationAsset>>,
     assets: Res<Assets<SpriteAnimationAsset>>,
@@ -288,7 +290,7 @@ fn hot_reload_animations(
                 let mut query = timers.p1();
                 let (_, mut timer, _) = query.get_mut(spawned_timer.entity)?;
                 timer.frame_count = asset.frames.len();
-                timer.current = timer.current % timer.frame_count;
+                timer.current %= timer.frame_count;
             }
             commands
                 .entity(entity)
@@ -340,7 +342,7 @@ fn spawn_timer(
                 let timers_asset = timers_asset
                     .iter()
                     .next()
-                    .ok_or_else(|| "missing AnimationTimersAsset")?
+                    .ok_or("missing AnimationTimersAsset")?
                     .1;
                 let frame_duration = Duration::from_millis(
                     *timers_asset

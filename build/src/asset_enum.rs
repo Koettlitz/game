@@ -96,7 +96,7 @@ fn generate_resolver_enum(
     let default_variant_ident = variant_idents.remove(0);
     let default_variant_path = asset_paths.remove(0);
     let default_variant_string = variant_strings.remove(0);
-    let enum_type: syn::Type = syn::parse_str(&enum_name)?;
+    let enum_type: syn::Type = syn::parse_str(enum_name)?;
     let bevy_crate = resolve_crate_name("bevy")?;
     let elf_module = CratePath::try_from("bevy_elf")?;
     let asset_set_module = CratePath::try_from(ASSET_SET_MODULE_PATH)?;
@@ -172,7 +172,6 @@ fn stripped_file_name(base_path: &Path) -> io::Result<String> {
     };
     let base_name = dir_name
         .to_string_lossy()
-        .to_string()
         .split('.')
         .next()
         .unwrap()

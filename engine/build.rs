@@ -9,7 +9,7 @@ fn main() -> Result<(), BsError> {
     let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = crate_root
         .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "crate root had now parent"))?;
+        .ok_or_else(|| io::Error::other("crate root had now parent"))?;
     let asset_root = workspace_root.join("assets");
     println!("cargo:rerun-if-changed={}", asset_root.display());
     let resolver_enums = generate_resolver_enums(AssetSource::Workspace, &asset_root)?;

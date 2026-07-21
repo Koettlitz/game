@@ -117,8 +117,8 @@ impl<S, A> Default for AssetSetLoadPlugin<S, A> {
     fn default() -> Self {
         Self {
             params: AssetSetPluginParams::default(),
-            _set_marker: PhantomData::default(),
-            _asset_marker: PhantomData::default(),
+            _set_marker: PhantomData,
+            _asset_marker: PhantomData,
         }
     }
 }
@@ -207,7 +207,7 @@ where
 pub struct FolderProgress<F>(Phantom<F>);
 impl<S> Default for FolderProgress<S> {
     fn default() -> Self {
-        Self(PhantomData::default())
+        Self(PhantomData)
     }
 }
 
@@ -308,7 +308,7 @@ fn cleanup_handles<S: 'static, A: Asset>(mut commands: Commands) {
 struct LoadingFolder<S: AsAssetPath, A: Asset>(Vec<Handle<A>>, Phantom<S>);
 impl<S: AsAssetPath, A: Asset> LoadingFolder<S, A> {
     fn new(handles: impl IntoIterator<Item = Handle<A>>) -> Self {
-        Self(handles.into_iter().collect(), PhantomData::default())
+        Self(handles.into_iter().collect(), PhantomData)
     }
 }
 
@@ -316,7 +316,7 @@ impl<S: AsAssetPath, A: Asset> LoadingFolder<S, A> {
 pub struct AssetMap<S: AsAssetPath, A: Asset>(pub HashMap<String, Handle<A>>, Phantom<S>);
 impl<S: AsAssetPath, A: Asset> Default for AssetMap<S, A> {
     fn default() -> Self {
-        Self(HashMap::new(), PhantomData::default())
+        Self(HashMap::new(), PhantomData)
     }
 }
 impl<S: AsAssetPath, A: Asset> AssetMap<S, A> {
@@ -333,7 +333,7 @@ impl<S: AsAssetPath, A: Asset> AssetMap<S, A> {
 struct Handles<S, A: Asset>(Vec<Handle<A>>, Phantom<S>);
 impl<S, A: Asset> Handles<S, A> {
     fn new(handles: impl IntoIterator<Item = Handle<A>>) -> Self {
-        Self(handles.into_iter().collect(), PhantomData::default())
+        Self(handles.into_iter().collect(), PhantomData)
     }
 }
 
@@ -353,19 +353,19 @@ impl<S: 'static> Default for LoadState<S> {
 
 impl<S> LoadState<S> {
     pub fn idle() -> Self {
-        Self::Idle(PhantomData::default())
+        Self::Idle(PhantomData)
     }
 
     pub fn loading() -> Self {
-        Self::Loading(PhantomData::default())
+        Self::Loading(PhantomData)
     }
 
     pub fn handles_present() -> Self {
-        Self::HandlesPresent(PhantomData::default())
+        Self::HandlesPresent(PhantomData)
     }
 
     pub fn finished() -> Self {
-        Self::Finished(PhantomData::default())
+        Self::Finished(PhantomData)
     }
 
     pub fn is_finished(&self) -> bool {
@@ -376,10 +376,10 @@ impl<S> LoadState<S> {
 impl<S> Clone for LoadState<S> {
     fn clone(&self) -> Self {
         match self {
-            Self::Idle(_) => Self::Idle(PhantomData::default()),
-            Self::Loading(_) => Self::Loading(PhantomData::default()),
-            Self::HandlesPresent(_) => Self::HandlesPresent(PhantomData::default()),
-            Self::Finished(_) => Self::Finished(PhantomData::default()),
+            Self::Idle(_) => Self::Idle(PhantomData),
+            Self::Loading(_) => Self::Loading(PhantomData),
+            Self::HandlesPresent(_) => Self::HandlesPresent(PhantomData),
+            Self::Finished(_) => Self::Finished(PhantomData),
         }
     }
 }

@@ -104,10 +104,10 @@ pub struct NextLozo {
 
 impl NextLozo {
     pub fn set(&mut self, target: String) {
-        if let Some(id) = self.id.as_ref() {
-            if *id == target {
-                return;
-            }
+        if let Some(id) = self.id.as_ref()
+            && *id == target
+        {
+            return;
         }
         self.reset();
         self.id = Some(target);
@@ -150,6 +150,7 @@ struct LozoTransition {
     asset_handle: Handle<LozoAsset>,
 }
 
+#[allow(clippy::type_complexity)]
 fn detect_lozo_transition(
     lozo_query: Query<
         (Entity, &NextLozo, Option<&mut LozoState>),
@@ -244,11 +245,11 @@ fn detect_lozo_loaded(
 
 fn activate_switch(lozo_query: Query<(&mut NextLozo, &mut LozoState), With<LozoTransition>>) {
     for (mut next_lozo, mut state) in lozo_query {
-        if let Some(ready) = next_lozo.ready() {
-            if ready.activate {
-                *state = LozoState::Switching;
-                next_lozo.reset();
-            }
+        if let Some(ready) = next_lozo.ready()
+            && ready.activate
+        {
+            *state = LozoState::Switching;
+            next_lozo.reset();
         }
     }
 }

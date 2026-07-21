@@ -17,7 +17,7 @@ use crate::{
 
 pub mod edge;
 
-pub const DEFAULT_TILE_KIND: &'static str = "grass";
+pub const DEFAULT_TILE_KIND: &str = "grass";
 const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
 
 type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
@@ -74,9 +74,8 @@ fn spawn_tile_grid(
 ) -> Result<()> {
     let (id, tile_kind_handle) = tile_kind_map
         .iter()
-        .filter(|(id, _)| *id == DEFAULT_TILE_KIND)
-        .next()
-        .expect(&format!("missing tile kind \"{DEFAULT_TILE_KIND}\""));
+        .find(|(id, _)| *id == DEFAULT_TILE_KIND)
+        .ok_or_else(|| format!("missing tile kind \"{DEFAULT_TILE_KIND}\""))?;
     commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
         let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
         let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;

@@ -116,7 +116,7 @@ impl ObjectSpriteLookup {
         Ok(self
             .get(id)
             .ok_or_else(|| ObjectSpriteLookupFailed(id.to_string()))
-            .map(|e| *e)?)
+            .copied()?)
     }
 }
 

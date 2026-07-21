@@ -42,20 +42,17 @@ pub struct Tile {
     pub passability: Passability,
 }
 
-#[derive(FromDef, Component, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash)]
+#[derive(
+    FromDef, Component, Default, PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, Hash,
+)]
 #[elf(def_type(Self))]
 pub enum Passability {
+    #[default]
     Always,
     Never,
     Bike,
     Surf,
     Waterfall,
-}
-
-impl Default for Passability {
-    fn default() -> Self {
-        Self::Always
-    }
 }
 
 impl ops::BitAnd for Passability {
@@ -248,7 +245,7 @@ impl TileEventAction {
             } => commands.trigger(PlaySpriteAnimationEvent {
                 sprite_id: sprite_id.clone(),
                 animation: open_animation.clone(),
-                lozo_entity: lozo_entity,
+                lozo_entity,
             }),
             Self::ActivateNextLozo => commands.trigger(ActivateNextLozoEvent(lozo_entity)),
             Self::UnloadNextLozo => commands.trigger(UnloadNextLozoEvent(lozo_entity)),
@@ -301,7 +298,8 @@ fn on_unload_next_lozo(
     event: On<UnloadNextLozoEvent>,
     mut next_lozo: Query<&mut NextLozo>,
 ) -> Result {
-    Ok(next_lozo.get_mut(event.0)?.reset())
+    next_lozo.get_mut(event.0)?.reset();
+    Ok(())
 }
 
 fn on_play_sprite_animation(

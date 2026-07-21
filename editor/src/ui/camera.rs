@@ -52,8 +52,7 @@ impl CameraMovement {
             translation += Vec3::X;
         }
         let velocity = self.min_velocity + self.max_addition * self.timer.fraction().cubed();
-        let velocity = translation.clamp_length(velocity, velocity);
-        velocity
+        translation.clamp_length(velocity, velocity)
     }
 
     fn moving(&self) -> bool {

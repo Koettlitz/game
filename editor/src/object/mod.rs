@@ -56,7 +56,7 @@ fn place_object(
         {
             game_object.with_child((
                 GameObjectSprite::Door {
-                    id: format!("{}_door{i}", object_kind.id().to_string()),
+                    id: format!("{}_door{i}", object_kind.id()),
                     door: door.clone(),
                 },
                 sprite,

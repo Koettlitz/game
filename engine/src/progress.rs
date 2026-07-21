@@ -49,7 +49,7 @@ fn init_progress_panel(
             ..Default::default()
         },
     ));
-    *counter = *counter + 1;
+    *counter += 1;
 }
 
 fn update_progress_panels(
