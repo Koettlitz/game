@@ -1,4 +1,4 @@
-use bevy_elf::{AssetRef, FromDef, FromDefError, RonAssetPlugin, asset_spec};
+use bevy_elf::{AppExt, AssetRef, FromDef, FromDefError, asset_spec};
 use engine::{
     asset::{
         AssetMap, AssetSetPlugin, AssetsExt, animation::sprite::SpriteAnimationAsset, one_or_many,
@@ -28,12 +28,10 @@ pub type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
 pub struct TileAssetPlugin;
 impl Plugin for TileAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            RonAssetPlugin::<TileKindAsset>::default(),
-            RonAssetPlugin::<TileEdgeConfig>::default(),
-            AssetSetPlugin::<TileKindAsset>::default(),
-        ))
-        .add_systems(PreUpdate, derive_layouts.after(AssetEventSystems));
+        app.init_ron_asset::<TileKindAsset>()
+            .init_ron_asset::<TileEdgeConfig>()
+            .add_plugins(AssetSetPlugin::<TileKindAsset>::default())
+            .add_systems(PreUpdate, derive_layouts.after(AssetEventSystems));
     }
 }
 

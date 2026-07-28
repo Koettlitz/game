@@ -1,9 +1,9 @@
 use bevy::asset::AssetEventSystems;
 use bevy::prelude::*;
+use bevy_elf::AppExt;
 use bevy_elf::AssetRef;
 use bevy_elf::AssetResolver;
 use bevy_elf::FromDef;
-use bevy_elf::RonAssetPlugin;
 use engine::asset::AssetMap;
 use engine::asset::AssetSetPlugin;
 use engine::asset::AssetsExt;
@@ -19,11 +19,9 @@ pub type GameObjectKindMap = AssetMap<ObjectResolverSet, GameObjectKindAsset>;
 pub struct GameObjectAssetPlugin;
 impl Plugin for GameObjectAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            RonAssetPlugin::<GameObjectKindAsset>::default(),
-            AssetSetPlugin::<GameObjectKindAsset>::default(),
-        ))
-        .add_systems(PreUpdate, derive_image_data.after(AssetEventSystems));
+        app.init_ron_asset::<GameObjectKindAsset>()
+            .add_plugins(AssetSetPlugin::<GameObjectKindAsset>::default())
+            .add_systems(PreUpdate, derive_image_data.after(AssetEventSystems));
     }
 }
 

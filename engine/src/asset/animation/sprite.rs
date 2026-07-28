@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref, time::Duration};
 
 use crate::asset::duration_millis;
 use bevy::prelude::*;
-use bevy_elf::{FromDef, RonAssetPlugin};
+use bevy_elf::{AppExt, FromDef};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default)]
@@ -10,10 +10,8 @@ pub struct SpriteAnimationAssetPlugin;
 
 impl Plugin for SpriteAnimationAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            RonAssetPlugin::<SpriteAnimationAsset>::default(),
-            RonAssetPlugin::<AnimationTimersAsset>::default(),
-        ));
+        app.init_ron_asset::<SpriteAnimationAsset>()
+            .init_ron_asset::<AnimationTimersAsset>();
     }
 }
 

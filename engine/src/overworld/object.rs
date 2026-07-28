@@ -1,4 +1,4 @@
-use bevy_elf::RonAssetPlugin;
+use bevy_elf::AppExt;
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -23,7 +23,7 @@ pub struct GameObjectPlugin;
 
 impl Plugin for GameObjectPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<GameObjectSpriteAsset>::default())
+        app.init_ron_asset::<GameObjectSpriteAsset>()
             .add_observer(spawn_objects);
     }
 }

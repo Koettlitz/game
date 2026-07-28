@@ -17,7 +17,7 @@ use crate::{
     },
 };
 use bevy::prelude::*;
-use bevy_elf::RonAssetPlugin;
+use bevy_elf::AppExt;
 use std::{
     ops::{Deref, DerefMut},
     time::Duration,
@@ -30,7 +30,7 @@ pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<CharacterAsset>::default())
+        app.init_ron_asset::<CharacterAsset>()
             .add_systems(
                 PreUpdate,
                 (update_character_state, update_turning_delay)

@@ -2,12 +2,12 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{asset::overworld::lozo::LozoAsset, overworld::object::ObjectSpriteLookup};
 use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
-use bevy_elf::{AssetResolver, HasResolver, RonAssetPlugin};
+use bevy_elf::{AppExt, AssetResolver, HasResolver};
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RonAssetPlugin::<LozoAsset>::default())
+        app.init_ron_asset::<LozoAsset>()
             .add_systems(
                 PostUpdate,
                 (
