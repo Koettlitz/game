@@ -16,7 +16,7 @@ use crate::{asset::animation::sprite::SpriteAnimationAsset, overworld::lozo::Nex
 
 pub use grid::{
     Grid, GridCommands, GridCursor, GridIndex, GridPosition, GridSize, IterAll, IterAround,
-    Neighbor, create_grid_bundle, shrink_grid,
+    Neighbor, create_grid_bundle,
 };
 
 pub const TILE_SIZE: u32 = 32;
@@ -319,7 +319,3 @@ fn on_play_sprite_animation(
 #[derive(Error, Debug)]
 #[error("invalid tile position {0}")]
 pub struct InvalidTilePosition(UVec2);
-
-#[derive(Error, Debug)]
-#[error("could not execute switch lozo event, cause lozo was not loaded yet")]
-pub struct LozoNotLoaded;

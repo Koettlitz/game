@@ -1,14 +1,20 @@
 use bevy::{input::mouse::MouseWheel, math::FloatPow, prelude::*};
 
+use crate::ui::camera::render_target::PixelPerfectRenderPlugin;
+
+mod render_target;
+
 const MIN_ZOOM: f32 = 0.08;
 const MAX_ZOOM: f32 = 10.0;
 const ZOOM_SPEED: f32 = 0.1;
+
+pub use render_target::{FinalCamera, WorldCamera};
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, init)
+        app.add_plugins(PixelPerfectRenderPlugin)
             .add_systems(Update, (update_movement, apply_movement, scroll).chain());
     }
 }
@@ -60,10 +66,6 @@ impl CameraMovement {
     }
 }
 
-fn init(mut commands: Commands) {
-    commands.spawn((Camera2d, CameraMovement::default()));
-}
-
 fn update_movement(
     mut query: Query<&mut CameraMovement>,
     time: Res<Time>,
@@ -84,13 +86,14 @@ fn apply_movement(mut query: Query<(&mut Transform, &CameraMovement)>) {
     for (mut transform, movement) in &mut query {
         if movement.moving() {
             transform.translation += movement.translation();
+            transform.translation = transform.translation.round();
         }
     }
 }
 
 fn scroll(
     mut mouse_wheel_reader: MessageReader<MouseWheel>,
-    camera: Single<&mut Projection, With<Camera2d>>,
+    camera: Single<&mut Projection, (With<Camera2d>, With<FinalCamera>)>,
 ) {
     let Projection::Orthographic(ref mut projection) = *camera.into_inner() else {
         error!("scrolling not implemented for non orthographic projection");

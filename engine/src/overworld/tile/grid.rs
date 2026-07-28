@@ -637,14 +637,6 @@ impl Neighbor {
     }
 }
 
-#[derive(Debug)]
-pub struct GridResize {
-    pub top: u32,
-    pub left: u32,
-    pub right: u32,
-    pub bottom: u32,
-}
-
 pub fn extend_grid<T: Default>(grid: &mut Grid<T>, size: &mut GridSize, extensions: UVec2) -> bool {
     if extensions == UVec2::splat(0) {
         return false;
@@ -667,7 +659,15 @@ pub fn extend_grid<T: Default>(grid: &mut Grid<T>, size: &mut GridSize, extensio
     true
 }
 
-pub fn shrink_grid<T>(grid: &mut Grid<Option<T>>, size: &mut GridSize, reduction: &GridResize) {
+#[derive(Debug)]
+pub struct _GridResize {
+    pub top: u32,
+    pub left: u32,
+    pub right: u32,
+    pub bottom: u32,
+}
+
+pub fn _shrink_grid<T>(grid: &mut Grid<Option<T>>, size: &mut GridSize, reduction: &_GridResize) {
     let new_size = GridSize::new(
         size.width() - reduction.left - reduction.right,
         size.height() - reduction.top - reduction.bottom,

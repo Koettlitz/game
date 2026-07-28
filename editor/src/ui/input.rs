@@ -18,7 +18,7 @@ use crate::{
     tile::edge::create_tile_sprite,
     ui::{
         ShowGridLines,
-        camera::{CameraMovement, CameraPlugin},
+        camera::{CameraMovement, WorldCamera},
         screen_to_world,
     },
 };
@@ -29,8 +29,7 @@ const CURSOR_Z: f32 = 500.0;
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(CameraPlugin)
-            .add_message::<PlaceTile>()
+        app.add_message::<PlaceTile>()
             .add_message::<PlaceObject>()
             .add_message::<RemoveTile>()
             .init_resource::<TileKindKeyMap>()
@@ -137,7 +136,7 @@ struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 fn update_cursor_position(
     mut cursor: Single<&mut Transform, With<Cursor>>,
     grid_size: Single<&GridSize>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
     if let Some(cursor_position) = window.cursor_position() {
@@ -224,7 +223,7 @@ fn update_cursor_visuals(
 
 fn place_tiles(
     mut mouse_motion: MessageReader<MouseMotion>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Single<&Cursor>,
@@ -280,7 +279,7 @@ fn place_tiles(
 fn place_object(
     cursor: Single<&Cursor>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
     grid_size: Single<&GridSize>,
     mut message_writer: MessageWriter<PlaceObject>,
@@ -307,7 +306,7 @@ fn place_object(
 
 fn move_camera(
     keys: Res<ButtonInput<KeyCode>>,
-    camera: Single<&mut CameraMovement, With<Camera2d>>,
+    camera: Single<&mut CameraMovement, (With<Camera2d>, With<WorldCamera>)>,
 ) {
     let mut movement = camera.into_inner();
     movement.up = keys.pressed(KeyCode::ArrowUp);

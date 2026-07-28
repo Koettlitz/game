@@ -217,11 +217,17 @@ fn abort_transition(
 }
 
 fn detect_lozo_loaded(
-    lozo_query: Query<(Entity, &mut NextLozo, &mut LozoState, &LozoTransition)>,
+    lozo_query: Query<(
+        Entity,
+        &mut NextLozo,
+        &mut LozoState,
+        &LozoTransition,
+        Option<&Lozo>,
+    )>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    for (entity, mut next_lozo, mut state, transition) in lozo_query {
+    for (entity, mut next_lozo, mut state, transition, lozo) in lozo_query {
         if *state != LozoState::LoadingLozoAsset {
             continue;
         }
@@ -233,10 +239,14 @@ fn detect_lozo_loaded(
                 });
             }
             RecursiveDependencyLoadState::Failed(e) => {
-                error!("failed to load lozo: \"{e}\"");
-                commands.entity(entity).remove::<LozoTransition>();
-                next_lozo.reset();
-                *state = LozoState::Initialized;
+                log::error!("failed to load lozo: \"{e}\"");
+                if lozo.is_some() {
+                    commands.entity(entity).despawn();
+                } else {
+                    commands.entity(entity).remove::<LozoTransition>();
+                    next_lozo.reset();
+                    *state = LozoState::Initialized;
+                }
             }
             _ => {}
         }

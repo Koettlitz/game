@@ -4,7 +4,7 @@ use engine::{
         AssetMap, AssetSetPlugin, AssetsExt, animation::sprite::SpriteAnimationAsset, one_or_many,
         overworld::TILE_LAYER, spritesheet::SpritesheetKind,
     },
-    overworld::tile::{GridCursor, Neighbor, Passability},
+    overworld::tile::{GridCursor, Neighbor, Passability, TILE_SIZE},
 };
 use macros::asset_set;
 use std::{
@@ -12,8 +12,6 @@ use std::{
     fmt::{self, Debug, Display},
     slice,
 };
-
-use engine::overworld::tile::TILE_SIZE;
 
 use bevy::{
     asset::{AssetEventSystems, LoadContext},
@@ -24,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
+const SPRITESHEET_PADDING: u32 = 1;
 
 pub struct TileAssetPlugin;
 impl Plugin for TileAssetPlugin {
@@ -126,16 +125,17 @@ impl Display for InvalidTileSpritesheetSize {
 pub struct TileSpriteLayoutError(String);
 
 fn derive_texture_atlas_layout(image: &Image) -> Option<TextureAtlasLayout> {
-    if image.size() % TILE_SIZE != UVec2::splat(0) {
+    let tile_size_with_padding = TILE_SIZE + SPRITESHEET_PADDING * 2;
+    if image.size() % tile_size_with_padding != UVec2::splat(0) {
         return None;
     }
-    let size_in_tiles = image.size() / UVec2::splat(TILE_SIZE);
+    let size_in_tiles = image.size() / UVec2::splat(tile_size_with_padding);
     let layout = TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
         size_in_tiles.x,
         size_in_tiles.y,
-        None,
-        None,
+        Some(UVec2::splat(SPRITESHEET_PADDING * 2)),
+        Some(UVec2::splat(SPRITESHEET_PADDING)),
     );
     Some(layout)
 }

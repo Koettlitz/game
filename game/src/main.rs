@@ -36,7 +36,6 @@ impl Deref for AnimationTimers {
 }
 
 fn init(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
     let handle = asset_server.load("animation_timers.ron");
     commands.insert_resource(AnimationTimers(handle));
 }

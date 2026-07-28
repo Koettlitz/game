@@ -18,7 +18,7 @@ use crate::{
 pub mod edge;
 
 pub const DEFAULT_TILE_KIND: &str = "grass";
-const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
+pub const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
 
 type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
 

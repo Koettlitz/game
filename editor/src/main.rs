@@ -34,12 +34,12 @@ fn main() {
             IoPlugin,
         ))
         .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
-        .add_systems(Startup, init)
+        .add_systems(Startup, spawn_progress_screen)
         .add_systems(OnEnter(ProgressState::Finished), remove_progress_screen)
         .run();
 }
 
-fn init(mut commands: Commands) {
+fn spawn_progress_screen(mut commands: Commands) {
     commands.spawn(ProgressScreen);
 }
 

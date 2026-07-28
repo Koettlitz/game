@@ -9,6 +9,8 @@ use input::InputPlugin;
 
 pub use input::{PlaceObject, PlaceTile, RemoveTile};
 
+use crate::ui::camera::CameraPlugin;
+
 mod camera;
 mod input;
 
@@ -16,7 +18,7 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(InputPlugin)
+        app.add_plugins((InputPlugin, CameraPlugin))
             .add_observer(on_tile_grid_spawn)
             .add_systems(
                 Update,
