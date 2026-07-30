@@ -11,7 +11,7 @@ use crate::{
         },
     },
 };
-use bevy::prelude::*;
+use bevy::{camera::visibility::RenderLayers, prelude::*};
 use bevy_elf::AppExt;
 use std::{
     ops::{Deref, DerefMut},
@@ -154,13 +154,13 @@ fn spawn_character(
     character_assets: Res<Assets<CharacterAsset>>,
 
     // TODO: This singleton assumption works for now, but has to be changed at some point
-    grid_size: Single<(Entity, &GridSize)>,
+    lozo_query: Single<(Entity, &GridSize, &RenderLayers)>,
 ) -> Result<()> {
     if !asset_server.is_loaded_with_dependencies(loading_character.id()) {
         return Ok(());
     }
     let asset = character_assets.require_handle(&**loading_character)?;
-    let (lozo_entity, grid_size) = grid_size.into_inner();
+    let (lozo_entity, grid_size, render_layer) = lozo_query.into_inner();
     let position = grid_size.snap_to_tile((0.0, 0.0));
     commands.spawn_into_lozo(
         lozo_entity,
@@ -181,6 +181,7 @@ fn spawn_character(
                     }),
                     ..Default::default()
                 },
+                render_layer.clone(),
                 Transform::from_translation(Vec3 {
                     x: 0.0,
                     y: 5.0,

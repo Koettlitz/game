@@ -1,6 +1,7 @@
 use std::ops;
 use std::{collections::HashMap, fmt::Debug};
 
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use bevy_elf::{FromDef, PathResolver};
 use serde::{Deserialize, Serialize};
@@ -153,11 +154,11 @@ impl TileGridSpawned {
 
 fn spawn_tile_grid(
     event: On<LozoSpawned>,
-    lozo: Query<&Lozo>,
+    lozo: Query<(&Lozo, &RenderLayers)>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
 ) -> Result {
-    let lozo = lozo.get(event.entity())?;
+    let (lozo, render_layers) = lozo.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
@@ -172,6 +173,7 @@ fn spawn_tile_grid(
                 spritesheet.clone(),
                 Some(visual.layout.clone()),
                 visual.z,
+                render_layers.clone(),
                 &mut commands,
             )?;
             sprite_stack.push(entity);
@@ -203,6 +205,7 @@ pub fn spawn_tile_sprite(
     image_handle: Handle<Image>,
     layout_handle: Option<Handle<TextureAtlasLayout>>,
     z: f32,
+    render_layers: RenderLayers,
     commands: &mut Commands,
 ) -> Result<Entity> {
     let transform = Transform::from_translation(Vec3::new(0.0, 0.0, z));
@@ -211,9 +214,16 @@ pub fn spawn_tile_sprite(
         None => Sprite::from_image(image_handle),
     };
     Ok(match &visual {
-        TileVisualKind::Static { idx } => commands.spawn((sprite(*idx), transform)).id(),
+        TileVisualKind::Static { idx } => commands
+            .spawn((sprite(*idx), render_layers, transform))
+            .id(),
         TileVisualKind::Animated { animation } => commands
-            .spawn((sprite(0), transform, Animated::by(animation.clone())))
+            .spawn((
+                sprite(0),
+                render_layers,
+                transform,
+                Animated::by(animation.clone()),
+            ))
             .id(),
     })
 }

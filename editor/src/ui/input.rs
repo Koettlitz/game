@@ -316,8 +316,8 @@ fn move_camera(
 }
 
 fn toggle_grid_lines(keys: Res<ButtonInput<KeyCode>>, mut grid_lines: Single<&mut ShowGridLines>) {
-    if keys.pressed(KeyCode::ControlLeft)
-        || keys.pressed(KeyCode::ControlRight) && keys.just_pressed(KeyCode::KeyG)
+    if (keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight))
+        && keys.just_pressed(KeyCode::KeyG)
     {
         grid_lines.toggle();
     }

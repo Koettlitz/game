@@ -1,8 +1,5 @@
 use bevy::{
-    camera::{RenderTarget, visibility::RenderLayers},
-    prelude::*,
-    render::render_resource::Extent3d,
-    window::WindowResized,
+    camera::RenderTarget, prelude::*, render::render_resource::Extent3d, window::WindowResized,
 };
 
 use bevy_elf::{AssetResolver, HasResolver};
@@ -10,17 +7,14 @@ use engine::{
     asset::AssetsExt,
     overworld::{
         CHARACTER_LAYER,
-        camera::{LozoCamSetup, ensure_pixel_perfect_size},
         character::{Character, CharacterAsset, LoadingCharacter},
-        lozo::{Lozo, LozoCommands},
+        lozo::{Lozo, LozoCommands, LozoSpawned, ensure_pixel_perfect_size},
         tile::{GridSize, TileGridSpawned},
     },
 };
 use input::InputPlugin;
 
 mod input;
-
-const BLIT_LAYER: usize = 1;
 
 pub struct OverworldPlugin;
 impl Plugin for OverworldPlugin {
@@ -62,7 +56,7 @@ fn on_tile_grid_spawned(
 }
 
 fn setup_lozo_render_target(
-    event: On<LozoCamSetup>,
+    event: On<LozoSpawned>,
     mut commands: Commands,
     lozo: Query<&RenderTarget, With<Lozo>>,
     mut initialized: Local<bool>,
@@ -76,15 +70,12 @@ fn setup_lozo_render_target(
         .get(event.entity())?
         .as_image()
         .ok_or("expected lozo to render into image")?;
-    commands.spawn((
-        Sprite {
-            image: image_handle.clone(),
-            ..default()
-        },
-        RenderLayers::layer(BLIT_LAYER),
-    ));
+    commands.spawn((Sprite {
+        image: image_handle.clone(),
+        ..default()
+    },));
 
-    commands.spawn((Camera2d, RenderLayers::layer(BLIT_LAYER)));
+    commands.spawn(Camera2d);
 
     Ok(())
 }

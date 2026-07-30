@@ -1,12 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::overworld::object::ObjectSpriteLookup;
+use crate::overworld::{lozo::camera::LozoCamBuilder, object::ObjectSpriteLookup};
 use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
 use bevy_elf::{AppExt, AssetResolver, HasResolver};
 
 pub use asset::*;
+pub use camera::ensure_pixel_perfect_size;
 
 mod asset;
+mod camera;
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
@@ -289,6 +291,7 @@ fn despawn_lozo_entities(
 fn spawn_next_lozo(
     mut commands: Commands,
     lozo_query: Query<(Entity, Option<&mut Lozo>, &LozoState, &LozoTransition)>,
+    mut cam: LozoCamBuilder,
 ) {
     for (entity, lozo, state, transition) in lozo_query {
         if *state == LozoState::Switching {
@@ -297,7 +300,8 @@ fn spawn_next_lozo(
             } else {
                 commands
                     .entity(entity)
-                    .insert(Lozo(transition.asset_handle.clone()));
+                    .insert(Lozo(transition.asset_handle.clone()))
+                    .insert(cam.create_camera());
             }
             commands.trigger(LozoSpawned(entity));
         }
