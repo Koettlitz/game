@@ -1,8 +1,12 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{asset::overworld::lozo::LozoAsset, overworld::object::ObjectSpriteLookup};
+use crate::overworld::object::ObjectSpriteLookup;
 use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
 use bevy_elf::{AppExt, AssetResolver, HasResolver};
+
+pub use asset::*;
+
+mod asset;
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {

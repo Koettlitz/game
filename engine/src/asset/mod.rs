@@ -7,8 +7,6 @@ use bevy::prelude::*;
 pub use set::{AssetMap, AssetSetPlugin, LoadState};
 use thiserror::Error;
 
-pub mod animation;
-pub mod overworld;
 pub mod set;
 pub mod spritesheet;
 

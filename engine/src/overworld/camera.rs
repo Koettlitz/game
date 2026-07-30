@@ -39,7 +39,7 @@ fn on_lozo_spawned(
     image.sampler = ImageSampler::nearest();
     let image_handle = images.add(image);
 
-    commands.entity(event.entity()).insert((
+    commands.entity(event.entity()).insert_if_new((
         Camera2d,
         Camera {
             order: -1,

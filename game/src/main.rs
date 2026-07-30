@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use bevy_elf::RonAssetLoader;
-use engine::{animation::SpriteAnimationPlugin, asset::animation::sprite::AnimationTimersAsset};
+use engine::animation::{AnimationTimersAsset, SpriteAnimationPlugin};
 
 use crate::overworld::OverworldPlugin;
 

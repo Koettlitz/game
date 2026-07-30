@@ -9,15 +9,13 @@ use bevy::prelude::*;
 
 use crate::{
     animation::Animated,
-    asset::{
-        AssetsExt,
-        overworld::{
-            lozo::LozoAsset,
-            object::{GameObjectSpriteAsset, SpriteKind, TextureAtlasData},
-        },
-    },
-    overworld::lozo::{Lozo, LozoCommands, LozoSpawned},
+    asset::AssetsExt,
+    overworld::lozo::{Lozo, LozoAsset, LozoCommands, LozoSpawned},
 };
+
+pub use asset::*;
+
+mod asset;
 
 pub struct GameObjectPlugin;
 

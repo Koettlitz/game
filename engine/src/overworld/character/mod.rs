@@ -1,13 +1,8 @@
 use crate::{
     animation::{Animated, AnimationUpdate},
-    asset::{
-        AssetsExt,
-        overworld::{
-            CHARACTER_LAYER,
-            character::{CharacterAsset, CharacterVisual},
-        },
-    },
+    asset::AssetsExt,
     overworld::{
+        CHARACTER_LAYER,
         input::InputSystems,
         lozo::{InLozo, LozoCommands, SurviveLozoTransition},
         tile::{
@@ -22,6 +17,10 @@ use std::{
     ops::{Deref, DerefMut},
     time::Duration,
 };
+
+pub use asset::*;
+
+mod asset;
 
 const PLAYER_SPEED: f32 = TILE_SIZE as f32 / 14.0;
 const TURNING_DELAY_MILLIS: u64 = 64;
@@ -406,8 +405,7 @@ fn update_visuals(
                 continue;
             };
             let asset = character_assets.require_handle(character)?;
-            let key =
-                crate::asset::overworld::character::CharacterState::from((*state, *orientation));
+            let key = asset::CharacterState::from((*state, *orientation));
             let visual = &asset.animations[&key];
             match visual {
                 CharacterVisual::Static(idx) => {

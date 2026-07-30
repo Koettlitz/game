@@ -1,10 +1,14 @@
 use bevy_elf::{AppExt, AssetRef, FromDef, FromDefError, asset_spec};
 use engine::{
+    animation::SpriteAnimationAsset,
     asset::{
-        AssetMap, AssetSetPlugin, AssetsExt, animation::sprite::SpriteAnimationAsset, one_or_many,
-        overworld::TILE_LAYER, spritesheet::SpritesheetKind,
+        AssetMap, AssetSetPlugin, AssetsExt, implicit_option, one_or_many,
+        spritesheet::SpritesheetKind,
     },
-    overworld::tile::{GridCursor, Neighbor, Passability, TILE_SIZE},
+    overworld::{
+        TILE_LAYER,
+        tile::{GridCursor, Neighbor, Passability, TILE_SIZE},
+    },
 };
 use macros::asset_set;
 use std::{
@@ -17,7 +21,6 @@ use bevy::{
     asset::{AssetEventSystems, LoadContext},
     prelude::*,
 };
-use engine::asset::implicit_option;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

@@ -8,13 +8,12 @@ use std::{
 use bevy::{asset::AssetEventSystems, prelude::*};
 use thiserror::Error;
 
-use crate::asset::{
-    AssetsExt,
-    animation::sprite::{
-        AnimationKind, AnimationTimerApi, AnimationTimersAsset, SpriteAnimationAsset,
-        SpriteAnimationAssetPlugin,
-    },
-};
+use crate::asset::AssetsExt;
+use asset::{AnimationKind, AnimationTimerApi, SpriteAnimationAssetPlugin};
+
+pub use asset::{AnimationTimersAsset, SpriteAnimationAsset};
+
+mod asset;
 
 pub struct SpriteAnimationPlugin;
 impl Plugin for SpriteAnimationPlugin {

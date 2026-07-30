@@ -7,13 +7,11 @@ use bevy::{
 
 use bevy_elf::{AssetResolver, HasResolver};
 use engine::{
-    asset::{
-        AssetsExt,
-        overworld::{CHARACTER_LAYER, character::CharacterAsset},
-    },
+    asset::AssetsExt,
     overworld::{
+        CHARACTER_LAYER,
         camera::{LozoCamSetup, ensure_pixel_perfect_size},
-        character::{Character, LoadingCharacter},
+        character::{Character, CharacterAsset, LoadingCharacter},
         lozo::{Lozo, LozoCommands},
         tile::{GridSize, TileGridSpawned},
     },
@@ -67,7 +65,13 @@ fn setup_lozo_render_target(
     event: On<LozoCamSetup>,
     mut commands: Commands,
     lozo: Query<&RenderTarget, With<Lozo>>,
+    mut initialized: Local<bool>,
 ) -> Result {
+    if *initialized {
+        return Ok(());
+    }
+    *initialized = true;
+
     let image_handle = lozo
         .get(event.entity())?
         .as_image()

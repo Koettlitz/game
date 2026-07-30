@@ -13,15 +13,15 @@ use bevy::{
 };
 use bevy_elf::{AssetResolver, HasResolver};
 use engine::{
-    asset::{
-        AssetsExt,
-        overworld::{
-            lozo::{LozoAsset, LozoDef},
-            object::{GameObjectSpriteDef, SpriteKindDef, TextureAtlasDataDef},
-            tile::{TileDef, TileVisualKindDef, TileVisualsAsset, TileVisualsDef},
+    asset::AssetsExt,
+    overworld::{
+        lozo::{LozoAsset, LozoDef},
+        object::{GameObjectSpriteDef, SpriteKindDef, TextureAtlasDataDef},
+        tile::{
+            Grid, GridPosition, GridSize, Passability, TileDef, TileEdge, TileEventActionDef,
+            TileVisualKindDef, TileVisualsAsset, TileVisualsDef,
         },
     },
-    overworld::tile::{Grid, GridPosition, GridSize, Passability, TileEdge, TileEventActionDef},
 };
 
 use crate::{

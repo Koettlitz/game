@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use bevy::prelude::*;
-use engine::asset::animation::sprite::AnimationTimersAsset;
+use engine::animation::AnimationTimersAsset;
 use engine::progress::{Progress, ProgressPanel, ProgressState};
 
 pub struct SpriteAnimationPlugin;

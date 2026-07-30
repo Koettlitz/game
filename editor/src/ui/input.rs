@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
 use bevy_elf::AssetRef;
 use engine::{
-    animation::Animated,
-    asset::{AssetsExt, animation::sprite::SpriteAnimationAsset},
+    animation::{Animated, SpriteAnimationAsset},
+    asset::AssetsExt,
     overworld::tile::{GridSize, TILE_SIZE},
     progress::ProgressState,
 };

@@ -3,7 +3,7 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    asset::{animation::sprite::SpriteAnimationAsset, spritesheet::SpritesheetKind},
+    animation::SpriteAnimationAsset, asset::spritesheet::SpritesheetKind,
     overworld::tile::Passability,
 };
 use bevy::prelude::*;

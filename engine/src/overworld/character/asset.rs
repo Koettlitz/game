@@ -1,4 +1,5 @@
-use crate::asset::{animation::sprite::SpriteAnimationAsset, spritesheet::Spritesheet};
+use crate::animation::SpriteAnimationAsset;
+use crate::asset::spritesheet::Spritesheet;
 use bevy::prelude::*;
 use bevy_elf::{FromDef, asset_spec};
 use serde::{Deserialize, Serialize};

@@ -6,22 +6,26 @@ use bevy_elf::{FromDef, PathResolver};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::animation::Animated;
-use crate::asset::overworld::lozo::LozoAsset;
-use crate::asset::overworld::tile::TileVisualKind;
-use crate::asset::{AssetsExt, Phantom};
-use crate::overworld::lozo::{Lozo, LozoCommands, LozoSpawned};
-use crate::overworld::object::ObjectSpriteLookup;
-use crate::{asset::animation::sprite::SpriteAnimationAsset, overworld::lozo::NextLozo};
+use crate::{
+    animation::{Animated, SpriteAnimationAsset},
+    asset::{AssetsExt, Phantom},
+    overworld::{
+        lozo::{Lozo, LozoAsset, LozoCommands, LozoSpawned, NextLozo},
+        object::ObjectSpriteLookup,
+    },
+};
 
 pub use grid::{
     Grid, GridCommands, GridCursor, GridIndex, GridPosition, GridSize, IterAll, IterAround,
     Neighbor, create_grid_bundle,
 };
 
+pub use asset::*;
+
 pub const TILE_SIZE: u32 = 32;
 pub const TILE_SIZE_VEC2: Vec2 = Vec2::splat(TILE_SIZE as f32);
 
+mod asset;
 mod grid;
 
 pub struct TilePlugin;

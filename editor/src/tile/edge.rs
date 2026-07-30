@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 use engine::{
-    animation::Animated,
-    asset::{AssetsExt, animation::sprite::SpriteAnimationAsset},
+    animation::{Animated, SpriteAnimationAsset},
+    asset::{AssetsExt},
     overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };

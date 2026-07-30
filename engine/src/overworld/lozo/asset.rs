@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use bevy_elf::{AssetRef, FromDef, asset_spec};
 
-use crate::{
-    asset::overworld::{object::GameObjectSpriteAsset, tile::TileAsset},
-    overworld::tile::{TileEdge, TileEventAction},
+use crate::overworld::{
+    object::GameObjectSpriteAsset,
+    tile::{TileAsset, TileEdge, TileEventAction},
 };
 
 #[derive(FromDef, Asset, TypePath)]
