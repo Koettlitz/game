@@ -118,6 +118,7 @@ impl TileSprite {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_tile_sprite(
     id: &str,
     position: &GridPosition,

@@ -4,7 +4,7 @@ use crate::{
     overworld::{
         CHARACTER_LAYER,
         input::InputSystems,
-        lozo::{InLozo, LozoCommands, SurviveLozoTransition},
+        lozo::{CameraTarget, InLozo, LozoCamera, LozoCommands, SurviveLozoTransition},
         tile::{
             CharEnteredTile, CharLeftTile, CharReachedTile, Grid, GridSize, Neighbor, Passability,
             TILE_SIZE, Tile, TileEdge, TileEdgeEvents,
@@ -22,7 +22,7 @@ pub use asset::*;
 
 mod asset;
 
-const PLAYER_SPEED: f32 = TILE_SIZE as f32 / 14.0;
+pub const PLAYER_SPEED: u32 = 2;
 const TURNING_DELAY_MILLIS: u64 = 64;
 
 pub struct CharacterPlugin;
@@ -49,6 +49,7 @@ impl Plugin for CharacterPlugin {
 #[derive(Component)]
 #[require(Orientation, CharacterState, Visibility)]
 pub struct Character(Handle<CharacterAsset>);
+
 impl Deref for Character {
     type Target = Handle<CharacterAsset>;
 
@@ -62,6 +63,9 @@ impl DerefMut for Character {
         &mut self.0
     }
 }
+
+#[derive(Component)]
+pub struct Player;
 
 #[derive(Component, Default, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Orientation {
@@ -154,13 +158,14 @@ fn spawn_character(
     character_assets: Res<Assets<CharacterAsset>>,
 
     // TODO: This singleton assumption works for now, but has to be changed at some point
-    lozo_query: Single<(Entity, &GridSize, &RenderLayers)>,
+    lozo_query: Single<(Entity, &GridSize, &LozoCamera)>,
+    render_layers: Query<&RenderLayers>,
 ) -> Result<()> {
     if !asset_server.is_loaded_with_dependencies(loading_character.id()) {
         return Ok(());
     }
     let asset = character_assets.require_handle(&**loading_character)?;
-    let (lozo_entity, grid_size, render_layer) = lozo_query.into_inner();
+    let (lozo_entity, grid_size, lozo_camera) = lozo_query.into_inner();
     let position = grid_size.snap_to_tile((0.0, 0.0));
     commands.spawn_into_lozo(
         lozo_entity,
@@ -181,13 +186,14 @@ fn spawn_character(
                     }),
                     ..Default::default()
                 },
-                render_layer.clone(),
+                render_layers.get(lozo_camera.entity())?.clone(),
                 Transform::from_translation(Vec3 {
                     x: 0.0,
                     y: 5.0,
                     z: 0.0
                 })
             )],
+            CameraTarget,
             SurviveLozoTransition,
         ),
     )?;
@@ -300,7 +306,7 @@ fn start_tile_transition(
     mut commands: Commands,
 ) -> Result<()> {
     let (entity, transform, orientation, in_lozo) = character.get_mut(event.0)?;
-    let (grid_size, grid, tile_edge_events) = lozo_query.get(**in_lozo)?;
+    let (grid_size, grid, tile_edge_events) = lozo_query.get(in_lozo.entity())?;
     let origin = grid_size
         .world_to_grid(transform.translation.truncate())
         .ok_or("character at invalid grid position")?;
@@ -327,7 +333,7 @@ fn start_tile_transition(
             from: *origin,
             to: *target,
         },
-        **in_lozo,
+        in_lozo.entity(),
         &mut commands,
     );
 
@@ -354,9 +360,9 @@ fn move_character(
 ) -> Result {
     for (entity, orientation, mut transform, mut tt, in_lozo) in &mut character {
         let mut new_translation =
-            transform.translation + (orientation.as_vec2() * PLAYER_SPEED).extend(0.0);
+            transform.translation + (orientation.as_vec2() * PLAYER_SPEED as f32).extend(0.0);
 
-        let (grid_size, entered_events, reached_events) = lozo_query.get(**in_lozo)?;
+        let (grid_size, entered_events, reached_events) = lozo_query.get(in_lozo.entity())?;
         let distance_to_from =
             (new_translation.truncate() - grid_size.grid_to_world(tt.from.as_vec2())).length();
 
@@ -368,7 +374,7 @@ fn move_character(
             TileTransitionState::LeavingTile => {
                 if distance_to_from >= TILE_SIZE as f32 / 2.0 {
                     tt.state = TileTransitionState::EnteringTile;
-                    entered_events.trigger(&edge, **in_lozo, &mut commands);
+                    entered_events.trigger(&edge, in_lozo.entity(), &mut commands);
                 }
             }
             TileTransitionState::EnteringTile => {
@@ -378,7 +384,7 @@ fn move_character(
                         .grid_to_world(tt.to.as_vec2())
                         .extend(new_translation.z);
 
-                    reached_events.trigger(&edge, **in_lozo, &mut commands);
+                    reached_events.trigger(&edge, in_lozo.entity(), &mut commands);
                 }
             }
         }
@@ -399,6 +405,7 @@ fn update_visuals(
         if !orientation.is_changed() && !state.is_changed() {
             continue;
         }
+
         for child in children {
             let (entity, mut sprite, animated) = sprites.get_mut(*child)?;
             let Some(ref mut atlas) = sprite.texture_atlas else {
@@ -408,6 +415,7 @@ fn update_visuals(
             let asset = character_assets.require_handle(character)?;
             let key = asset::CharacterState::from((*state, *orientation));
             let visual = &asset.animations[&key];
+
             match visual {
                 CharacterVisual::Static(idx) => {
                     if animated.is_some() {
@@ -425,6 +433,7 @@ fn update_visuals(
                     }
                 }
             }
+
             sprite.flip_x = *orientation == Orientation::Right;
         }
     }

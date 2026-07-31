@@ -11,7 +11,7 @@ use crate::{
     animation::{Animated, SpriteAnimationAsset},
     asset::{AssetsExt, Phantom},
     overworld::{
-        lozo::{Lozo, LozoAsset, LozoCommands, LozoSpawned, NextLozo},
+        lozo::{Lozo, LozoAsset, LozoCamAttached, LozoCommands, LozoSpawned, NextLozo, ZoomWarp},
         object::ObjectSpriteLookup,
     },
 };
@@ -141,6 +141,9 @@ pub enum TileEventAction {
         animation: Handle<SpriteAnimationAsset>,
     },
     ActivateNextLozo,
+    ZoomWarp {
+        reverse: bool,
+    },
 }
 
 #[derive(EntityEvent)]
@@ -153,12 +156,13 @@ impl TileGridSpawned {
 }
 
 fn spawn_tile_grid(
-    event: On<LozoSpawned>,
-    lozo: Query<(&Lozo, &RenderLayers)>,
+    event: On<LozoCamAttached>,
+    lozo_query: Query<&Lozo>,
+    camera_query: Query<&RenderLayers>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
 ) -> Result {
-    let (lozo, render_layers) = lozo.get(event.entity())?;
+    let lozo = lozo_query.get(event.lozo_entity)?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
@@ -173,7 +177,7 @@ fn spawn_tile_grid(
                 spritesheet.clone(),
                 Some(visual.layout.clone()),
                 visual.z,
-                render_layers.clone(),
+                camera_query.get(event.camera_entity)?.clone(),
                 &mut commands,
             )?;
             sprite_stack.push(entity);
@@ -181,7 +185,7 @@ fn spawn_tile_grid(
 
         let tile_entity = commands
             .spawn_into_lozo(
-                event.entity(),
+                event.lozo_entity,
                 (
                     Tile {
                         passability: tile_asset.passability,
@@ -194,8 +198,8 @@ fn spawn_tile_grid(
         Ok(Some(tile_entity))
     })?;
 
-    commands.entity(event.entity()).insert((grid, grid_size));
-    commands.trigger(TileGridSpawned(event.entity()));
+    commands.entity(event.lozo_entity).insert((grid, grid_size));
+    commands.trigger(TileGridSpawned(event.lozo_entity));
 
     Ok(())
 }
@@ -263,6 +267,10 @@ impl TileEventAction {
             }),
             Self::ActivateNextLozo => commands.trigger(ActivateNextLozoEvent(lozo_entity)),
             Self::UnloadNextLozo => commands.trigger(UnloadNextLozoEvent(lozo_entity)),
+            Self::ZoomWarp { reverse } => commands.trigger(ZoomWarp {
+                entity: lozo_entity,
+                reverse: *reverse,
+            }),
         };
     }
 }

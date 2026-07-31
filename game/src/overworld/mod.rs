@@ -8,7 +8,7 @@ use engine::{
     overworld::{
         CHARACTER_LAYER,
         character::{Character, CharacterAsset, LoadingCharacter},
-        lozo::{Lozo, LozoCommands, LozoSpawned, ensure_pixel_perfect_size},
+        lozo::{LozoCamAttached, LozoCommands, LozoSpawned, ZoomWarp, ensure_pixel_perfect_size},
         tile::{GridSize, TileGridSpawned},
     },
 };
@@ -21,12 +21,10 @@ impl Plugin for OverworldPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_plugins((engine::overworld::OverworldPlugin, InputPlugin))
             .add_systems(Startup, (spawn_lozo, load_character_asset))
-            .add_systems(
-                Update,
-                resize_render_target.run_if(resource_exists::<LozoRenderTarget>),
-            )
+            .add_systems(Update, resize_render_target)
             .add_observer(setup_lozo_render_target)
-            .add_observer(on_tile_grid_spawned);
+            .add_observer(on_tile_grid_spawned)
+            .add_observer(lozo_spawn_animation);
     }
 }
 
@@ -55,10 +53,14 @@ fn on_tile_grid_spawned(
     Ok(())
 }
 
+fn lozo_spawn_animation(event: On<LozoSpawned>, mut commands: Commands) {
+    commands.trigger(ZoomWarp::reverse(event.entity()));
+}
+
 fn setup_lozo_render_target(
-    event: On<LozoSpawned>,
+    event: On<LozoCamAttached>,
     mut commands: Commands,
-    lozo: Query<&RenderTarget, With<Lozo>>,
+    render_target: Query<&RenderTarget>,
     mut initialized: Local<bool>,
 ) -> Result {
     if *initialized {
@@ -66,37 +68,42 @@ fn setup_lozo_render_target(
     }
     *initialized = true;
 
-    let image_handle = lozo
-        .get(event.entity())?
+    let image_handle = render_target
+        .get(event.camera_entity)?
         .as_image()
         .ok_or("expected lozo to render into image")?;
-    commands.spawn((Sprite {
-        image: image_handle.clone(),
-        ..default()
-    },));
+    commands.spawn((
+        Sprite {
+            image: image_handle.clone(),
+            ..default()
+        },
+        LozoSprite,
+    ));
 
     commands.spawn(Camera2d);
 
     Ok(())
 }
 
-#[derive(Resource)]
-struct LozoRenderTarget(Handle<Image>);
+#[derive(Component)]
+struct LozoSprite;
 
 fn resize_render_target(
     mut resize_events: MessageReader<WindowResized>,
-    render_target: Res<LozoRenderTarget>,
+    lozo_sprite: Query<&Sprite, With<LozoSprite>>,
     mut images: ResMut<Assets<Image>>,
 ) -> Result {
     let Some(event) = resize_events.read().last() else {
         return Ok(());
     };
-    let mut image = images.require_handle_mut(&render_target.0)?;
-    image.resize(Extent3d {
-        width: ensure_pixel_perfect_size(event.width),
-        height: ensure_pixel_perfect_size(event.height),
-        depth_or_array_layers: 1,
-    });
+    for sprite in lozo_sprite {
+        let mut image = images.require_handle_mut(&sprite.image)?;
+        image.resize(Extent3d {
+            width: ensure_pixel_perfect_size(event.width),
+            height: ensure_pixel_perfect_size(event.height),
+            depth_or_array_layers: 1,
+        });
+    }
 
     Ok(())
 }

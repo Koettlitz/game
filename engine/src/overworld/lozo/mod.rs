@@ -1,11 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::overworld::{lozo::camera::LozoCamBuilder, object::ObjectSpriteLookup};
+use crate::overworld::object::ObjectSpriteLookup;
 use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
 use bevy_elf::{AppExt, AssetResolver, HasResolver};
+use camera::CameraPlugin;
 
 pub use asset::*;
-pub use camera::ensure_pixel_perfect_size;
+pub use camera::{
+    CameraOf, CameraTarget, LozoCamAttached, LozoCamera, ZoomWarp, ensure_pixel_perfect_size,
+};
 
 mod asset;
 mod camera;
@@ -14,6 +17,7 @@ pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
     fn build(&self, app: &mut App) {
         app.init_ron_asset::<LozoAsset>()
+            .add_plugins(CameraPlugin)
             .add_systems(
                 PostUpdate,
                 (
@@ -48,11 +52,9 @@ impl Lozo {
 #[derive(Component)]
 pub struct InLozo(Entity);
 
-impl Deref for InLozo {
-    type Target = Entity;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl InLozo {
+    pub fn entity(&self) -> Entity {
+        self.0
     }
 }
 
@@ -275,11 +277,10 @@ fn despawn_lozo_entities(
     lozo_query: Query<(&LozoState, &Children), With<LozoTransition>>,
     lozo_entities: Query<Entity, Without<SurviveLozoTransition>>,
 ) {
-    for (state, children) in lozo_query {
-        if *state != LozoState::Switching {
-            continue;
-        }
-
+    for children in lozo_query
+        .iter()
+        .filter_map(|(state, children)| (*state == LozoState::Switching).then_some(children))
+    {
         for child in children {
             if lozo_entities.contains(*child) {
                 commands.entity(*child).despawn();
@@ -291,7 +292,6 @@ fn despawn_lozo_entities(
 fn spawn_next_lozo(
     mut commands: Commands,
     lozo_query: Query<(Entity, Option<&mut Lozo>, &LozoState, &LozoTransition)>,
-    mut cam: LozoCamBuilder,
 ) {
     for (entity, lozo, state, transition) in lozo_query {
         if *state == LozoState::Switching {
@@ -300,8 +300,7 @@ fn spawn_next_lozo(
             } else {
                 commands
                     .entity(entity)
-                    .insert(Lozo(transition.asset_handle.clone()))
-                    .insert(cam.create_camera());
+                    .insert(Lozo(transition.asset_handle.clone()));
             }
             commands.trigger(LozoSpawned(entity));
         }

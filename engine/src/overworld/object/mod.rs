@@ -10,7 +10,7 @@ use bevy::{camera::visibility::RenderLayers, prelude::*};
 use crate::{
     animation::Animated,
     asset::AssetsExt,
-    overworld::lozo::{Lozo, LozoAsset, LozoCommands, LozoSpawned},
+    overworld::lozo::{Lozo, LozoAsset, LozoCamAttached, LozoCommands},
 };
 
 pub use asset::*;
@@ -27,21 +27,26 @@ impl Plugin for GameObjectPlugin {
 }
 
 fn spawn_objects(
-    event: On<LozoSpawned>,
-    lozo: Query<(&Lozo, &RenderLayers)>,
+    event: On<LozoCamAttached>,
+    lozo_query: Query<&Lozo>,
+    render_layers: Query<&RenderLayers>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut object_lookup: Query<&mut ObjectSpriteLookup, With<Lozo>>,
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,
 ) -> Result {
-    let (lozo, render_layers) = lozo.get(event.entity())?;
+    let lozo = lozo_query.get(event.lozo_entity)?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
-    let mut object_lookup = object_lookup.get_mut(event.entity())?;
+    let mut object_lookup = object_lookup.get_mut(event.lozo_entity)?;
 
     for object in &lozo_asset.objects {
         let asset = object_assets.require_handle(object.handle())?;
-        let entity =
-            spawn_object_sprite(event.entity(), asset, render_layers.clone(), &mut commands)?;
+        let entity = spawn_object_sprite(
+            event.lozo_entity,
+            asset,
+            render_layers.get(event.camera_entity)?.clone(),
+            &mut commands,
+        )?;
         object_lookup.insert(object.id().to_string(), entity);
     }
 

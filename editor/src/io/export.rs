@@ -206,55 +206,60 @@ fn register_door_events(
     char_entered_events: &mut HashMap<TileEdge, Vec<TileEventActionDef>>,
     char_reached_events: &mut HashMap<TileEdge, Vec<TileEventActionDef>>,
 ) -> Result {
-    for next_to_door in door_pos.reachable_neigbors().into_iter().flatten() {
-        let to_door_edge = TileEdge {
-            from: next_to_door.as_uvec2(),
-            to: door_pos.as_uvec2(),
+    let Some(next_to_door) = door_pos.bottom() else {
+        return Ok(());
+    };
+    let to_door_edge = TileEdge {
+        from: next_to_door.as_uvec2(),
+        to: door_pos.as_uvec2(),
+    };
+    char_left_events
+        .entry(to_door_edge.clone())
+        .or_default()
+        .push(TileEventActionDef::ZoomWarp { reverse: false });
+    char_reached_events
+        .entry(to_door_edge)
+        .or_default()
+        .push(TileEventActionDef::ActivateNextLozo);
+
+    for next_to_door_neighbor in next_to_door
+        .reachable_neigbors()
+        .into_iter()
+        .flatten()
+        .map(|pos| pos.as_uvec2())
+        .filter(|pos| *pos != door_pos.as_uvec2())
+    {
+        let to_next_to_door_edge = TileEdge {
+            from: next_to_door_neighbor,
+            to: next_to_door.as_uvec2(),
         };
-        char_reached_events
-            .entry(to_door_edge)
+        let from_next_to_door_edge = to_next_to_door_edge.reverse();
+
+        char_left_events
+            .entry(to_next_to_door_edge.clone())
             .or_default()
-            .push(TileEventActionDef::ActivateNextLozo);
+            .push(TileEventActionDef::LoadNextLozo(
+                door.target_lozo().to_string(),
+            ));
+        char_left_events
+            .entry(from_next_to_door_edge.clone())
+            .or_default()
+            .push(TileEventActionDef::UnloadNextLozo);
 
-        for next_to_door_neighbor in next_to_door
-            .reachable_neigbors()
-            .into_iter()
-            .flatten()
-            .map(|pos| pos.as_uvec2())
-            .filter(|pos| *pos != door_pos.as_uvec2())
-        {
-            let to_next_to_door_edge = TileEdge {
-                from: next_to_door_neighbor,
-                to: next_to_door.as_uvec2(),
-            };
-            let from_next_to_door_edge = to_next_to_door_edge.reverse();
-
-            char_left_events
-                .entry(to_next_to_door_edge.clone())
-                .or_default()
-                .push(TileEventActionDef::LoadNextLozo(
-                    door.target_lozo().to_string(),
-                ));
-            char_left_events
-                .entry(from_next_to_door_edge.clone())
-                .or_default()
-                .push(TileEventActionDef::UnloadNextLozo);
-
-            char_entered_events
-                .entry(to_next_to_door_edge)
-                .or_default()
-                .push(TileEventActionDef::SpriteAnimation {
-                    sprite_id: sprite_id.to_owned(),
-                    animation: door.open_animation_path()?,
-                });
-            char_entered_events
-                .entry(from_next_to_door_edge)
-                .or_default()
-                .push(TileEventActionDef::SpriteAnimation {
-                    sprite_id: sprite_id.to_owned(),
-                    animation: door.close_animation_path()?,
-                });
-        }
+        char_entered_events
+            .entry(to_next_to_door_edge)
+            .or_default()
+            .push(TileEventActionDef::SpriteAnimation {
+                sprite_id: sprite_id.to_owned(),
+                animation: door.open_animation_path()?,
+            });
+        char_entered_events
+            .entry(from_next_to_door_edge)
+            .or_default()
+            .push(TileEventActionDef::SpriteAnimation {
+                sprite_id: sprite_id.to_owned(),
+                animation: door.close_animation_path()?,
+            });
     }
 
     Ok(())
@@ -283,6 +288,12 @@ fn write_asset<A: Serialize>(asset_path: AssetPath, asset: A) -> Result<()> {
         AssetSourceId::Name(name) => &format!("{}/assets", name.as_ref()),
     };
     let file_path = base_path.join(source_folder).join(asset_path.path());
+    if let Some(dir_path) = file_path.parent()
+        && !dir_path.exists()
+    {
+        info!("ensuring parent dirs exist for {}", dir_path.display());
+        fs::create_dir_all(dir_path)?;
+    }
     info!(
         "writing asset to {asset_path} => \"{}\"",
         file_path.display()
