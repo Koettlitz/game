@@ -1,5 +1,5 @@
 use crate::{
-    animation::{Animated, AnimationUpdate},
+    animation::{Animated, AnimationAdvanced, AnimationUpdate},
     asset::AssetsExt,
     overworld::{
         CHARACTER_LAYER,
@@ -24,6 +24,7 @@ mod asset;
 
 pub const PLAYER_SPEED: u32 = 2;
 const TURNING_DELAY_MILLIS: u64 = 64;
+const BOBBING_OFFSET: f32 = 0.8;
 
 pub struct CharacterPlugin;
 
@@ -42,7 +43,8 @@ impl Plugin for CharacterPlugin {
                 spawn_character.run_if(resource_exists::<LoadingCharacter>),
             )
             .add_systems(PostUpdate, update_visuals.before(AnimationUpdate))
-            .add_observer(start_tile_transition);
+            .add_observer(start_tile_transition)
+            .add_observer(bobbing);
     }
 }
 
@@ -151,6 +153,15 @@ impl Deref for LoadingCharacter {
     }
 }
 
+#[derive(Component, Default)]
+struct Bobbing(bool);
+
+impl Bobbing {
+    fn up(&self) -> bool {
+        self.0
+    }
+}
+
 fn spawn_character(
     mut commands: LozoCommands,
     asset_server: Res<AssetServer>,
@@ -186,10 +197,11 @@ fn spawn_character(
                     }),
                     ..Default::default()
                 },
+                Bobbing::default(),
                 render_layers.get(lozo_camera.entity())?.clone(),
                 Transform::from_translation(Vec3 {
                     x: 0.0,
-                    y: 5.0,
+                    y: 4.0,
                     z: 0.0
                 })
             )],
@@ -438,4 +450,18 @@ fn update_visuals(
         }
     }
     Ok(())
+}
+
+fn bobbing(event: On<AnimationAdvanced>, mut sprites: Query<(&mut Transform, &mut Bobbing)>) {
+    let Ok((mut transform, mut bobbing)) = sprites.get_mut(event.entity()) else {
+        return;
+    };
+
+    if bobbing.up() {
+        transform.translation.y += BOBBING_OFFSET;
+    } else {
+        transform.translation.y -= BOBBING_OFFSET;
+    }
+
+    bobbing.0 = !bobbing.0;
 }

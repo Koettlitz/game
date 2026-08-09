@@ -23,21 +23,21 @@ impl Plugin for SpriteAnimationPlugin {
             .add_observer(on_remove_animated)
             .add_observer(on_insert_timer)
             .add_observer(on_remove_timer)
-            .add_systems(PreUpdate, cleanup_unused_timers)
-            .add_systems(Update, update_timers)
             .add_systems(
-                PostUpdate,
+                PreUpdate,
                 (
-                    update_changed_sprites,
-                    apply_animations.in_set(AnimationUpdate),
+                    (hot_reload_animations, hot_reload_timers).after(AssetEventSystems),
+                    cleanup_unused_timers,
                 )
                     .chain(),
             )
             .add_systems(
-                PreUpdate,
-                (hot_reload_animations, hot_reload_timers)
-                    .after(AssetEventSystems)
-                    .before(cleanup_unused_timers),
+                PostUpdate,
+                (
+                    update_changed_sprites,
+                    advance_animations.in_set(AnimationUpdate),
+                )
+                    .chain(),
             );
     }
 }
@@ -62,6 +62,15 @@ impl Animated {
     }
 }
 
+#[derive(Event)]
+pub struct AnimationAdvanced(Entity);
+
+impl AnimationAdvanced {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
 #[derive(Component)]
 #[relationship(relationship_target = Times)]
 struct TimedBy(Entity);
@@ -75,11 +84,11 @@ struct AnimationTimer {
     timer: Timer,
     current: usize,
     frame_count: usize,
-    last_applied: Option<usize>,
 }
 
 #[derive(Component)]
 struct TimerId(String);
+
 impl Deref for TimerId {
     type Target = String;
 
@@ -189,41 +198,35 @@ fn cleanup_unused_timers(
     }
 }
 
-fn update_timers(mut timers: Query<&mut AnimationTimer>, time: Res<Time>) {
-    for mut timer in &mut timers {
-        if timer.timer.tick(time.delta()).just_finished() {
-            timer.current = (timer.current + 1) % timer.frame_count;
-        }
-    }
-}
-
-fn apply_animations(
-    mut timers: Query<(&mut AnimationTimer, &Times), Changed<AnimationTimer>>,
+fn advance_animations(
+    timers: Query<(&mut AnimationTimer, &Times)>,
     mut animations: Query<(&mut SpriteAnimation, &mut Sprite), With<TimedBy>>,
+    time: Res<Time>,
     mut commands: Commands,
-) -> Result<()> {
-    for (mut timer, Times(entities)) in &mut timers {
-        if let Some(last_applied) = timer.last_applied
-            && last_applied == timer.current
-        {
+) -> Result {
+    for (mut timer, Times(entities)) in timers {
+        if !timer.timer.tick(time.delta()).just_finished() {
             continue;
         }
 
+        timer.current = (timer.current + 1) % timer.frame_count;
         for entity in entities {
             let (mut animation, mut sprite) = animations.get_mut(*entity)?;
+
             if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = animation.frames[timer.current];
             } else {
                 warn!("animated sprite had no texture atlas to animate on");
             }
+
+            commands.trigger(AnimationAdvanced(*entity));
+
             if let AnimationKind::Once = &mut animation.kind
                 && timer.current == animation.frames.len() - 1
             {
                 commands.entity(*entity).remove::<Animated>();
             }
         }
-
-        timer.last_applied = Some(timer.current);
     }
 
     Ok(())
@@ -315,7 +318,6 @@ fn spawn_timer(
                     timer: Timer::new(*frame_duration, TimerMode::Repeating),
                     current: 0,
                     frame_count: asset.frames.len(),
-                    last_applied: None,
                 })
                 .id();
             Ok(TimerSpawnResult {
@@ -354,7 +356,6 @@ fn spawn_timer(
                             timer: Timer::new(frame_duration, TimerMode::Repeating),
                             current: 0,
                             frame_count: asset.frames.len(),
-                            last_applied: None,
                         },
                         TimerId(timer_id.clone()),
                     ))
