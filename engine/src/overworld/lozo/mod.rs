@@ -1,49 +1,53 @@
-use std::ops::{Deref, DerefMut};
-
-use crate::overworld::object::ObjectSpriteLookup;
-use bevy::{asset::RecursiveDependencyLoadState, ecs::system::SystemParam, log, prelude::*};
-use bevy_elf::{AppExt, AssetResolver, HasResolver};
-use camera::CameraPlugin;
-
-pub use asset::*;
-pub use camera::{
-    CameraOf, CameraTarget, LozoCamAttached, LozoCamera, ZoomWarp, ensure_pixel_perfect_size,
+use std::{
+    collections::HashSet,
+    ops::{Deref, DerefMut},
 };
 
+use crate::overworld::{
+    camera::{CameraOf, HasCamera},
+    object::ObjectSpriteLookup,
+    tile::{CameraAnimation, PlayCameraAnimation},
+};
+use bevy::{
+    asset::RecursiveDependencyLoadState, camera::visibility::RenderLayers,
+    ecs::system::SystemParam, log, prelude::*,
+};
+use bevy_elf::{AppExt, AssetResolver, HasResolver, ResolveError};
+
+pub use asset::*;
 mod asset;
-mod camera;
 
 pub struct LozoPlugin;
 impl Plugin for LozoPlugin {
     fn build(&self, app: &mut App) {
-        app.init_ron_asset::<LozoAsset>()
-            .add_plugins(CameraPlugin)
+        app.register_required_components::<Sprite, NeedsRenderLayers>()
+            .init_ron_asset::<LozoAsset>()
             .add_systems(
                 PostUpdate,
                 (
-                    detect_lozo_transition,
-                    (abort_transition, change_transition_target).before(detect_lozo_loaded),
-                    detect_lozo_loaded,
-                    activate_switch.after(detect_lozo_loaded),
+                    (check_transitions, init_loaded_lozo).chain(),
+                    attach_render_layers,
                 ),
             )
-            .add_systems(
-                First,
-                (
-                    despawn_lozo_entities,
-                    spawn_next_lozo,
-                    commit_lozo_transition,
-                )
-                    .chain(),
-            );
+            .add_observer(on_lozo_added)
+            .add_observer(transition_entities)
+            .add_observer(commit_transition);
     }
 }
 
 #[derive(Component, Default)]
-#[require(Visibility, Transform, ObjectSpriteLookup, NextLozo, LozoState)]
+#[require(Visibility, Transform, ObjectSpriteLookup)]
 pub struct Lozo(Handle<LozoAsset>);
 
 impl Lozo {
+    pub fn new(handle: Handle<LozoAsset>) -> Self {
+        Self(handle)
+    }
+
+    pub fn from_id(id: &str, asset_server: &AssetServer) -> Result<Self, ResolveError> {
+        Ok(Self(asset_server.load(LozoAsset::resolver().resolve(id)?)))
+    }
+
     pub fn handle(&self) -> &Handle<LozoAsset> {
         &self.0
     }
@@ -58,9 +62,6 @@ impl InLozo {
     }
 }
 
-#[derive(Component)]
-pub struct SurviveLozoTransition;
-
 #[derive(SystemParam)]
 pub struct LozoCommands<'w, 's> {
     commands: Commands<'w, 's>,
@@ -68,23 +69,30 @@ pub struct LozoCommands<'w, 's> {
 }
 
 impl<'w, 's> LozoCommands<'w, 's> {
-    pub fn spawn_lozo(&mut self, id: String) {
-        self.commands.spawn(NextLozo {
-            id: Some(id),
-            ready: None,
-            auto_activate: true,
-        });
-    }
-
     pub fn spawn_into_lozo(
         &mut self,
         lozo: Entity,
         bundle: impl Bundle,
     ) -> Result<EntityCommands<'_>> {
-        let entity = self.commands.spawn(bundle).insert(InLozo(lozo)).id();
+        let entity = self.commands.spawn((bundle, InLozo(lozo))).id();
         self.commands
             .entity(self.query.get(lozo)?)
             .add_child(entity);
+
+        self.commands.queue(move |world: &mut World| {
+            let mut children: Vec<Entity> = world
+                .get::<Children>(entity)
+                .map(|c| c.to_vec())
+                .unwrap_or_default();
+
+            while let Some(child) = children.pop() {
+                if let Some(grandchildren) = world.get::<Children>(child) {
+                    children.extend(grandchildren.iter());
+                }
+                world.entity_mut(child).insert(InLozo(lozo));
+            }
+        });
+
         Ok(self.commands.entity(entity))
     }
 }
@@ -103,227 +111,230 @@ impl<'w, 's> DerefMut for LozoCommands<'w, 's> {
     }
 }
 
-#[derive(Component, Default)]
-pub struct NextLozo {
-    id: Option<String>,
-    ready: Option<ReadyNextLozo>,
-    pub auto_activate: bool,
-}
-
-impl NextLozo {
-    pub fn set(&mut self, target: String) {
-        if let Some(id) = self.id.as_ref()
-            && *id == target
-        {
-            return;
-        }
-        self.reset();
-        self.id = Some(target);
-    }
-
-    pub fn ready(&mut self) -> Option<&mut ReadyNextLozo> {
-        self.ready.as_mut()
-    }
-
-    pub fn reset(&mut self) {
-        self.id = None;
-        self.ready = None;
-        self.auto_activate = false;
-    }
-}
-
-#[derive(Default)]
-pub struct ReadyNextLozo {
-    activate: bool,
-}
-
-impl ReadyNextLozo {
-    pub fn activate(&mut self) {
-        self.activate = true;
-    }
-}
-
 #[derive(EntityEvent)]
-pub struct LozoSpawned(#[event_target] Entity);
+pub struct InitLozo(#[event_target] Entity);
 
-impl LozoSpawned {
+impl InitLozo {
     pub fn entity(&self) -> Entity {
         self.0
     }
 }
 
 #[derive(Component)]
-struct LozoTransition {
-    next_lozo: String,
-    asset_handle: Handle<LozoAsset>,
+pub struct LozoTransition {
+    from: Entity,
+    pub to: Handle<LozoAsset>,
+    pub entity: Entity,
+    pub after_animation: Option<CameraAnimation>,
+    pub activate: bool,
 }
 
-#[allow(clippy::type_complexity)]
-fn detect_lozo_transition(
-    lozo_query: Query<
-        (Entity, &NextLozo, Option<&mut LozoState>),
-        (Without<LozoTransition>, Changed<NextLozo>),
-    >,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-) -> Result<()> {
-    for (entity, next_lozo, state) in lozo_query {
-        let Some(next_lozo) = next_lozo.id.as_ref() else {
-            continue;
-        };
-        log::info!("loading requested next lozo {next_lozo}");
-        let asset_path = <LozoAsset as HasResolver>::resolver().resolve(next_lozo)?;
-        commands.entity(entity).insert(LozoTransition {
-            next_lozo: next_lozo.to_string(),
-            asset_handle: asset_server.load(asset_path),
-        });
-        if let Some(mut state) = state {
-            *state = LozoState::LoadingLozoAsset;
-        } else {
-            commands.entity(entity).insert(LozoState::LoadingLozoAsset);
-        }
-    }
-    Ok(())
-}
-
-fn change_transition_target(
-    lozo_query: Query<(&NextLozo, &mut LozoState, &mut LozoTransition), Changed<NextLozo>>,
-    asset_server: Res<AssetServer>,
-) -> Result<()> {
-    for (next_lozo, mut state, mut transition) in lozo_query {
-        let Some(id) = next_lozo.id.as_ref() else {
-            continue;
-        };
-        if id != &transition.next_lozo {
-            log::info!(
-                "next lozo changed from {} to {id} - loading {id} now instead",
-                transition.next_lozo
-            );
-            transition.next_lozo = id.to_string();
-            let asset_path = <LozoAsset as HasResolver>::resolver().resolve(id)?;
-            transition.asset_handle = asset_server.load(asset_path);
-            if !matches!(*state, LozoState::LoadingLozoAsset) {
-                *state = LozoState::LoadingLozoAsset;
-            }
+impl LozoTransition {
+    pub fn new(
+        from: Entity,
+        to: Handle<LozoAsset>,
+        entity: Entity,
+        after_animation: Option<CameraAnimation>,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            entity,
+            after_animation,
+            activate: false,
         }
     }
 
-    Ok(())
+    pub fn from(&self) -> Entity {
+        self.from
+    }
 }
 
-fn abort_transition(
-    lozo_query: Query<(Entity, &NextLozo, &mut LozoState), Changed<NextLozo>>,
+#[derive(Component)]
+struct Loading;
+
+fn check_transitions(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    transitions: Query<(Entity, &LozoTransition)>,
+    lozos: Query<(Entity, &Lozo)>,
+    render_layers: Query<&RenderLayers>,
 ) {
-    for (entity, next_lozo, mut state) in lozo_query {
-        if next_lozo.id.is_none() {
-            log::info!("unloading next lozo");
-            commands.entity(entity).remove::<LozoTransition>();
-            *state = LozoState::Initialized;
-        }
-    }
-}
+    for (transition_entity, transition) in transitions {
+        match asset_server.get_recursive_dependency_load_state(transition.to.id()) {
+            Some(RecursiveDependencyLoadState::Loaded) => {
+                if !transition.activate {
+                    continue;
+                }
 
-fn detect_lozo_loaded(
-    lozo_query: Query<(
-        Entity,
-        &mut NextLozo,
-        &mut LozoState,
-        &LozoTransition,
-        Option<&Lozo>,
-    )>,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-) {
-    for (entity, mut next_lozo, mut state, transition, lozo) in lozo_query {
-        if *state != LozoState::LoadingLozoAsset {
-            continue;
-        }
-        match asset_server.recursive_dependency_load_state(transition.asset_handle.id()) {
-            RecursiveDependencyLoadState::Loaded => {
-                *state = LozoState::NextReady;
-                next_lozo.ready = Some(ReadyNextLozo {
-                    activate: next_lozo.auto_activate,
+                let target_lozo = lozos
+                    .iter()
+                    .find_map(|(e, lozo)| (lozo.handle().id() == transition.to.id()).then_some(e))
+                    .unwrap_or_else(|| {
+                        let render_layer = find_free_lozo_render_layer(
+                            render_layers.iter().flat_map(|rl| rl.iter()),
+                        );
+                        commands
+                            .spawn((
+                                Lozo(transition.to.clone()),
+                                RenderLayers::layer(render_layer),
+                            ))
+                            .id()
+                    });
+
+                commands.trigger(TransitionEntities {
+                    target_lozo,
+                    transition: transition_entity,
                 });
             }
-            RecursiveDependencyLoadState::Failed(e) => {
-                log::error!("failed to load lozo: \"{e}\"");
-                if lozo.is_some() {
-                    commands.entity(entity).despawn();
-                } else {
-                    commands.entity(entity).remove::<LozoTransition>();
-                    next_lozo.reset();
-                    *state = LozoState::Initialized;
-                }
+            Some(RecursiveDependencyLoadState::Failed(e)) => {
+                log::error!("Failed loading lozo - {e}");
+                commands.entity(transition_entity).despawn();
             }
             _ => {}
         }
     }
 }
 
-fn activate_switch(lozo_query: Query<(&mut NextLozo, &mut LozoState), With<LozoTransition>>) {
-    for (mut next_lozo, mut state) in lozo_query {
-        if let Some(ready) = next_lozo.ready()
-            && ready.activate
-        {
-            *state = LozoState::Switching;
-            next_lozo.reset();
-        }
-    }
+#[derive(Event)]
+struct TransitionEntities {
+    target_lozo: Entity,
+    transition: Entity,
 }
 
-fn despawn_lozo_entities(
+#[allow(clippy::too_many_arguments)]
+fn transition_entities(
+    event: On<TransitionEntities>,
+    render_layers: Query<&RenderLayers, (Without<InLozo>, Without<CameraOf>)>,
+    transitions: Query<&LozoTransition>,
+    in_lozo_entities: Query<&Children, With<InLozo>>,
+    mut render_layers_in_lozo: Query<&mut RenderLayers, (With<InLozo>, Without<CameraOf>)>,
+    mut camera_render_layers: Query<&mut RenderLayers, With<CameraOf>>,
+    has_camera_query: Query<&HasCamera, With<InLozo>>,
     mut commands: Commands,
-    lozo_query: Query<(&LozoState, &Children), With<LozoTransition>>,
-    lozo_entities: Query<Entity, Without<SurviveLozoTransition>>,
-) {
-    for children in lozo_query
+) -> Result {
+    let lozo_render_layers = render_layers.get(event.target_lozo)?;
+    let transition = transitions.get(event.transition)?;
+
+    commands
+        .entity(transition.entity)
+        .insert(ChildOf(event.target_lozo));
+
+    let mut children = vec![transition.entity];
+    while let Some(e) = children.pop() {
+        if let Ok(grandchildren) = in_lozo_entities.get(e) {
+            children.extend(grandchildren.iter());
+        }
+
+        commands.entity(e).insert(InLozo(event.target_lozo));
+
+        if let Ok(mut render_layers) = render_layers_in_lozo.get_mut(e) {
+            *render_layers = lozo_render_layers.clone();
+        }
+
+        if let Ok(has_camera) = has_camera_query.get(e) {
+            *camera_render_layers.get_mut(has_camera.entity())? = lozo_render_layers.clone();
+        }
+    }
+
+    commands.trigger(CommitTransition(event.transition));
+    Ok(())
+}
+
+#[derive(Event)]
+struct CommitTransition(Entity);
+
+fn commit_transition(
+    event: On<CommitTransition>,
+    transitions: Query<(Entity, &LozoTransition)>,
+    cameras: Query<&InLozo, With<HasCamera>>,
+    mut commands: Commands,
+) -> Result {
+    let (transition_entity, transition) = transitions.get(event.0)?;
+
+    if let Some(animation) = &transition.after_animation {
+        commands.trigger(PlayCameraAnimation {
+            trigger: transition.entity,
+            kind: animation.clone(),
+        });
+    }
+
+    if !cameras
         .iter()
-        .filter_map(|(state, children)| (*state == LozoState::Switching).then_some(children))
+        .any(|in_lozo| in_lozo.entity() == transition.from)
     {
-        for child in children {
-            if lozo_entities.contains(*child) {
-                commands.entity(*child).despawn();
+        commands.entity(transition.from).despawn();
+    }
+
+    commands.entity(transition_entity).despawn();
+
+    Ok(())
+}
+
+fn on_lozo_added(event: On<Add, Lozo>, mut commands: Commands) {
+    commands.entity(event.entity).insert(Loading);
+}
+
+fn init_loaded_lozo(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    query: Query<(Entity, &Lozo, Option<&RenderLayers>), With<Loading>>,
+    render_layers: Query<&RenderLayers>,
+) {
+    let mut used_render_layers = Vec::new();
+    for (entity, Lozo(handle), lozo_render_layers) in query {
+        match asset_server.get_recursive_dependency_load_state(handle.id()) {
+            Some(RecursiveDependencyLoadState::Loaded) => {
+                let mut entity_commands = commands.entity(entity);
+
+                if lozo_render_layers.is_none() {
+                    let render_layer = find_free_lozo_render_layer(
+                        render_layers
+                            .iter()
+                            .flat_map(|rl| rl.iter())
+                            .chain(used_render_layers.iter().copied()),
+                    );
+
+                    used_render_layers.push(render_layer);
+                    entity_commands.insert(RenderLayers::layer(render_layer));
+                }
+
+                entity_commands.remove::<Loading>();
+                commands.trigger(InitLozo(entity));
             }
+            Some(RecursiveDependencyLoadState::Failed(e)) => {
+                log::error!("Failed loading lozo - {e}");
+                commands.entity(entity).despawn();
+            }
+            _ => {}
         }
     }
 }
 
-fn spawn_next_lozo(
+fn find_free_lozo_render_layer(layers: impl Iterator<Item = usize>) -> usize {
+    let taken: HashSet<usize> = layers.collect();
+    (1..).find(|l| !taken.contains(l)).unwrap()
+}
+
+#[derive(Component, Default)]
+struct NeedsRenderLayers;
+
+fn attach_render_layers(
+    need_render_layers: Query<Entity, (With<NeedsRenderLayers>, Without<RenderLayers>)>,
+    parents: Query<&ChildOf>,
+    render_layers: Query<&RenderLayers>,
     mut commands: Commands,
-    lozo_query: Query<(Entity, Option<&mut Lozo>, &LozoState, &LozoTransition)>,
 ) {
-    for (entity, lozo, state, transition) in lozo_query {
-        if *state == LozoState::Switching {
-            if let Some(mut lozo) = lozo {
-                lozo.0 = transition.asset_handle.clone();
+    for entity in need_render_layers {
+        let mut current = entity;
+
+        while let Ok(child_of) = parents.get(current) {
+            if let Ok(render_layers) = render_layers.get(child_of.0) {
+                commands.entity(entity).insert(render_layers.clone());
+                break;
             } else {
-                commands
-                    .entity(entity)
-                    .insert(Lozo(transition.asset_handle.clone()));
+                current = child_of.0;
             }
-            commands.trigger(LozoSpawned(entity));
         }
     }
-}
-
-fn commit_lozo_transition(
-    lozo_query: Query<(Entity, &mut LozoState), With<LozoTransition>>,
-    mut commands: Commands,
-) {
-    for (entity, mut state) in lozo_query {
-        if *state == LozoState::Switching {
-            commands.entity(entity).remove::<LozoTransition>();
-            *state = LozoState::Initialized;
-        }
-    }
-}
-
-#[derive(Component, Debug, PartialEq, Eq, Default)]
-pub enum LozoState {
-    #[default]
-    LoadingLozoAsset,
-    NextReady,
-    Switching,
-    Initialized,
 }

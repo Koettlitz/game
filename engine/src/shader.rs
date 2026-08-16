@@ -132,6 +132,7 @@ struct BindGroupCache {
     cached: Option<(TextureViewId, BindGroup)>,
 }
 
+#[allow(clippy::type_complexity)]
 fn pass_pipeline<S>(
     view: ViewQuery<(&ViewTarget, &S::Uniform, &DynamicUniformIndex<S::Uniform>)>,
     pipeline: Option<Res<Pipeline<S::Uniform>>>,

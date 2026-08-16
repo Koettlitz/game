@@ -18,8 +18,8 @@ use engine::{
         lozo::{LozoAsset, LozoDef},
         object::{GameObjectSpriteDef, SpriteKindDef, TextureAtlasDataDef},
         tile::{
-            Grid, GridPosition, GridSize, Passability, TileDef, TileEdge, TileEventActionDef,
-            TileVisualKindDef, TileVisualsAsset, TileVisualsDef,
+            CameraAnimationDef, Grid, GridPosition, GridSize, Passability, TileDef, TileEdge,
+            TileEventActionDef, TileVisualKindDef, TileVisualsAsset, TileVisualsDef,
         },
     },
 };
@@ -216,7 +216,9 @@ fn register_door_events(
     char_left_events
         .entry(to_door_edge.clone())
         .or_default()
-        .push(TileEventActionDef::ZoomWarp { reverse: false });
+        .push(TileEventActionDef::CameraAnimation(
+            CameraAnimationDef::ZoomWarp { reverse: false },
+        ));
     char_reached_events
         .entry(to_door_edge)
         .or_default()
@@ -238,9 +240,10 @@ fn register_door_events(
         char_left_events
             .entry(to_next_to_door_edge.clone())
             .or_default()
-            .push(TileEventActionDef::LoadNextLozo(
-                door.target_lozo().to_string(),
-            ));
+            .push(TileEventActionDef::LoadNextLozo {
+                next_lozo_id: door.target_lozo().to_string(),
+                after_animation: Some(CameraAnimationDef::ZoomWarp { reverse: true }),
+            });
         char_left_events
             .entry(from_next_to_door_edge.clone())
             .or_default()

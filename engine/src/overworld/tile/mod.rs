@@ -1,17 +1,19 @@
 use std::ops;
 use std::{collections::HashMap, fmt::Debug};
 
-use bevy::camera::visibility::RenderLayers;
+use bevy::log;
 use bevy::prelude::*;
-use bevy_elf::{FromDef, PathResolver};
+use bevy_elf::{AssetResolver, FromDef, HasResolver, PathResolver};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::overworld::camera::{HasCamera, ZoomWarp};
+use crate::overworld::lozo::LozoTransition;
 use crate::{
     animation::{Animated, SpriteAnimationAsset},
     asset::{AssetsExt, Phantom},
     overworld::{
-        lozo::{Lozo, LozoAsset, LozoCamAttached, LozoCommands, LozoSpawned, NextLozo, ZoomWarp},
+        lozo::{InitLozo, Lozo, LozoAsset, LozoCommands},
         object::ObjectSpriteLookup,
     },
 };
@@ -37,7 +39,8 @@ impl Plugin for TilePlugin {
             .add_observer(on_load_next_lozo)
             .add_observer(on_activate_next_lozo)
             .add_observer(on_unload_next_lozo)
-            .add_observer(on_play_sprite_animation);
+            .add_observer(on_play_sprite_animation)
+            .add_observer(on_play_zoom_warp);
     }
 }
 
@@ -88,7 +91,7 @@ impl ops::BitAndAssign for Passability {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Hash, PartialEq, Eq, Serialize, Deserialize, Clone, Debug)]
 pub struct TileEdge {
     pub from: UVec2,
     pub to: UVec2,
@@ -117,10 +120,16 @@ impl<T: Send + Sync> TileEdgeEvents<T> {
         Self(events, Phantom::default())
     }
 
-    pub fn trigger(&self, edge: &TileEdge, lozo_entity: Entity, commands: &mut Commands) {
+    pub fn trigger(
+        &self,
+        trigger: Entity,
+        edge: &TileEdge,
+        lozo_entity: Entity,
+        commands: &mut Commands,
+    ) {
         if let Some(actions) = self.0.get(edge) {
             for action in actions {
-                action.trigger_event(lozo_entity, commands);
+                action.trigger_event(trigger, lozo_entity, commands);
             }
         }
     }
@@ -132,18 +141,19 @@ pub struct CharReachedTile;
 
 #[derive(FromDef, Debug, Clone)]
 pub enum TileEventAction {
-    LoadNextLozo(String),
+    LoadNextLozo {
+        next_lozo_id: String,
+        after_animation: Option<CameraAnimation>,
+    },
     UnloadNextLozo,
+    ActivateNextLozo,
     SpriteAnimation {
         sprite_id: String,
 
         #[elf(with_resolver(PathResolver))]
         animation: Handle<SpriteAnimationAsset>,
     },
-    ActivateNextLozo,
-    ZoomWarp {
-        reverse: bool,
-    },
+    CameraAnimation(CameraAnimation),
 }
 
 #[derive(EntityEvent)]
@@ -156,13 +166,12 @@ impl TileGridSpawned {
 }
 
 fn spawn_tile_grid(
-    event: On<LozoCamAttached>,
+    event: On<InitLozo>,
     lozo_query: Query<&Lozo>,
-    camera_query: Query<&RenderLayers>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
 ) -> Result {
-    let lozo = lozo_query.get(event.lozo_entity)?;
+    let lozo = lozo_query.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
@@ -177,7 +186,6 @@ fn spawn_tile_grid(
                 spritesheet.clone(),
                 Some(visual.layout.clone()),
                 visual.z,
-                camera_query.get(event.camera_entity)?.clone(),
                 &mut commands,
             )?;
             sprite_stack.push(entity);
@@ -185,7 +193,7 @@ fn spawn_tile_grid(
 
         let tile_entity = commands
             .spawn_into_lozo(
-                event.lozo_entity,
+                event.entity(),
                 (
                     Tile {
                         passability: tile_asset.passability,
@@ -198,8 +206,8 @@ fn spawn_tile_grid(
         Ok(Some(tile_entity))
     })?;
 
-    commands.entity(event.lozo_entity).insert((grid, grid_size));
-    commands.trigger(TileGridSpawned(event.lozo_entity));
+    commands.entity(event.entity()).insert((grid, grid_size));
+    commands.trigger(TileGridSpawned(event.entity()));
 
     Ok(())
 }
@@ -209,7 +217,6 @@ pub fn spawn_tile_sprite(
     image_handle: Handle<Image>,
     layout_handle: Option<Handle<TextureAtlasLayout>>,
     z: f32,
-    render_layers: RenderLayers,
     commands: &mut Commands,
 ) -> Result<Entity> {
     let transform = Transform::from_translation(Vec3::new(0.0, 0.0, z));
@@ -218,22 +225,15 @@ pub fn spawn_tile_sprite(
         None => Sprite::from_image(image_handle),
     };
     Ok(match &visual {
-        TileVisualKind::Static { idx } => commands
-            .spawn((sprite(*idx), render_layers, transform))
-            .id(),
+        TileVisualKind::Static { idx } => commands.spawn((sprite(*idx), transform)).id(),
         TileVisualKind::Animated { animation } => commands
-            .spawn((
-                sprite(0),
-                render_layers,
-                transform,
-                Animated::by(animation.clone()),
-            ))
+            .spawn((sprite(0), transform, Animated::by(animation.clone())))
             .id(),
     })
 }
 
 fn spawn_edge_events(
-    event: On<LozoSpawned>,
+    event: On<InitLozo>,
     mut commands: LozoCommands,
     lozo_query: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
@@ -251,81 +251,113 @@ fn spawn_edge_events(
 }
 
 impl TileEventAction {
-    pub fn trigger_event(&self, lozo_entity: Entity, commands: &mut Commands) {
+    pub fn trigger_event(&self, trigger: Entity, lozo: Entity, commands: &mut Commands) {
         match self {
-            Self::LoadNextLozo(id) => commands.trigger(LoadNextLozoEvent {
-                current: lozo_entity,
-                next: id.clone(),
+            Self::LoadNextLozo {
+                next_lozo_id,
+                after_animation,
+            } => commands.trigger(LoadNextLozo {
+                current: lozo,
+                next: next_lozo_id.clone(),
+                trigger,
+                after_animation: after_animation.clone(),
             }),
             Self::SpriteAnimation {
                 sprite_id,
-                animation: open_animation,
-            } => commands.trigger(PlaySpriteAnimationEvent {
+                animation,
+            } => commands.trigger(PlaySpriteAnimation {
                 sprite_id: sprite_id.clone(),
-                animation: open_animation.clone(),
-                lozo_entity,
+                animation: animation.clone(),
+                lozo_entity: lozo,
             }),
-            Self::ActivateNextLozo => commands.trigger(ActivateNextLozoEvent(lozo_entity)),
-            Self::UnloadNextLozo => commands.trigger(UnloadNextLozoEvent(lozo_entity)),
-            Self::ZoomWarp { reverse } => commands.trigger(ZoomWarp {
-                entity: lozo_entity,
-                reverse: *reverse,
+            Self::ActivateNextLozo => commands.trigger(ActivateNextLozo { trigger }),
+            Self::UnloadNextLozo => commands.trigger(UnloadNextLozo { trigger }),
+            Self::CameraAnimation(kind) => commands.trigger(PlayCameraAnimation {
+                trigger,
+                kind: kind.clone(),
             }),
         };
     }
 }
 
 #[derive(Event)]
-struct LoadNextLozoEvent {
+struct LoadNextLozo {
     current: Entity,
     next: String,
+    trigger: Entity,
+    after_animation: Option<CameraAnimation>,
 }
 
 #[derive(Event)]
-struct UnloadNextLozoEvent(Entity);
+struct UnloadNextLozo {
+    trigger: Entity,
+}
 
 #[derive(Event)]
-struct ActivateNextLozoEvent(Entity);
+struct ActivateNextLozo {
+    trigger: Entity,
+}
 
 #[derive(Event)]
-struct PlaySpriteAnimationEvent {
+struct PlaySpriteAnimation {
     sprite_id: String,
     animation: Handle<SpriteAnimationAsset>,
     lozo_entity: Entity,
 }
 
-fn on_load_next_lozo(event: On<LoadNextLozoEvent>, mut next_lozo: Query<&mut NextLozo>) -> Result {
-    next_lozo
-        .get_mut(event.current)?
-        .set(event.event().next.clone());
+#[derive(Event)]
+pub struct PlayCameraAnimation {
+    pub trigger: Entity,
+    pub kind: CameraAnimation,
+}
 
+#[derive(FromDef, Debug, Clone)]
+pub enum CameraAnimation {
+    ZoomWarp { reverse: bool },
+}
+
+fn on_load_next_lozo(
+    event: On<LoadNextLozo>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) -> Result {
+    commands.spawn(LozoTransition::new(
+        event.current,
+        asset_server.load(LozoAsset::resolver().resolve(&event.next)?),
+        event.trigger,
+        event.after_animation.clone(),
+    ));
     Ok(())
 }
 
-fn on_activate_next_lozo(
-    event: On<ActivateNextLozoEvent>,
-    mut next_lozo: Query<&mut NextLozo>,
-) -> Result {
-    let mut next_lozo = next_lozo.get_mut(event.0)?;
-    if let Some(ready) = next_lozo.ready() {
-        ready.activate();
+fn on_activate_next_lozo(event: On<ActivateNextLozo>, mut transitions: Query<&mut LozoTransition>) {
+    if let Some(mut transition) = transitions
+        .iter_mut()
+        .find(|transition| transition.entity == event.trigger)
+    {
+        transition.activate = true;
     } else {
-        next_lozo.auto_activate = true;
+        log::warn!("ActivateNextLozoEvent was triggered, but no transition was found");
     }
-
-    Ok(())
 }
 
 fn on_unload_next_lozo(
-    event: On<UnloadNextLozoEvent>,
-    mut next_lozo: Query<&mut NextLozo>,
-) -> Result {
-    next_lozo.get_mut(event.0)?.reset();
-    Ok(())
+    event: On<UnloadNextLozo>,
+    mut commands: Commands,
+    transitions: Query<(Entity, &LozoTransition)>,
+) {
+    if let Some(entity) = transitions
+        .iter()
+        .find_map(|(e, t)| (t.entity == event.trigger).then_some(e))
+    {
+        commands.entity(entity).despawn();
+    } else {
+        log::warn!("no transition for aborting found containing the event trigger");
+    }
 }
 
 fn on_play_sprite_animation(
-    event: On<PlaySpriteAnimationEvent>,
+    event: On<PlaySpriteAnimation>,
     object_lookups: Query<&ObjectSpriteLookup>,
     mut commands: Commands,
 ) -> Result {
@@ -336,6 +368,27 @@ fn on_play_sprite_animation(
         .insert(Animated::by(event.animation.clone()));
 
     Ok(())
+}
+
+fn on_play_zoom_warp(
+    event: On<PlayCameraAnimation>,
+    mut commands: Commands,
+    has_camera: Query<&HasCamera>,
+) {
+    if let Ok(has_camera) = has_camera.get(event.trigger) {
+        match event.kind {
+            CameraAnimation::ZoomWarp { reverse } => {
+                commands.trigger(ZoomWarp {
+                    camera_entity: has_camera.entity(),
+                    reverse,
+                });
+            }
+        }
+    } else {
+        log::warn!(
+            "Camera animation could not be played, cause the triggering entity has no camera"
+        );
+    }
 }
 
 #[derive(Error, Debug)]

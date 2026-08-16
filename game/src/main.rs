@@ -4,8 +4,9 @@ use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use bevy_elf::RonAssetLoader;
 use engine::animation::{AnimationTimersAsset, SpriteAnimationPlugin};
 
-use crate::overworld::OverworldPlugin;
+use crate::{debug::DebugPlugin, overworld::OverworldPlugin};
 
+mod debug;
 mod overworld;
 
 fn main() {
@@ -18,6 +19,7 @@ fn main() {
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             OverworldPlugin,
             SpriteAnimationPlugin,
+            DebugPlugin,
         ))
         .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
         .add_systems(Startup, init)

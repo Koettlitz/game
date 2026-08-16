@@ -2,16 +2,15 @@ use crate::{
     animation::{Animated, AnimationAdvanced, AnimationUpdate},
     asset::AssetsExt,
     overworld::{
-        CHARACTER_LAYER,
         input::InputSystems,
-        lozo::{CameraTarget, InLozo, LozoCamera, LozoCommands, SurviveLozoTransition},
+        lozo::InLozo,
         tile::{
             CharEnteredTile, CharLeftTile, CharReachedTile, Grid, GridSize, Neighbor, Passability,
             TILE_SIZE, Tile, TileEdge, TileEdgeEvents,
         },
     },
 };
-use bevy::{camera::visibility::RenderLayers, prelude::*};
+use bevy::prelude::*;
 use bevy_elf::AppExt;
 use std::{
     ops::{Deref, DerefMut},
@@ -38,10 +37,6 @@ impl Plugin for CharacterPlugin {
                     .after(InputSystems),
             )
             .add_systems(FixedUpdate, move_character)
-            .add_systems(
-                Update,
-                spawn_character.run_if(resource_exists::<LoadingCharacter>),
-            )
             .add_systems(PostUpdate, update_visuals.before(AnimationUpdate))
             .add_observer(start_tile_transition)
             .add_observer(bobbing);
@@ -51,6 +46,12 @@ impl Plugin for CharacterPlugin {
 #[derive(Component)]
 #[require(Orientation, CharacterState, Visibility)]
 pub struct Character(Handle<CharacterAsset>);
+
+impl Character {
+    pub fn new(handle: Handle<CharacterAsset>) -> Self {
+        Self(handle)
+    }
+}
 
 impl Deref for Character {
     type Target = Handle<CharacterAsset>;
@@ -154,64 +155,12 @@ impl Deref for LoadingCharacter {
 }
 
 #[derive(Component, Default)]
-struct Bobbing(bool);
+pub struct Bobbing(bool);
 
 impl Bobbing {
     fn up(&self) -> bool {
         self.0
     }
-}
-
-fn spawn_character(
-    mut commands: LozoCommands,
-    asset_server: Res<AssetServer>,
-    loading_character: Res<LoadingCharacter>,
-    character_assets: Res<Assets<CharacterAsset>>,
-
-    // TODO: This singleton assumption works for now, but has to be changed at some point
-    lozo_query: Single<(Entity, &GridSize, &LozoCamera)>,
-    render_layers: Query<&RenderLayers>,
-) -> Result<()> {
-    if !asset_server.is_loaded_with_dependencies(loading_character.id()) {
-        return Ok(());
-    }
-    let asset = character_assets.require_handle(&**loading_character)?;
-    let (lozo_entity, grid_size, lozo_camera) = lozo_query.into_inner();
-    let position = grid_size.snap_to_tile((0.0, 0.0));
-    commands.spawn_into_lozo(
-        lozo_entity,
-        (
-            Character(loading_character.clone()),
-            Transform {
-                translation: position.extend(CHARACTER_LAYER),
-                scale: Vec3::new(2.0, 2.0, 1.0),
-                ..Default::default()
-            },
-            CharacterController::default(),
-            children![(
-                Sprite {
-                    image: asset.spritesheet.image.clone(),
-                    texture_atlas: Some(TextureAtlas {
-                        index: 0,
-                        layout: asset.spritesheet.layout.clone(),
-                    }),
-                    ..Default::default()
-                },
-                Bobbing::default(),
-                render_layers.get(lozo_camera.entity())?.clone(),
-                Transform::from_translation(Vec3 {
-                    x: 0.0,
-                    y: 4.0,
-                    z: 0.0
-                })
-            )],
-            CameraTarget,
-            SurviveLozoTransition,
-        ),
-    )?;
-
-    commands.remove_resource::<LoadingCharacter>();
-    Ok(())
 }
 
 #[derive(Component, Default)]
@@ -341,6 +290,7 @@ fn start_tile_transition(
     });
 
     tile_edge_events.trigger(
+        entity,
         &TileEdge {
             from: *origin,
             to: *target,
@@ -386,7 +336,7 @@ fn move_character(
             TileTransitionState::LeavingTile => {
                 if distance_to_from >= TILE_SIZE as f32 / 2.0 {
                     tt.state = TileTransitionState::EnteringTile;
-                    entered_events.trigger(&edge, in_lozo.entity(), &mut commands);
+                    entered_events.trigger(entity, &edge, in_lozo.entity(), &mut commands);
                 }
             }
             TileTransitionState::EnteringTile => {
@@ -396,7 +346,7 @@ fn move_character(
                         .grid_to_world(tt.to.as_vec2())
                         .extend(new_translation.z);
 
-                    reached_events.trigger(&edge, in_lozo.entity(), &mut commands);
+                    reached_events.trigger(entity, &edge, in_lozo.entity(), &mut commands);
                 }
             }
         }

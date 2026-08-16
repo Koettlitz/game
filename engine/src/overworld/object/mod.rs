@@ -5,12 +5,12 @@ use std::{
 };
 use thiserror::Error;
 
-use bevy::{camera::visibility::RenderLayers, prelude::*};
+use bevy::prelude::*;
 
 use crate::{
     animation::Animated,
     asset::AssetsExt,
-    overworld::lozo::{Lozo, LozoAsset, LozoCamAttached, LozoCommands},
+    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoCommands},
 };
 
 pub use asset::*;
@@ -27,26 +27,20 @@ impl Plugin for GameObjectPlugin {
 }
 
 fn spawn_objects(
-    event: On<LozoCamAttached>,
+    event: On<InitLozo>,
     lozo_query: Query<&Lozo>,
-    render_layers: Query<&RenderLayers>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut object_lookup: Query<&mut ObjectSpriteLookup, With<Lozo>>,
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,
 ) -> Result {
-    let lozo = lozo_query.get(event.lozo_entity)?;
+    let lozo = lozo_query.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
-    let mut object_lookup = object_lookup.get_mut(event.lozo_entity)?;
+    let mut object_lookup = object_lookup.get_mut(event.entity())?;
 
     for object in &lozo_asset.objects {
         let asset = object_assets.require_handle(object.handle())?;
-        let entity = spawn_object_sprite(
-            event.lozo_entity,
-            asset,
-            render_layers.get(event.camera_entity)?.clone(),
-            &mut commands,
-        )?;
+        let entity = spawn_object_sprite(event.entity(), asset, &mut commands)?;
         object_lookup.insert(object.id().to_string(), entity);
     }
 
@@ -56,7 +50,6 @@ fn spawn_objects(
 fn spawn_object_sprite(
     lozo_entity: Entity,
     object_asset: &GameObjectSpriteAsset,
-    render_layers: RenderLayers,
     commands: &mut LozoCommands,
 ) -> Result<Entity> {
     let transform = Transform::from_translation(object_asset.world_position);
@@ -72,7 +65,6 @@ fn spawn_object_sprite(
                             index: *idx,
                         },
                     ),
-                    render_layers,
                     transform,
                 ),
             ),
@@ -86,7 +78,6 @@ fn spawn_object_sprite(
                             ..Default::default()
                         },
                     ),
-                    render_layers,
                     Animated::by(animation.clone()),
                     transform,
                 ),
@@ -95,11 +86,7 @@ fn spawn_object_sprite(
     } else {
         commands.spawn_into_lozo(
             lozo_entity,
-            (
-                Sprite::from_image(object_asset.image.clone()),
-                render_layers,
-                transform,
-            ),
+            (Sprite::from_image(object_asset.image.clone()), transform),
         )
     }
     .map(|e| e.id())
