@@ -12,6 +12,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 ron = { workspace = true }
 bevy_elf = { workspace = true }
+bevy_entity_lookup = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }

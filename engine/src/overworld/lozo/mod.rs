@@ -5,8 +5,7 @@ use std::{
 
 use crate::overworld::{
     camera::{CameraOf, HasCamera},
-    object::ObjectSpriteLookup,
-    tile::{CameraAnimation, PlayCameraAnimation},
+    tile::{CameraAnimationLookedUp, PlayCameraAnimation},
 };
 use bevy::{
     asset::RecursiveDependencyLoadState, camera::visibility::RenderLayers,
@@ -36,7 +35,7 @@ impl Plugin for LozoPlugin {
 }
 
 #[derive(Component, Default)]
-#[require(Visibility, Transform, ObjectSpriteLookup)]
+#[require(Visibility, Transform)]
 pub struct Lozo(Handle<LozoAsset>);
 
 impl Lozo {
@@ -125,7 +124,7 @@ pub struct LozoTransition {
     from: Entity,
     pub to: Handle<LozoAsset>,
     pub entity: Entity,
-    pub after_animation: Option<CameraAnimation>,
+    pub after_animation: Option<CameraAnimationLookedUp>,
     pub activate: bool,
 }
 
@@ -134,7 +133,7 @@ impl LozoTransition {
         from: Entity,
         to: Handle<LozoAsset>,
         entity: Entity,
-        after_animation: Option<CameraAnimation>,
+        after_animation: Option<CameraAnimationLookedUp>,
     ) -> Self {
         Self {
             from,

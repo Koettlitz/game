@@ -84,3 +84,12 @@ pub enum GameObjectSprite {
     Main { id: String },
     Door { id: String, door: Door },
 }
+
+impl GameObjectSprite {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Main { id } => id,
+            Self::Door { id, .. } => id,
+        }
+    }
+}

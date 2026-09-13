@@ -2,10 +2,12 @@ use crate::animation::SpriteAnimationAsset;
 use crate::asset::spritesheet::SpritesheetKind;
 use bevy::prelude::*;
 use bevy_elf::{FromDef, asset_spec};
+use bevy_entity_lookup::EntityId;
 
 #[derive(FromDef, Asset, TypePath)]
 #[asset_spec(base_path = "game://lozo/objects/sprites", extension = "objsprite.ron")]
 pub struct GameObjectSpriteAsset {
+    pub id: EntityId,
     #[elf(with_resolver(SpritesheetKind::Object))]
     pub image: Handle<Image>,
     pub sprite_kind: Option<TextureAtlasData>,

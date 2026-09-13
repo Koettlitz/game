@@ -1,9 +1,5 @@
 use bevy_elf::AppExt;
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-};
-use thiserror::Error;
+use bevy_entity_lookup::EntityId;
 
 use bevy::prelude::*;
 
@@ -30,24 +26,22 @@ fn spawn_objects(
     event: On<InitLozo>,
     lozo_query: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
-    mut object_lookup: Query<&mut ObjectSpriteLookup, With<Lozo>>,
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,
 ) -> Result {
     let lozo = lozo_query.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
-    let mut object_lookup = object_lookup.get_mut(event.entity())?;
 
     for object in &lozo_asset.objects {
         let asset = object_assets.require_handle(object.handle())?;
-        let entity = spawn_object_sprite(event.entity(), asset, &mut commands)?;
-        object_lookup.insert(object.id().to_string(), entity);
+        spawn_object_sprite(asset.id.clone(), event.entity(), asset, &mut commands)?;
     }
 
     Ok(())
 }
 
 fn spawn_object_sprite(
+    id: EntityId,
     lozo_entity: Entity,
     object_asset: &GameObjectSpriteAsset,
     commands: &mut LozoCommands,
@@ -58,6 +52,7 @@ fn spawn_object_sprite(
             SpriteKind::Static { idx } => commands.spawn_into_lozo(
                 lozo_entity,
                 (
+                    id,
                     Sprite::from_atlas_image(
                         object_asset.image.clone(),
                         TextureAtlas {
@@ -71,6 +66,7 @@ fn spawn_object_sprite(
             SpriteKind::Animated { animation } => commands.spawn_into_lozo(
                 lozo_entity,
                 (
+                    id,
                     Sprite::from_atlas_image(
                         object_asset.image.clone(),
                         TextureAtlas {
@@ -86,38 +82,12 @@ fn spawn_object_sprite(
     } else {
         commands.spawn_into_lozo(
             lozo_entity,
-            (Sprite::from_image(object_asset.image.clone()), transform),
+            (
+                id,
+                Sprite::from_image(object_asset.image.clone()),
+                transform,
+            ),
         )
     }
     .map(|e| e.id())
 }
-
-#[derive(Component, Default)]
-pub struct ObjectSpriteLookup(HashMap<String, Entity>);
-
-impl Deref for ObjectSpriteLookup {
-    type Target = HashMap<String, Entity>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ObjectSpriteLookup {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl ObjectSpriteLookup {
-    pub fn lookup(&self, id: &str) -> Result<Entity> {
-        Ok(self
-            .get(id)
-            .ok_or_else(|| ObjectSpriteLookupFailed(id.to_string()))
-            .copied()?)
-    }
-}
-
-#[derive(Error, Debug)]
-#[error("missing object sprite \"{0}\" in ObjectSpriteLookup")]
-pub struct ObjectSpriteLookupFailed(String);

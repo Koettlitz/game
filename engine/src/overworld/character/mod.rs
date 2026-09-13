@@ -208,7 +208,7 @@ fn update_character_state(
         Without<TileTransition>,
     >,
     mut commands: Commands,
-) -> Result<()> {
+) -> Result {
     for (entity, mut orientation, mut state, controller, delay) in &mut query {
         let mut orientation_changed = false;
         if let Some(new_orientation) = controller.orientation()
@@ -220,10 +220,12 @@ fn update_character_state(
             }
             orientation_changed = true;
         }
+
         let new_state = controller.state();
         if new_state != *state {
             *state = new_state;
         }
+
         if new_state.is_moving() {
             if delay.is_none() && !orientation_changed {
                 commands.trigger(StartTileTransition(entity));
@@ -239,7 +241,7 @@ fn update_turning_delay(
     mut query: Query<(Entity, &mut TurningDelay)>,
     time: Res<Time>,
     mut commands: Commands,
-) -> Result<()> {
+) -> Result {
     for (entity, mut delay) in &mut query {
         if delay.just_inserted {
             delay.just_inserted = false;
@@ -265,7 +267,7 @@ fn start_tile_transition(
     )>,
     tiles: Query<&Tile>,
     mut commands: Commands,
-) -> Result<()> {
+) -> Result {
     let (entity, transform, orientation, in_lozo) = character.get_mut(event.0)?;
     let (grid_size, grid, tile_edge_events) = lozo_query.get(in_lozo.entity())?;
     let origin = grid_size

@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use bevy_elf::RonAssetLoader;
+use bevy_entity_lookup::EntityLookupPlugin;
 use engine::animation::{AnimationTimersAsset, SpriteAnimationPlugin};
 
 use crate::{debug::DebugPlugin, overworld::OverworldPlugin};
@@ -20,6 +21,7 @@ fn main() {
             OverworldPlugin,
             SpriteAnimationPlugin,
             DebugPlugin,
+            EntityLookupPlugin,
         ))
         .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
         .add_systems(Startup, init)

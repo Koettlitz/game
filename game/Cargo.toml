@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = { workspace = true }
 bevy_elf = { workspace = true }
+bevy_entity_lookup = { workspace = true }
 engine = { path = "../engine" }
 macros = { path = "../macros" }
 serde = { workspace = true }
@@ -16,7 +17,7 @@ strum_macros = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }
-syn = "2.0"
+syn = "3.0"
 quote = "1.0"
 proc-macro2 = "1.0"
 strum = "0.28"

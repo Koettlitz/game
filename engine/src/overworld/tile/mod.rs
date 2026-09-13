@@ -4,6 +4,7 @@ use std::{collections::HashMap, fmt::Debug};
 use bevy::log;
 use bevy::prelude::*;
 use bevy_elf::{AssetResolver, FromDef, HasResolver, PathResolver};
+use bevy_entity_lookup::{EntityRef, IntoLookedUp, LookupMap};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -12,10 +13,7 @@ use crate::overworld::lozo::LozoTransition;
 use crate::{
     animation::{Animated, SpriteAnimationAsset},
     asset::{AssetsExt, Phantom},
-    overworld::{
-        lozo::{InitLozo, Lozo, LozoAsset, LozoCommands},
-        object::ObjectSpriteLookup,
-    },
+    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoCommands},
 };
 
 pub use grid::{
@@ -113,10 +111,13 @@ impl TileEdge {
 }
 
 #[derive(Component, Default)]
-pub struct TileEdgeEvents<T: Send + Sync>(HashMap<TileEdge, Vec<TileEventAction>>, Phantom<T>);
+pub struct TileEdgeEvents<T: Send + Sync>(
+    HashMap<TileEdge, Vec<TileEventActionLookedUp>>,
+    Phantom<T>,
+);
 
 impl<T: Send + Sync> TileEdgeEvents<T> {
-    fn new(events: HashMap<TileEdge, Vec<TileEventAction>>) -> Self {
+    fn new(events: HashMap<TileEdge, Vec<TileEventActionLookedUp>>) -> Self {
         Self(events, Phantom::default())
     }
 
@@ -139,7 +140,7 @@ pub struct CharLeftTile;
 pub struct CharEnteredTile;
 pub struct CharReachedTile;
 
-#[derive(FromDef, Debug, Clone)]
+#[derive(FromDef, Debug, Clone, IntoLookedUp)]
 pub enum TileEventAction {
     LoadNextLozo {
         next_lozo_id: String,
@@ -148,7 +149,7 @@ pub enum TileEventAction {
     UnloadNextLozo,
     ActivateNextLozo,
     SpriteAnimation {
-        sprite_id: String,
+        sprite_entity: EntityRef,
 
         #[elf(with_resolver(PathResolver))]
         animation: Handle<SpriteAnimationAsset>,
@@ -237,20 +238,27 @@ fn spawn_edge_events(
     mut commands: LozoCommands,
     lozo_query: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
+    lookup_map: Res<LookupMap>,
 ) -> Result {
     let lozo = lozo_query.get(event.entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     commands.entity(event.entity()).insert((
-        TileEdgeEvents::<CharLeftTile>::new(lozo_asset.char_left_events.clone()),
-        TileEdgeEvents::<CharEnteredTile>::new(lozo_asset.char_entered_events.clone()),
-        TileEdgeEvents::<CharReachedTile>::new(lozo_asset.char_reached_events.clone()),
+        TileEdgeEvents::<CharLeftTile>::new(
+            lozo_asset.char_left_events.into_looked_up(&lookup_map)?,
+        ),
+        TileEdgeEvents::<CharEnteredTile>::new(
+            lozo_asset.char_entered_events.into_looked_up(&lookup_map)?,
+        ),
+        TileEdgeEvents::<CharReachedTile>::new(
+            lozo_asset.char_reached_events.into_looked_up(&lookup_map)?,
+        ),
     ));
 
     Ok(())
 }
 
-impl TileEventAction {
+impl TileEventActionLookedUp {
     pub fn trigger_event(&self, trigger: Entity, lozo: Entity, commands: &mut Commands) {
         match self {
             Self::LoadNextLozo {
@@ -260,15 +268,14 @@ impl TileEventAction {
                 current: lozo,
                 next: next_lozo_id.clone(),
                 trigger,
-                after_animation: after_animation.clone(),
+                after_animation: after_animation.as_ref().map(|a| a.clone()),
             }),
             Self::SpriteAnimation {
-                sprite_id,
+                sprite_entity,
                 animation,
             } => commands.trigger(PlaySpriteAnimation {
-                sprite_id: sprite_id.clone(),
+                sprite_entity: *sprite_entity,
                 animation: animation.clone(),
-                lozo_entity: lozo,
             }),
             Self::ActivateNextLozo => commands.trigger(ActivateNextLozo { trigger }),
             Self::UnloadNextLozo => commands.trigger(UnloadNextLozo { trigger }),
@@ -285,7 +292,7 @@ struct LoadNextLozo {
     current: Entity,
     next: String,
     trigger: Entity,
-    after_animation: Option<CameraAnimation>,
+    after_animation: Option<CameraAnimationLookedUp>,
 }
 
 #[derive(Event)]
@@ -300,18 +307,17 @@ struct ActivateNextLozo {
 
 #[derive(Event)]
 struct PlaySpriteAnimation {
-    sprite_id: String,
+    sprite_entity: Entity,
     animation: Handle<SpriteAnimationAsset>,
-    lozo_entity: Entity,
 }
 
 #[derive(Event)]
 pub struct PlayCameraAnimation {
     pub trigger: Entity,
-    pub kind: CameraAnimation,
+    pub kind: CameraAnimationLookedUp,
 }
 
-#[derive(FromDef, Debug, Clone)]
+#[derive(FromDef, Debug, Clone, IntoLookedUp)]
 pub enum CameraAnimation {
     ZoomWarp { reverse: bool },
 }
@@ -356,15 +362,9 @@ fn on_unload_next_lozo(
     }
 }
 
-fn on_play_sprite_animation(
-    event: On<PlaySpriteAnimation>,
-    object_lookups: Query<&ObjectSpriteLookup>,
-    mut commands: Commands,
-) -> Result {
-    let lookup = object_lookups.get(event.lozo_entity)?;
-    let object_entity = lookup.lookup(&event.sprite_id)?;
+fn on_play_sprite_animation(event: On<PlaySpriteAnimation>, mut commands: Commands) -> Result {
     commands
-        .entity(object_entity)
+        .entity(event.sprite_entity)
         .insert(Animated::by(event.animation.clone()));
 
     Ok(())
@@ -377,7 +377,7 @@ fn on_play_zoom_warp(
 ) {
     if let Ok(has_camera) = has_camera.get(event.trigger) {
         match event.kind {
-            CameraAnimation::ZoomWarp { reverse } => {
+            CameraAnimationLookedUp::ZoomWarp { reverse } => {
                 commands.trigger(ZoomWarp {
                     camera_entity: has_camera.entity(),
                     reverse,

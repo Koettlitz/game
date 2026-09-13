@@ -1,3 +1,4 @@
+use bevy_entity_lookup::EntityId;
 use ron::ser::PrettyConfig;
 use serde::Serialize;
 use std::{collections::HashMap, fs};
@@ -150,34 +151,31 @@ fn add_objects(
                     kind: SpriteKindDef::Static { idx: atlas.index },
                 });
 
-            let sprite_def = GameObjectSpriteDef {
-                image: object_kind_id.to_string(),
-                sprite_kind,
-                world_position: sprite_transform.translation(),
-            };
-            match sprite_tag {
-                GameObjectSprite::Main { id } => {
-                    object_sprite_map.entry(id.clone()).or_insert(sprite_def);
-                }
-                GameObjectSprite::Door { id, door } => {
-                    object_sprite_map.entry(id.clone()).or_insert(sprite_def);
+            if let GameObjectSprite::Door { id, door } = sprite_tag {
+                let door_pos = grid_size
+                    .world_to_grid(transform.translation.truncate() + door.offset().as_vec2())
+                    .ok_or("door position out of bounds")?;
+                let door_tile = grid[*door_pos.as_index()].get_or_insert_with(TileDef::default);
 
-                    let door_pos = grid_size
-                        .world_to_grid(transform.translation.truncate() + door.offset().as_vec2())
-                        .ok_or("door position out of bounds")?;
-                    let door_tile = grid[*door_pos.as_index()].get_or_insert_with(TileDef::default);
-
-                    door_tile.passability = Passability::Always;
-                    register_door_events(
-                        id,
-                        door,
-                        &door_pos,
-                        &mut char_left_events,
-                        &mut char_entered_events,
-                        &mut char_reached_events,
-                    )?;
-                }
+                door_tile.passability = Passability::Always;
+                register_door_events(
+                    id,
+                    door,
+                    &door_pos,
+                    &mut char_left_events,
+                    &mut char_entered_events,
+                    &mut char_reached_events,
+                )?;
             }
+
+            object_sprite_map
+                .entry(sprite_tag.id().to_owned())
+                .or_insert(GameObjectSpriteDef {
+                    id: EntityId::new(sprite_tag.id().to_owned()),
+                    image: object_kind_id.to_string(),
+                    sprite_kind,
+                    world_position: sprite_transform.translation(),
+                });
         }
     }
 
@@ -253,14 +251,14 @@ fn register_door_events(
             .entry(to_next_to_door_edge)
             .or_default()
             .push(TileEventActionDef::SpriteAnimation {
-                sprite_id: sprite_id.to_owned(),
+                sprite_entity: bevy_entity_lookup::EntityRef::new(sprite_id.to_owned()),
                 animation: door.open_animation_path()?,
             });
         char_entered_events
             .entry(from_next_to_door_edge)
             .or_default()
             .push(TileEventActionDef::SpriteAnimation {
-                sprite_id: sprite_id.to_owned(),
+                sprite_entity: bevy_entity_lookup::EntityRef::new(sprite_id.to_owned()),
                 animation: door.close_animation_path()?,
             });
     }
