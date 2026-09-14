@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::overworld::camera::{HasCamera, ZoomWarp};
-use crate::overworld::lozo::LozoTransition;
+use crate::overworld::lozo::{
+    InLozoSpawnPhase, LozoAppExt, LozoSpawnPhaseCompleted, LozoTransition, SpawnOverworldEvents,
+    SpawnOverworldObjects,
+};
 use crate::{
     animation::{Animated, SpriteAnimationAsset},
     asset::{AssetsExt, Phantom},
@@ -32,13 +35,27 @@ mod grid;
 pub struct TilePlugin;
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(spawn_tile_grid)
+        app.register_lozo_spawn_event::<TileEdgeEventsSpawned>()
+            .add_observer(spawn_tile_grid)
             .add_observer(spawn_edge_events)
             .add_observer(on_load_next_lozo)
             .add_observer(on_activate_next_lozo)
             .add_observer(on_unload_next_lozo)
             .add_observer(on_play_sprite_animation)
             .add_observer(on_play_zoom_warp);
+    }
+}
+
+#[derive(Event)]
+struct TileEdgeEventsSpawned {
+    lozo_entity: Entity,
+}
+
+impl InLozoSpawnPhase for TileEdgeEventsSpawned {
+    type SpawnPhase = SpawnOverworldEvents;
+
+    fn lozo_entity(&self) -> Entity {
+        self.lozo_entity
     }
 }
 
@@ -234,16 +251,16 @@ pub fn spawn_tile_sprite(
 }
 
 fn spawn_edge_events(
-    event: On<InitLozo>,
+    event: On<LozoSpawnPhaseCompleted<SpawnOverworldObjects>>,
     mut commands: LozoCommands,
     lozo_query: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
     lookup_map: Res<LookupMap>,
 ) -> Result {
-    let lozo = lozo_query.get(event.entity())?;
+    let lozo = lozo_query.get(event.lozo_entity())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
-    commands.entity(event.entity()).insert((
+    commands.entity(event.lozo_entity()).insert((
         TileEdgeEvents::<CharLeftTile>::new(
             lozo_asset.char_left_events.into_looked_up(&lookup_map)?,
         ),
@@ -254,6 +271,10 @@ fn spawn_edge_events(
             lozo_asset.char_reached_events.into_looked_up(&lookup_map)?,
         ),
     ));
+
+    commands.trigger(TileEdgeEventsSpawned {
+        lozo_entity: event.lozo_entity(),
+    });
 
     Ok(())
 }
@@ -268,7 +289,7 @@ impl TileEventActionLookedUp {
                 current: lozo,
                 next: next_lozo_id.clone(),
                 trigger,
-                after_animation: after_animation.as_ref().map(|a| a.clone()),
+                after_animation: after_animation.clone(),
             }),
             Self::SpriteAnimation {
                 sprite_entity,
