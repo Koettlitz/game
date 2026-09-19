@@ -4,8 +4,10 @@ use bevy::prelude::*;
 use bevy_elf::{AssetRef, FromDef, asset_spec};
 
 use crate::overworld::{
+    character::asset::CharacterAsset,
+    event::TileEventAction,
     object::GameObjectSpriteAsset,
-    tile::{TileAsset, TileEdge, TileEventAction},
+    tile::{TileAsset, TileEdge},
 };
 
 #[derive(FromDef, Asset, TypePath)]
@@ -30,8 +32,15 @@ pub struct LozoAsset {
     ))]
     pub char_reached_events: HashMap<TileEdge, Vec<TileEventAction>>,
 
-    #[elf(expose_resolver)]
+    #[elf(expose_resolver, on_def(
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    ))]
     pub objects: Vec<AssetRef<GameObjectSpriteAsset>>,
+
+    #[elf(expose_resolver, on_def(
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    ))]
+    pub characters: Vec<AssetRef<CharacterAsset>>,
 }
 
 impl LozoAsset {

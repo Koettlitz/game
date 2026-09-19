@@ -13,6 +13,7 @@ thiserror = { workspace = true }
 ron = { workspace = true }
 bevy_elf = { workspace = true }
 bevy_entity_lookup = { workspace = true }
+bevy_spawn_phase_events = { workspace = true }
 
 [build-dependencies]
 build = { path = "../build" }

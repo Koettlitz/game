@@ -7,10 +7,12 @@ use engine::progress::{Progress, ProgressPanel, ProgressState};
 pub struct SpriteAnimationPlugin;
 impl Plugin for SpriteAnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_timers).add_systems(
-            Update,
-            check_progress.run_if(in_state(ProgressState::Loading)),
-        );
+        app.add_plugins(engine::animation::SpriteAnimationPlugin)
+            .add_systems(Startup, load_timers)
+            .add_systems(
+                Update,
+                check_progress.run_if(in_state(ProgressState::Loading)),
+            );
     }
 }
 

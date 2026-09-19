@@ -134,7 +134,9 @@ impl ToTokens for CratePath {
 
 pub fn is_self(ty: &syn::Type) -> bool {
     match ty {
-        syn::Type::Path(TypePath { qself: None, path }) => path.is_ident("Self"),
+        syn::Type::Path(TypePath {
+            qself: None, path, ..
+        }) => path.is_ident("Self"),
         _ => false,
     }
 }

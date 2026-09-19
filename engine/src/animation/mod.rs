@@ -62,14 +62,8 @@ impl Animated {
     }
 }
 
-#[derive(Event)]
-pub struct AnimationAdvanced(Entity);
-
-impl AnimationAdvanced {
-    pub fn entity(&self) -> Entity {
-        self.0
-    }
-}
+#[derive(EntityEvent)]
+pub struct AnimationAdvanced(#[event_target] Entity);
 
 #[derive(Component)]
 #[relationship(relationship_target = Times)]

@@ -1,4 +1,8 @@
 (
+    spritesheet: (
+        image: "brendan.png",
+        layout: "brendan",
+    ),
     animations: {
         Standing(Up): Static(6),
         Standing(Left): Static(12),

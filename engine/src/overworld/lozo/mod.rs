@@ -1,21 +1,18 @@
 use std::{
     collections::HashSet,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-use crate::{
-    asset::Phantom,
-    overworld::{
-        camera::{CameraOf, HasCamera},
-        tile::{CameraAnimationLookedUp, PlayCameraAnimation},
-    },
+use crate::overworld::{
+    camera::{CameraOf, HasCamera},
+    event::{CameraAnimationLookedUp, PlayCameraAnimation},
 };
 use bevy::{
     asset::RecursiveDependencyLoadState, camera::visibility::RenderLayers,
-    ecs::system::SystemParam, log, platform::collections::HashMap, prelude::*,
+    ecs::system::SystemParam, log, prelude::*,
 };
 use bevy_elf::{AppExt, AssetResolver, HasResolver, ResolveError};
+use bevy_spawn_phase_events::{SpawnPhase, SpawnPhaseCompleted};
 
 pub use asset::*;
 use bevy_entity_lookup::EntityId;
@@ -33,6 +30,7 @@ impl Plugin for LozoPlugin {
                     attach_render_layers,
                 ),
             )
+            .add_observer(propagate_in_lozo)
             .add_observer(on_lozo_added)
             .add_observer(transition_entities)
             .add_observer(commit_transition)
@@ -116,6 +114,19 @@ impl<'w, 's> DerefMut for LozoCommands<'w, 's> {
     }
 }
 
+fn propagate_in_lozo(
+    event: On<Insert, ChildOf>,
+    child_of: Query<&ChildOf>,
+    in_lozo_entities: Query<&InLozo, With<Children>>,
+    mut commands: Commands,
+) -> Result {
+    if let Ok(in_lozo) = in_lozo_entities.get(child_of.get(event.entity)?.parent()) {
+        commands.entity(event.entity).insert(InLozo(in_lozo.0));
+    };
+
+    Ok(())
+}
+
 #[derive(EntityEvent)]
 pub struct InitLozo(#[event_target] Entity);
 
@@ -125,143 +136,26 @@ impl InitLozo {
     }
 }
 
-pub trait InLozoSpawnPhase {
-    type SpawnPhase: LozoSpawnPhase;
-
-    fn lozo_entity(&self) -> Entity;
-}
-
-pub trait LozoSpawnPhase {}
-
-#[derive(Event)]
-pub struct LozoSpawnPhaseCompleted<P> {
-    lozo_entity: Entity,
-    _marker: Phantom<P>,
-}
-
-impl<P: LozoSpawnPhase> LozoSpawnPhaseCompleted<P> {
-    fn new(lozo_entity: Entity) -> Self {
-        Self {
-            lozo_entity,
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn lozo_entity(&self) -> Entity {
-        self.lozo_entity
-    }
-}
-
 pub struct SpawnOverworldObjects;
 
-impl LozoSpawnPhase for SpawnOverworldObjects {}
+impl SpawnPhase for SpawnOverworldObjects {
+    type InitialComponent = Lozo;
+}
 
 pub struct SpawnOverworldEvents;
 
-impl LozoSpawnPhase for SpawnOverworldEvents {}
-
-pub trait LozoAppExt {
-    fn register_lozo_spawn_event<E>(&mut self) -> &mut Self
-    where
-        E: InLozoSpawnPhase + Event;
-}
-
-impl LozoAppExt for App {
-    fn register_lozo_spawn_event<E>(&mut self) -> &mut Self
-    where
-        E: InLozoSpawnPhase + Event,
-    {
-        if let Some(mut counter) = self
-            .world_mut()
-            .get_resource_mut::<DependencyCounters<E::SpawnPhase>>()
-        {
-            counter.total += 1;
-        } else {
-            self.world_mut()
-                .init_resource::<DependencyCounters<E::SpawnPhase>>();
-        }
-
-        self.add_observer(lozo_content_spawned::<E>)
-            .add_observer(register_dependency_counter::<E::SpawnPhase>)
-    }
-}
-
-#[derive(Resource)]
-struct DependencyCounters<P> {
-    current: HashMap<Entity, usize>,
-    total: usize,
-    _marker: Phantom<P>,
-}
-
-impl<P> Default for DependencyCounters<P> {
-    fn default() -> Self {
-        Self {
-            current: HashMap::new(),
-            total: 1,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<P> DependencyCounters<P> {
-    fn increment(&mut self, lozo_entity: &Entity) -> Result<&mut Self> {
-        *self
-            .current
-            .get_mut(lozo_entity)
-            .expect("no counter for lozo entity {lozo_entity}") += 1;
-
-        Ok(self)
-    }
-
-    fn finished(&self, lozo_entity: &Entity) -> bool {
-        *self
-            .current
-            .get(lozo_entity)
-            .expect("no counter for lozo entity {lozo_entity}")
-            == self.total
-    }
-}
-
-fn lozo_content_spawned<E>(
-    event: On<E>,
-    mut counter: ResMut<DependencyCounters<E::SpawnPhase>>,
-    mut commands: Commands,
-) -> Result
-where
-    E: Event + InLozoSpawnPhase,
-{
-    if counter
-        .increment(&event.lozo_entity())?
-        .finished(&event.lozo_entity())
-    {
-        commands.trigger(LozoSpawnPhaseCompleted::<E::SpawnPhase>::new(
-            event.lozo_entity(),
-        ));
-        counter.current.remove(&event.lozo_entity());
-    }
-
-    Ok(())
-}
-
-fn register_dependency_counter<P: 'static>(
-    event: On<Insert, Lozo>,
-    mut dependency_counter: ResMut<DependencyCounters<P>>,
-) {
-    if let Some(count) = dependency_counter.current.get_mut(&event.entity) {
-        *count = 0
-    } else {
-        dependency_counter.current.insert(event.entity, 0);
-    }
+impl SpawnPhase for SpawnOverworldEvents {
+    type InitialComponent = Lozo;
 }
 
 fn cleanup_lookup_data(
-    event: On<LozoSpawnPhaseCompleted<SpawnOverworldEvents>>,
+    event: On<SpawnPhaseCompleted<SpawnOverworldEvents>>,
     entity_ids: Query<(Entity, &InLozo), With<EntityId>>,
     mut commands: Commands,
 ) {
     for e in entity_ids
         .iter()
-        .filter_map(|(e, in_lozo)| (in_lozo.0 == event.lozo_entity()).then_some(e))
+        .filter_map(|(e, in_lozo)| (in_lozo.0 == event.entity()).then_some(e))
     {
         commands.entity(e).remove::<EntityId>();
     }

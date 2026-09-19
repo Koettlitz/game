@@ -1,13 +1,16 @@
 use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use bevy_elf::RonAssetLoader;
-use engine::{
-    animation::SpriteAnimationPlugin,
-    progress::{ProgressPlugin, ProgressScreen, ProgressState},
-};
+use engine::progress::{ProgressPlugin, ProgressScreen, ProgressState};
 
-use crate::{io::IoPlugin, object::GameObjectPlugin, tile::TilePlugin, ui::UiPlugin};
+use animation::SpriteAnimationPlugin;
+use character::CharacterPlugin;
+use io::IoPlugin;
+use object::GameObjectPlugin;
+use tile::TilePlugin;
+use ui::UiPlugin;
 
-mod asset;
+mod animation;
+mod character;
 mod io;
 mod object;
 mod tile;
@@ -25,10 +28,10 @@ fn main() {
         )
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            asset::AssetPlugin,
             ProgressPlugin,
             UiPlugin,
             TilePlugin,
+            CharacterPlugin,
             GameObjectPlugin,
             SpriteAnimationPlugin,
             IoPlugin,

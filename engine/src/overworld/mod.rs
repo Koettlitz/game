@@ -6,8 +6,11 @@ use lozo::LozoPlugin;
 use object::GameObjectPlugin;
 use tile::TilePlugin;
 
+use crate::overworld::event::OverworldEventPlugin;
+
 pub mod camera;
 pub mod character;
+pub mod event;
 pub mod input;
 pub mod lozo;
 pub mod object;
@@ -28,6 +31,7 @@ impl Plugin for OverworldPlugin {
             GameObjectPlugin,
             LozoPlugin,
             TilePlugin,
+            OverworldEventPlugin,
         ));
     }
 }

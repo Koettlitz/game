@@ -1,0 +1,28 @@
+(
+    animations: {
+        Walking(Right): Animated("pink_kid_walking_left"),
+        Walking(Up): Animated("pink_kid_walking_up"),
+        Standing(Up): Static(1),
+        Standing(Down): Static(0),
+        Standing(Left): Static(2),
+        Walking(Left): Animated("pink_kid_walking_left"),
+        Walking(Down): Animated("pink_kid_walking_down"),
+        Standing(Right): Static(2),
+    },
+    spritesheet: (
+        image: "npcs.png",
+        layout: "npcs",
+    ),
+    position: (368.0, 208.0, 100.0),
+    orientation: Down,
+    behaviour: Some(Walking((
+        targets: [
+            (27, 7),
+            (23, 7),
+            (23, 3),
+            (27, 3),
+        ],
+        cycle: true,
+    ))),
+    dialog: Some("Rück mir nich so auf die Pelle!"),
+)

@@ -7,7 +7,7 @@ use engine::{
 };
 use input::InputPlugin;
 
-pub use input::{PlaceObject, PlaceTile, RemoveTile};
+pub use input::{PlaceCharacter, PlaceObject, PlaceTile, RemoveTile, SpawnCursorSprite};
 
 use crate::ui::camera::CameraPlugin;
 

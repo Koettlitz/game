@@ -1,0 +1,16 @@
+(
+    spritesheet: (
+        image: "npcs.png",
+        layout: "npcs"
+    ),
+    animations: {
+        Standing(Up): Static(1),
+        Standing(Left): Static(2),
+        Standing(Right): Static(2),
+        Standing(Down): Static(0),
+        Walking(Up): Animated("pink_kid_walking_up"),
+        Walking(Left): Animated("pink_kid_walking_left"),
+        Walking(Right): Animated("pink_kid_walking_left"),
+        Walking(Down): Animated("pink_kid_walking_down"),
+    },
+)

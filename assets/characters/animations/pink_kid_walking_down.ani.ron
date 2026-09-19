@@ -1,0 +1,10 @@
+(
+    timer: 150,
+    frames: [
+        3,
+        0,
+        4,
+        0,
+    ],
+    kind: Repeating,
+)

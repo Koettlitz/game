@@ -1,0 +1,20 @@
+(
+    animations: {
+        Walking(Left): Animated("brendan_walking_left"),
+        Walking(Up): Animated("brendan_walking_up"),
+        Walking(Right): Animated("brendan_walking_left"),
+        Walking(Down): Animated("brendan_walking_down"),
+        Standing(Up): Static(6),
+        Standing(Left): Static(12),
+        Standing(Right): Static(12),
+        Standing(Down): Static(0),
+    },
+    spritesheet: (
+        image: "brendan.png",
+        layout: "brendan",
+    ),
+    position: (0.0, 0.0, 100.0),
+    orientation: Down,
+    behaviour: None,
+    dialog: None,
+)

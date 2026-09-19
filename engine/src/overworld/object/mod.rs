@@ -2,14 +2,12 @@ use bevy_elf::AppExt;
 use bevy_entity_lookup::EntityId;
 
 use bevy::prelude::*;
+use bevy_spawn_phase_events::{InSpawnPhase, LozoAppExt};
 
 use crate::{
     animation::Animated,
     asset::AssetsExt,
-    overworld::lozo::{
-        InLozoSpawnPhase, InitLozo, Lozo, LozoAppExt, LozoAsset, LozoCommands,
-        SpawnOverworldObjects,
-    },
+    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoCommands, SpawnOverworldObjects},
 };
 
 pub use asset::*;
@@ -21,7 +19,7 @@ pub struct GameObjectPlugin;
 impl Plugin for GameObjectPlugin {
     fn build(&self, app: &mut App) {
         app.init_ron_asset::<GameObjectSpriteAsset>()
-            .register_lozo_spawn_event::<GameObjectsSpawned>()
+            .register_spawn_event::<GameObjectsSpawned>()
             .add_observer(spawn_objects);
     }
 }
@@ -29,10 +27,10 @@ impl Plugin for GameObjectPlugin {
 #[derive(Event)]
 struct GameObjectsSpawned(Entity);
 
-impl InLozoSpawnPhase for GameObjectsSpawned {
+impl InSpawnPhase for GameObjectsSpawned {
     type SpawnPhase = SpawnOverworldObjects;
 
-    fn lozo_entity(&self) -> Entity {
+    fn entity(&self) -> Entity {
         self.0
     }
 }

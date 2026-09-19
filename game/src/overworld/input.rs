@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use engine::overworld::{character::CharacterController, input::InputSystems};
+use engine::overworld::{
+    character::{CharacterController, Player},
+    input::InputSystems,
+};
 
 pub struct InputPlugin;
 
@@ -9,7 +12,10 @@ impl Plugin for InputPlugin {
     }
 }
 
-fn move_character(input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut CharacterController>) {
+fn move_character(
+    input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut CharacterController, With<Player>>,
+) {
     for mut controller in &mut query {
         controller.up = input.pressed(KeyCode::KeyW);
         controller.left = input.pressed(KeyCode::KeyA);

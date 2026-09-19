@@ -10,6 +10,7 @@ fn main() -> Result<(), BsError> {
     println!("cargo:rerun-if-changed={}", editor_asset_root.display());
     let resolver_enums = generate_resolver_enums(AssetSource::Editor, &editor_asset_root)?;
     for (path, resolver_enum) in resolver_enums {
+        eprintln!("Writing {} enum:\n{resolver_enum}", path.display());
         write_out(&path, &resolver_enum.to_string())?;
     }
     Ok(())

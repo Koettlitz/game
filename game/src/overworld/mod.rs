@@ -13,7 +13,10 @@ use engine::{
         camera::{
             CameraAttached, RenderDimensions, ZoomWarp, attach_camera, ensure_pixel_perfect_size,
         },
-        character::{Bobbing, Character, CharacterAsset, CharacterController, LoadingCharacter},
+        character::{
+            Bobbing, CHARACTER_SPRITE_SCALE, Character, CharacterController, LoadingCharacter,
+            Player, asset::CharacterAsset,
+        },
         lozo::{Lozo, LozoCommands},
         tile::GridSize,
     },
@@ -86,18 +89,15 @@ fn spawn_character(
             lozo_entity,
             (
                 Character::new(loading_character.clone()),
-                Transform {
-                    translation: position.extend(CHARACTER_LAYER),
-                    scale: Vec3::new(2.0, 2.0, 1.0),
-                    ..Default::default()
-                },
+                Player,
+                Transform::from_translation(position.extend(CHARACTER_LAYER)),
                 CharacterController::default(),
                 children![(
                     Sprite {
-                        image: asset.spritesheet.image.clone(),
+                        image: asset.spritesheet.image.handle().clone(),
                         texture_atlas: Some(TextureAtlas {
                             index: 0,
-                            layout: asset.spritesheet.layout.clone(),
+                            layout: asset.spritesheet.layout.handle().clone(),
                         }),
                         ..Default::default()
                     },
@@ -106,7 +106,8 @@ fn spawn_character(
                         x: 0.0,
                         y: 4.0,
                         z: 0.0
-                    }),
+                    })
+                    .with_scale(CHARACTER_SPRITE_SCALE),
                 )],
             ),
         )?

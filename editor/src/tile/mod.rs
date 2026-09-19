@@ -1,20 +1,21 @@
 use std::fmt::Display;
 
+use crate::{
+    tile::{asset::TileAssetPlugin, edge::TileVisualsPlugin},
+    ui::{PlaceTile, RemoveTile, SpawnCursorSprite},
+};
+use asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileResolverSet};
 use bevy::prelude::*;
 use bevy_elf::AssetRef;
 use engine::{
+    animation::Animated,
     asset::{AssetMap, AssetsExt, LoadState},
     overworld::tile::{Grid, GridCommands, GridSize},
     progress::{Progress, ProgressPanel, ProgressState},
 };
 use thiserror::Error;
 
-use crate::{
-    asset::tile::{TileEdgeConfig, TileKindAsset, TileResolverSet},
-    tile::edge::TileVisualsPlugin,
-    ui::{PlaceTile, RemoveTile},
-};
-
+pub mod asset;
 pub mod edge;
 
 pub const DEFAULT_TILE_KIND: &str = "grass";
@@ -26,7 +27,8 @@ pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(TileVisualsPlugin)
+        app.add_plugins((TileVisualsPlugin, TileAssetPlugin))
+            .add_observer(spawn_cursor_sprite)
             .add_systems(Startup, init_tile_grid_progress)
             .add_systems(
                 OnEnter(LoadState::<TileResolverSet>::finished()),
@@ -163,6 +165,53 @@ fn remove_tile(
         }
         grid[pos] = None;
     }
+}
+
+fn spawn_cursor_sprite(
+    event: On<SpawnCursorSprite<TileKindAsset>>,
+    tile_kinds: Res<Assets<TileKindAsset>>,
+    edge_configs: Res<Assets<TileEdgeConfig>>,
+    mut commands: Commands,
+) -> Result {
+    let tile_kind = tile_kinds.require_handle(&event.asset)?;
+    let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+    let visual = edge_config.get_default();
+
+    let (mut sprite, animation_ref) = match &visual.base() {
+        GroundTileVisual::Static(idx) => (
+            Sprite::from_atlas_image(
+                tile_kind.spritesheet.image().clone(),
+                TextureAtlas {
+                    layout: tile_kind.spritesheet.layout()?.clone(),
+                    index: *idx,
+                },
+            ),
+            None,
+        ),
+        GroundTileVisual::Animated(animation_asset) => (
+            Sprite::from_atlas_image(
+                tile_kind.spritesheet.image().clone(),
+                TextureAtlas {
+                    layout: tile_kind.spritesheet.layout()?.clone(),
+                    index: 0,
+                },
+            ),
+            Some(animation_asset.clone()),
+        ),
+        GroundTileVisual::Neighbor(_) => {
+            panic!("GroundTileVisual cannot have neighbor sprite as default")
+        }
+    };
+    sprite.color = sprite.color.with_alpha(event.alpha);
+
+    let mut cursor_commands = commands.entity(event.cursor);
+    if let Some(animation_ref) = animation_ref {
+        cursor_commands.with_child((sprite, Animated::by(animation_ref.handle().clone())));
+    } else {
+        cursor_commands.with_child(sprite);
+    }
+
+    Ok(())
 }
 
 fn hot_reload_tile_kinds(

@@ -1,21 +1,20 @@
 use std::collections::HashMap;
 
-use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
+use bevy::{input::mouse::MouseMotion, log, prelude::*, window::PrimaryWindow};
 use bevy_elf::AssetRef;
 use engine::{
-    animation::{Animated, SpriteAnimationAsset},
-    asset::AssetsExt,
-    overworld::tile::{GridSize, TILE_SIZE},
+    overworld::{
+        character::Orientation,
+        tile::{GridSize, TILE_SIZE},
+    },
     progress::ProgressState,
 };
 
 use crate::{
-    asset::{
-        object::{GameObjectKindAsset, GameObjectKindMap},
-        tile::{TileEdgeConfig, TileKindAsset, TileKindMap},
-    },
+    character::asset::{CharacterKindAsset, CharacterKindMap},
     io::export::ExportLozo,
-    tile::edge::create_tile_sprite,
+    object::asset::{GameObjectKindAsset, GameObjectKindMap},
+    tile::asset::{TileKindAsset, TileKindMap},
     ui::{
         ShowGridLines,
         camera::{CameraMovement, WorldCamera},
@@ -32,12 +31,18 @@ impl Plugin for InputPlugin {
         app.add_message::<PlaceTile>()
             .add_message::<PlaceObject>()
             .add_message::<RemoveTile>()
+            .add_message::<PlaceCharacter>()
             .init_resource::<TileKindKeyMap>()
             .init_resource::<GameObjectKindKeyMap>()
+            .init_resource::<CharacterKindKeyMap>()
             .add_systems(Startup, init_cursor)
             .add_systems(
                 OnEnter(ProgressState::Finished),
-                (init_tile_kind_keymap, init_object_kind_keymap),
+                (
+                    init_tile_kind_keymap,
+                    init_object_kind_keymap,
+                    init_character_kind_keymap,
+                ),
             )
             .add_systems(
                 PreUpdate,
@@ -74,8 +79,15 @@ pub struct RemoveTile {
 
 #[derive(Message)]
 pub struct PlaceObject {
-    pub pos: UVec2,
+    pub world_position: Vec2,
     pub object_kind: AssetRef<GameObjectKindAsset>,
+}
+
+#[derive(Message)]
+pub struct PlaceCharacter {
+    pub world_position: Vec2,
+    pub character_kind: AssetRef<CharacterKindAsset>,
+    pub orientation: Orientation,
 }
 
 #[derive(Component, Default)]
@@ -85,6 +97,10 @@ enum Cursor {
     Default,
     GroundTile(AssetRef<TileKindAsset>),
     Object(AssetRef<GameObjectKindAsset>),
+    Character {
+        asset: AssetRef<CharacterKindAsset>,
+        orientation: Orientation,
+    },
 }
 
 fn init_cursor(mut commands: Commands) {
@@ -128,8 +144,31 @@ fn init_object_kind_keymap(
     }
 }
 
+fn init_character_kind_keymap(
+    character_kind_map: Res<CharacterKindMap>,
+    mut keymap: ResMut<CharacterKindKeyMap>,
+) {
+    for (id, handle) in character_kind_map.iter() {
+        let keycode = match id.as_str() {
+            "brendan" => KeyCode::KeyB,
+            "pink_kid" => KeyCode::KeyP,
+            other => {
+                log::warn!("no hard coded key binding for character {other}");
+                continue;
+            }
+        };
+        keymap
+            .0
+            .insert(keycode, AssetRef::new(id.clone(), handle.clone()));
+    }
+}
+
+#[derive(Resource, Default)]
+struct CharacterKindKeyMap(HashMap<KeyCode, AssetRef<CharacterKindAsset>>);
+
 #[derive(Resource, Default)]
 struct TileKindKeyMap(HashMap<KeyCode, AssetRef<TileKindAsset>>);
+
 #[derive(Resource, Default)]
 struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 
@@ -148,6 +187,7 @@ fn update_cursor_position(
 fn switch_cursor(
     keys: Res<ButtonInput<KeyCode>>,
     mut cursor: Single<&mut Cursor>,
+    character_kind_keymap: Res<CharacterKindKeyMap>,
     tilekind_keymap: Res<TileKindKeyMap>,
     objectkind_keymap: Res<GameObjectKindKeyMap>,
 ) {
@@ -155,6 +195,15 @@ fn switch_cursor(
         for key in keys.get_just_pressed() {
             if let Some(handle) = objectkind_keymap.0.get(key) {
                 **cursor = Cursor::Object(handle.clone());
+            }
+        }
+    } else if keys.pressed(KeyCode::AltLeft) || keys.pressed(KeyCode::AltRight) {
+        for key in keys.get_just_pressed() {
+            if let Some(handle) = character_kind_keymap.0.get(key) {
+                **cursor = Cursor::Character {
+                    asset: handle.clone(),
+                    orientation: Orientation::default(),
+                };
             }
         }
     } else {
@@ -166,59 +215,50 @@ fn switch_cursor(
     }
 }
 
+#[derive(Event)]
+pub struct SpawnCursorSprite<A: Asset> {
+    pub cursor: Entity,
+    pub asset: Handle<A>,
+    pub alpha: f32,
+}
+
+impl<A: Asset> SpawnCursorSprite<A> {
+    fn new(cursor: Entity, asset: Handle<A>) -> Self {
+        Self {
+            cursor,
+            asset,
+            alpha: CURSOR_SPRITE_ALPHA,
+        }
+    }
+}
+
 fn update_cursor_visuals(
     cursor: Single<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
-    tile_kinds: Res<Assets<TileKindAsset>>,
-    edge_configs: Res<Assets<TileEdgeConfig>>,
-    object_kinds: Res<Assets<GameObjectKindAsset>>,
-    animations: Res<Assets<SpriteAnimationAsset>>,
     mut commands: Commands,
-) -> Result<()> {
+) {
     let (entity, cursor, children) = cursor.into_inner();
+
     if let Some(children) = children {
         for child in children {
             commands.entity(*child).despawn();
         }
     }
+
     match *cursor {
-        Cursor::GroundTile(ref tile_kind_handle) => {
-            let tile_kind = tile_kinds.require_handle(tile_kind_handle.handle())?;
-            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-            let (mut sprite, animation_ref) =
-                create_tile_sprite(&tile_kind.spritesheet, edge_config)?;
-            sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
-            let mut cursor_commands = commands.entity(entity);
-            if let Some(animation_ref) = animation_ref {
-                cursor_commands.with_child((sprite, Animated::by(animation_ref.handle().clone())));
-            } else {
-                cursor_commands.with_child(sprite);
-            }
+        Cursor::GroundTile(ref tile_kind) => {
+            commands.trigger(SpawnCursorSprite::new(entity, tile_kind.handle().clone()));
         }
         Cursor::Object(ref object_handle) => {
-            let object_kind = object_kinds.require_handle(object_handle.handle())?;
-            let sprites = object_kind.create_sprites(&animations)?;
-            let mut parent = if let Some(offset) = object_kind.offset() {
-                let offset = commands
-                    .spawn((
-                        Visibility::default(),
-                        Transform::from_translation(offset.extend(0.0)),
-                    ))
-                    .id();
-                commands.entity(entity).add_child(offset);
-                commands.entity(offset)
-            } else {
-                commands.entity(entity)
-            };
-
-            for (mut sprite, transform) in sprites {
-                sprite.color = sprite.color.with_alpha(CURSOR_SPRITE_ALPHA);
-                parent.with_child((sprite, transform));
-            }
+            commands.trigger(SpawnCursorSprite::new(
+                entity,
+                object_handle.handle().clone(),
+            ));
+        }
+        Cursor::Character { ref asset, .. } => {
+            commands.trigger(SpawnCursorSprite::new(entity, asset.handle().clone()));
         }
         Cursor::Default => {}
     }
-
-    Ok(())
 }
 
 fn place_tiles(
@@ -281,27 +321,32 @@ fn place_object(
     mouse_btn: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
-    grid_size: Single<&GridSize>,
-    mut message_writer: MessageWriter<PlaceObject>,
+    mut place_object_message_writer: MessageWriter<PlaceObject>,
+    mut place_character_message_writer: MessageWriter<PlaceCharacter>,
 ) {
     if !mouse_btn.just_pressed(MouseButton::Left) {
         return;
     }
-    let Cursor::Object(object_kind_handle) = *cursor else {
-        return;
-    };
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
-    let Some(grid_position) =
-        grid_size.world_to_grid(screen_to_world(cursor_position, camera.0, camera.1))
-    else {
-        return;
-    };
-    message_writer.write(PlaceObject {
-        pos: *grid_position,
-        object_kind: object_kind_handle.clone(),
-    });
+    let world_position = screen_to_world(cursor_position, camera.0, camera.1);
+    match *cursor {
+        Cursor::Object(object_kind) => {
+            place_object_message_writer.write(PlaceObject {
+                world_position,
+                object_kind: object_kind.clone(),
+            });
+        }
+        Cursor::Character { asset, orientation } => {
+            place_character_message_writer.write(PlaceCharacter {
+                character_kind: asset.clone(),
+                world_position,
+                orientation: *orientation,
+            });
+        }
+        _ => {}
+    }
 }
 
 fn move_camera(

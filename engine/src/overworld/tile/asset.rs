@@ -13,6 +13,7 @@ use bevy_elf::FromDef;
 #[elf(on_def(#[derive(Serialize, Deserialize, Default)]))]
 pub struct TileAsset {
     pub passability: Passability,
+    pub blocked: bool,
     pub sprite_stack: Vec<TileVisualsAsset>,
 }
 

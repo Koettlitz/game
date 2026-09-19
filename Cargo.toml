@@ -10,5 +10,12 @@ ron = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 tracing = "0.1"
-bevy_elf = { path = "../elf/bevy_elf", features = ["default", "image"] }
-bevy_entity_lookup = { path = "../elf/bevy_entity_lookup" }
+bevy_elf = { path = "../bevy_utils/bevy_elf", features = ["default", "image"] }
+bevy_entity_lookup = { path = "../bevy_utils/bevy_entity_lookup" }
+bevy_spawn_phase_events = { path = "../bevy_utils/bevy_spawn_phase_events"}
+syn = { version = "3.0", features = [ "full", "extra-traits" ] }
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-crate = "3"
+anyhow = "1.0"
+convert_case = "0.12"

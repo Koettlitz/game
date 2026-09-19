@@ -2,18 +2,13 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 use engine::{
-    animation::{Animated, SpriteAnimationAsset},
+    animation::Animated,
     asset::{AssetsExt},
     overworld::tile::{Grid, GridPosition, GridSize},
     progress::ProgressState,
 };
-use bevy_elf::AssetRef;
 
-use super::spawn_tile_grid;
-use crate::{
-    asset::tile::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileKindSpritesheet},
-    tile::{InvalidGridPosition, Tile, TilesChanged},
-};
+use super::{ spawn_tile_grid, InvalidGridPosition, Tile, TilesChanged, asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileKindSpritesheet} };
 
 pub struct TileVisualsPlugin;
 impl Plugin for TileVisualsPlugin {
@@ -188,38 +183,6 @@ fn spawn_tile_sprite(
             )
         }
     }
-}
-
-pub fn create_tile_sprite(
-    spritesheet: &TileKindSpritesheet,
-    visuals: &TileEdgeConfig,
-) -> Result<(Sprite, Option<AssetRef<SpriteAnimationAsset>>)> {
-    let visual = visuals.get_default();
-    Ok(match &visual.base() {
-        GroundTileVisual::Static(idx) => (
-            Sprite::from_atlas_image(
-                spritesheet.image().clone(),
-                TextureAtlas {
-                    layout: spritesheet.layout()?.clone(),
-                    index: *idx,
-                },
-            ),
-            None,
-        ),
-        GroundTileVisual::Animated(animation_asset) => (
-            Sprite::from_atlas_image(
-                spritesheet.image().clone(),
-                TextureAtlas {
-                    layout: spritesheet.layout()?.clone(),
-                    index: 0,
-                },
-            ),
-            Some(animation_asset.clone()),
-        ),
-        GroundTileVisual::Neighbor(_) => {
-            panic!("GroundTileVisual cannot have neighbor sprite as default")
-        }
-    })
 }
 
 #[derive(Component)]

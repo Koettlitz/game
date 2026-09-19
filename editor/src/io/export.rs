@@ -1,4 +1,5 @@
 use bevy_entity_lookup::EntityId;
+use bevy_spawn_phase_events::{InSpawnPhase, LozoAppExt, SpawnPhase, SpawnPhaseCompleted};
 use ron::ser::PrettyConfig;
 use serde::Serialize;
 use std::{collections::HashMap, fs};
@@ -8,7 +9,6 @@ use bevy::{
         AssetPath,
         io::{AssetSourceId, file::FileAssetReader},
     },
-    log,
     prelude::*,
     tasks::IoTaskPool,
 };
@@ -16,23 +16,29 @@ use bevy_elf::{AssetResolver, HasResolver};
 use engine::{
     asset::AssetsExt,
     overworld::{
+        character::{
+            Orientation,
+            asset::{CharacterBehaviourDef, CharacterDef, Route},
+        },
+        event::{CameraAnimationDef, TileEventActionDef},
         lozo::{LozoAsset, LozoDef},
         object::{GameObjectSpriteDef, SpriteKindDef, TextureAtlasDataDef},
         tile::{
-            CameraAnimationDef, Grid, GridPosition, GridSize, Passability, TileDef, TileEdge,
-            TileEventActionDef, TileVisualKindDef, TileVisualsAsset, TileVisualsDef,
+            Grid, GridPosition, GridSize, Passability, TileDef, TileEdge, TileVisualKindDef,
+            TileVisualsAsset, TileVisualsDef,
         },
     },
 };
 
 use crate::{
-    asset::{
-        object::{Door, GameObjectKindAsset},
-        tile::TileKindAsset,
+    character::{Character, asset::CharacterKindAsset},
+    object::{
+        GameObject, GameObjectSprite,
+        asset::{Door, GameObjectKindAsset},
     },
-    object::{GameObject, GameObjectSprite},
     tile::{
         Tile,
+        asset::TileKindAsset,
         edge::{AnimationId, TileSprite},
     },
 };
@@ -40,24 +46,55 @@ use crate::{
 pub struct ExportPlugin;
 impl Plugin for ExportPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(create_grid.pipe(add_objects.map(|result: Result| {
-            if let Err(e) = result {
-                log::error!("{e}");
-            }
-        })));
+        app.register_spawn_event::<CharactersExported>()
+            .register_spawn_event::<GameObjectsExported>()
+            .add_observer(init_lozo_export)
+            .add_observer(export_grid)
+            .add_observer(export_objects)
+            .add_observer(export_characters)
+            .add_observer(commit_lozo_export);
     }
 }
 
 #[derive(Event)]
 pub struct ExportLozo;
 
-fn create_grid(
-    _: On<ExportLozo>,
+#[derive(Event)]
+struct LozoExportInitialized(Entity);
+
+#[derive(Component)]
+struct LozoExport;
+
+#[derive(Component, Default)]
+struct EventsExport {
+    char_left_events: HashMap<TileEdge, Vec<TileEventActionDef>>,
+    char_entered_events: HashMap<TileEdge, Vec<TileEventActionDef>>,
+    char_reached_events: HashMap<TileEdge, Vec<TileEventActionDef>>,
+}
+
+fn init_lozo_export(_: On<ExportLozo>, mut commands: Commands) {
+    let entity = commands.spawn((LozoExport, EventsExport::default())).id();
+    commands.trigger(LozoExportInitialized(entity));
+}
+
+#[derive(Event)]
+pub struct TileGridExported(Entity);
+
+#[derive(Component)]
+struct TileGridExport {
+    width: u32,
+    height: u32,
+    grid: Vec<Option<TileDef>>,
+}
+
+fn export_grid(
+    event: On<LozoExportInitialized>,
     tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
     sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>, &Transform)>,
-) -> Result<Vec<Option<TileDef>>> {
+    mut commands: Commands,
+) -> Result {
     let (tile_grid, grid_size) = tile_grid.into_inner();
     let mut grid = Vec::new();
     let mut layout_map = HashMap::new();
@@ -98,27 +135,55 @@ fn create_grid(
 
         grid.push(Some(TileDef {
             passability: tile_kind.passability,
+            blocked: false,
             sprite_stack: visuals,
         }));
     }
 
     flush_assets(layout_map, TileVisualsAsset::layout_resolver());
-    Ok(grid)
+    commands.entity(event.0).insert(TileGridExport {
+        width: grid_size.width(),
+        height: grid_size.height(),
+        grid,
+    });
+
+    commands.trigger(TileGridExported(event.0));
+    Ok(())
 }
 
-fn add_objects(
-    grid: In<Result<Vec<Option<TileDef>>>>,
+struct ExportLozoObjects;
+
+impl SpawnPhase for ExportLozoObjects {
+    type InitialComponent = LozoExport;
+}
+
+#[derive(Event)]
+struct GameObjectsExported(Entity);
+
+impl InSpawnPhase for GameObjectsExported {
+    type SpawnPhase = ExportLozoObjects;
+
+    fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component)]
+struct GameObjectExport {
+    pub objects: Vec<String>,
+}
+
+fn export_objects(
+    event: On<TileGridExported>,
+    mut grid: Query<(&mut TileGridExport, &mut EventsExport)>,
     grid_size: Single<&GridSize>,
     game_objects: Res<Assets<GameObjectKindAsset>>,
     object_query: Query<(&GameObject, &Transform, &Children)>,
     object_sprite_query: Query<(&GameObjectSprite, &Sprite, &GlobalTransform)>,
+    mut commands: Commands,
 ) -> Result {
-    let mut grid = grid.0?;
+    let (mut grid, mut events) = grid.get_mut(event.0)?;
     let mut object_sprite_map = HashMap::new();
-    let mut char_left_events: HashMap<TileEdge, Vec<TileEventActionDef>> = HashMap::new();
-    let mut char_entered_events: HashMap<TileEdge, Vec<TileEventActionDef>> = HashMap::new();
-    let mut char_reached_events: HashMap<TileEdge, Vec<TileEventActionDef>> = HashMap::new();
-
     for (game_object, transform, children) in &object_query {
         let object_kind_id = game_object.kind_ref().id();
         let object_kind = game_objects.require_handle(game_object.kind_ref().handle())?;
@@ -136,7 +201,7 @@ fn add_objects(
                 let pos = object_pos.as_ivec2() + pos;
                 let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
                     .ok_or_else(|| format!("position out of bounds: {}", pos.as_vec2()))?;
-                let tile_def = grid[*pos.as_index()].get_or_insert_with(TileDef::default);
+                let tile_def = grid.grid[*pos.as_index()].get_or_insert_with(TileDef::default);
                 tile_def.passability &= Passability::Never;
             }
         }
@@ -155,17 +220,11 @@ fn add_objects(
                 let door_pos = grid_size
                     .world_to_grid(transform.translation.truncate() + door.offset().as_vec2())
                     .ok_or("door position out of bounds")?;
-                let door_tile = grid[*door_pos.as_index()].get_or_insert_with(TileDef::default);
+                let door_tile =
+                    grid.grid[*door_pos.as_index()].get_or_insert_with(TileDef::default);
 
                 door_tile.passability = Passability::Always;
-                register_door_events(
-                    id,
-                    door,
-                    &door_pos,
-                    &mut char_left_events,
-                    &mut char_entered_events,
-                    &mut char_reached_events,
-                )?;
+                register_door_events(id, door, &door_pos, &mut events)?;
             }
 
             object_sprite_map
@@ -181,18 +240,11 @@ fn add_objects(
 
     let object_ids = object_sprite_map.keys().cloned().collect();
     flush_assets(object_sprite_map, LozoAsset::objects_resolver());
-
-    let lozo_def = LozoDef {
-        width: grid_size.width(),
-        height: grid_size.height(),
-        tile_grid: grid,
-        char_left_events,
-        char_entered_events,
-        char_reached_events,
+    commands.entity(event.0).insert(GameObjectExport {
         objects: object_ids,
-    };
-    flush_assets(vec![("world".to_string(), lozo_def)], LozoAsset::resolver());
+    });
 
+    commands.trigger(GameObjectsExported(event.0));
     Ok(())
 }
 
@@ -200,9 +252,7 @@ fn register_door_events(
     sprite_id: &str,
     door: &Door,
     door_pos: &GridPosition,
-    char_left_events: &mut HashMap<TileEdge, Vec<TileEventActionDef>>,
-    char_entered_events: &mut HashMap<TileEdge, Vec<TileEventActionDef>>,
-    char_reached_events: &mut HashMap<TileEdge, Vec<TileEventActionDef>>,
+    events: &mut EventsExport,
 ) -> Result {
     let Some(next_to_door) = door_pos.bottom() else {
         return Ok(());
@@ -211,13 +261,15 @@ fn register_door_events(
         from: next_to_door.as_uvec2(),
         to: door_pos.as_uvec2(),
     };
-    char_left_events
+    events
+        .char_left_events
         .entry(to_door_edge.clone())
         .or_default()
         .push(TileEventActionDef::CameraAnimation(
             CameraAnimationDef::ZoomWarp { reverse: false },
         ));
-    char_reached_events
+    events
+        .char_reached_events
         .entry(to_door_edge)
         .or_default()
         .push(TileEventActionDef::ActivateNextLozo);
@@ -235,26 +287,30 @@ fn register_door_events(
         };
         let from_next_to_door_edge = to_next_to_door_edge.reverse();
 
-        char_left_events
+        events
+            .char_left_events
             .entry(to_next_to_door_edge.clone())
             .or_default()
             .push(TileEventActionDef::LoadNextLozo {
                 next_lozo_id: door.target_lozo().to_string(),
                 after_animation: Some(CameraAnimationDef::ZoomWarp { reverse: true }),
             });
-        char_left_events
+        events
+            .char_left_events
             .entry(from_next_to_door_edge.clone())
             .or_default()
             .push(TileEventActionDef::UnloadNextLozo);
 
-        char_entered_events
+        events
+            .char_entered_events
             .entry(to_next_to_door_edge)
             .or_default()
             .push(TileEventActionDef::SpriteAnimation {
                 sprite_entity: bevy_entity_lookup::EntityRef::new(sprite_id.to_owned()),
                 animation: door.open_animation_path()?,
             });
-        char_entered_events
+        events
+            .char_entered_events
             .entry(from_next_to_door_edge)
             .or_default()
             .push(TileEventActionDef::SpriteAnimation {
@@ -264,6 +320,123 @@ fn register_door_events(
     }
 
     Ok(())
+}
+
+#[derive(Event)]
+struct CharactersExported(Entity);
+
+impl InSpawnPhase for CharactersExported {
+    type SpawnPhase = ExportLozoObjects;
+
+    fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component)]
+struct CharacterExport {
+    characters: Vec<String>,
+}
+
+fn export_characters(
+    event: On<TileGridExported>,
+    character_kinds: Res<Assets<CharacterKindAsset>>,
+    character_query: Query<(&Character, &Transform)>,
+    grid_size: Single<&GridSize>,
+    mut grid_export: Query<&mut TileGridExport>,
+    mut commands: Commands,
+) -> Result {
+    let mut characters = HashMap::new();
+    for (i, (character, transform)) in character_query.iter().enumerate() {
+        let character_kind = character_kinds.require_handle(character.asset_ref.handle())?;
+        let Some(position) = grid_size.world_to_grid(transform.translation.truncate()) else {
+            return Err(BevyError::from(format!(
+                "character position out of grid bounds {}",
+                transform.translation
+            )));
+        };
+
+        if let Some(ref mut tile_def) = grid_export.get_mut(event.0)?.grid[*position.as_index()] {
+            tile_def.blocked = true;
+        }
+
+        characters.insert(
+            format!("{}_{i}", character.asset_ref.id()),
+            CharacterDef {
+                dialog: Some("Rück mir nich so auf die Pelle!".to_string()),
+                spritesheet: character_kind.spritesheet.clone().into_def(),
+                animations: character_kind
+                    .animations
+                    .iter()
+                    .map(|(state, visual)| (state.clone().into(), visual.clone().into_def()))
+                    .collect(),
+                position: transform.translation,
+                orientation: character.orientation,
+                behaviour: default_route(*position, &character.orientation)
+                    .map(|r| CharacterBehaviourDef::Walking(r)),
+            },
+        );
+    }
+
+    let character_ids = characters.keys().cloned().collect();
+    flush_assets(characters, LozoAsset::characters_resolver());
+    let entity = commands
+        .entity(event.0)
+        .insert(CharacterExport {
+            characters: character_ids,
+        })
+        .id();
+
+    commands.trigger(CharactersExported(entity));
+    Ok(())
+}
+
+fn default_route(start: UVec2, orientation: &Orientation) -> Option<Route> {
+    let first: UVec2 = (start.as_ivec2() + orientation.grid_direction() * 4)
+        .try_into()
+        .ok()?;
+    let second: UVec2 = (first.as_ivec2() + orientation.rotate().grid_direction() * 4)
+        .try_into()
+        .ok()?;
+    let third = (second.as_ivec2() + orientation.rotate().rotate().grid_direction() * 4)
+        .try_into()
+        .ok()?;
+
+    Some(Route {
+        targets: vec![first, second, third, start],
+        cycle: true,
+    })
+}
+
+fn commit_lozo_export(event: On<SpawnPhaseCompleted<ExportLozoObjects>>, mut commands: Commands) {
+    commands
+        .entity(event.entity())
+        .queue(|mut entity: EntityWorldMut| {
+            let Some((tile_grid, game_objects, characters, events)) = entity.take::<(
+                TileGridExport,
+                GameObjectExport,
+                CharacterExport,
+                EventsExport,
+            )>() else {
+                return Err(BevyError::from(
+                    "commit_lozo_export triggered, but not all the export components were there.",
+                ));
+            };
+            entity.despawn();
+
+            let lozo_def = LozoDef {
+                width: tile_grid.width,
+                height: tile_grid.height,
+                tile_grid: tile_grid.grid,
+                char_left_events: events.char_left_events,
+                char_entered_events: events.char_entered_events,
+                char_reached_events: events.char_reached_events,
+                objects: game_objects.objects,
+                characters: characters.characters,
+            };
+            flush_assets(vec![("world".to_string(), lozo_def)], LozoAsset::resolver());
+            Ok(())
+        });
 }
 
 fn flush_assets<A: Serialize>(
