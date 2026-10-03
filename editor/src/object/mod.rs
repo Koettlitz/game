@@ -9,16 +9,21 @@ use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
 
 pub mod asset;
+pub mod io;
 
 pub struct GameObjectPlugin;
 impl Plugin for GameObjectPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GameObjectAssetPlugin)
-            .add_observer(spawn_cursor_sprite)
-            .add_systems(
-                Update,
-                place_object.run_if(in_state(ProgressState::Finished)),
-            );
+        app.add_plugins((
+            GameObjectAssetPlugin,
+            io::export::ExportPlugin,
+            io::save::GameObjectSavePlugin,
+        ))
+        .add_observer(spawn_cursor_sprite)
+        .add_systems(
+            Update,
+            place_object.run_if(in_state(ProgressState::Finished)),
+        );
     }
 }
 
@@ -104,7 +109,7 @@ fn place_object(
 }
 
 #[derive(Component)]
-#[require(Visibility)]
+#[require(Visibility, Transform)]
 pub struct GameObject {
     kind_ref: AssetRef<GameObjectKindAsset>,
 }

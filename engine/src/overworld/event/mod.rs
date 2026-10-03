@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use bevy::{log, prelude::*};
 use bevy_elf::{AssetResolver, FromDef, HasResolver, PathResolver};
-use bevy_entity_lookup::{EntityRef, IntoLookedUp, LookupMap};
-use bevy_spawn_phase_events::{InSpawnPhase, LozoAppExt, SpawnPhaseCompleted};
+use bevy_entity_lookup::{EntityRef, Lookup, LookupMap};
+use bevy_event_cascade::{EventCascadeAppExt, InStage, StageCompleted};
 
 use crate::{
     animation::{Animated, SpriteAnimationAsset},
@@ -23,7 +23,7 @@ pub struct OverworldEventPlugin;
 
 impl Plugin for OverworldEventPlugin {
     fn build(&self, app: &mut App) {
-        app.register_spawn_event::<TileEdgeEventsSpawned>()
+        app.register_event::<TileEdgeEventsSpawned>()
             .add_observer(spawn_edge_events)
             .add_observer(trigger_actions::<CharLeftTile>)
             .add_observer(trigger_actions::<CharEnteredTile>)
@@ -67,7 +67,7 @@ impl<T: Send + Sync> TileEdgeEvents<T> {
     }
 }
 
-#[derive(FromDef, Debug, Clone, IntoLookedUp)]
+#[derive(FromDef, Debug, Clone, Lookup)]
 pub enum TileEventAction {
     LoadNextLozo {
         next_lozo_id: String,
@@ -113,43 +113,34 @@ impl TileEventActionLookedUp {
     }
 }
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct TileEdgeEventsSpawned {
+    #[event_target]
     lozo_entity: Entity,
 }
 
-impl InSpawnPhase for TileEdgeEventsSpawned {
-    type SpawnPhase = SpawnOverworldEvents;
-
-    fn entity(&self) -> Entity {
-        self.lozo_entity
-    }
+impl InStage for TileEdgeEventsSpawned {
+    type Stage = SpawnOverworldEvents;
 }
 
 fn spawn_edge_events(
-    event: On<SpawnPhaseCompleted<SpawnOverworldObjects>>,
+    event: On<StageCompleted<SpawnOverworldObjects>>,
     mut commands: LozoCommands,
     lozo_query: Query<&Lozo>,
     lozo_assets: Res<Assets<LozoAsset>>,
     lookup_map: Res<LookupMap>,
 ) -> Result {
-    let lozo = lozo_query.get(event.entity())?;
+    let lozo = lozo_query.get(event.event_target())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
-    commands.entity(event.entity()).insert((
-        TileEdgeEvents::<CharLeftTile>::new(
-            lozo_asset.char_left_events.into_looked_up(&lookup_map)?,
-        ),
-        TileEdgeEvents::<CharEnteredTile>::new(
-            lozo_asset.char_entered_events.into_looked_up(&lookup_map)?,
-        ),
-        TileEdgeEvents::<CharReachedTile>::new(
-            lozo_asset.char_reached_events.into_looked_up(&lookup_map)?,
-        ),
+    commands.entity(event.event_target()).insert((
+        TileEdgeEvents::<CharLeftTile>::new(lozo_asset.char_left_events.lookup(&lookup_map)?),
+        TileEdgeEvents::<CharEnteredTile>::new(lozo_asset.char_entered_events.lookup(&lookup_map)?),
+        TileEdgeEvents::<CharReachedTile>::new(lozo_asset.char_reached_events.lookup(&lookup_map)?),
     ));
 
     commands.trigger(TileEdgeEventsSpawned {
-        lozo_entity: event.entity(),
+        lozo_entity: event.event_target(),
     });
 
     Ok(())
@@ -185,7 +176,7 @@ pub struct PlayCameraAnimation {
     pub kind: CameraAnimationLookedUp,
 }
 
-#[derive(FromDef, Debug, Clone, IntoLookedUp)]
+#[derive(FromDef, Debug, Clone, Lookup)]
 pub enum CameraAnimation {
     ZoomWarp { reverse: bool },
 }

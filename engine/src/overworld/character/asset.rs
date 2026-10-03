@@ -1,12 +1,15 @@
 use crate::overworld::character::Orientation;
 use crate::{animation::SpriteAnimationAsset, asset::AssetsExt};
 use bevy::prelude::*;
-use bevy_elf::{AssetRef, FromDef, asset_spec};
+use bevy_elf::{AssetRef, FromDef, ResolveStrategy, asset_spec};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Asset, TypePath, FromDef)]
-#[asset_spec(base_path = "game://characters", extension = "char.ron")]
+#[asset_spec(
+    base_path = "game://characters",
+    resolve_strategy = ResolveStrategy::FileStemIsId { extension: "char.ron" }
+)]
 pub struct CharacterAsset {
     pub animations: HashMap<CharacterState, CharacterVisual>,
 
@@ -23,7 +26,10 @@ pub struct CharacterSpritesheet {
     #[elf(with_spec(base_path = "characters/images"))]
     pub image: AssetRef<Image>,
 
-    #[elf(with_spec(base_path = "characters/layouts", extension = "tl.ron"))]
+    #[elf(with_spec(
+        base_path = "characters/layouts",
+        resolve_strategy = ResolveStrategy::FileStemIsId { extension: "tl.ron" }
+    ))]
     pub layout: AssetRef<TextureAtlasLayout>,
 }
 
@@ -60,7 +66,10 @@ pub struct Route {
 pub enum CharacterVisual {
     Static(usize),
     Animated(
-        #[elf(with_spec(base_path = "characters/animations", extension = "ani.ron"))]
+        #[elf(with_spec(
+            base_path = "characters/animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }
+        ))]
         AssetRef<SpriteAnimationAsset>,
     ),
 }

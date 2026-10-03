@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy_elf::{AssetRef, FromDef, asset_spec};
+use bevy_elf::{AssetRef, FromDef, ResolveStrategy, asset_spec};
 
 use crate::overworld::{
     character::asset::CharacterAsset,
@@ -11,7 +11,10 @@ use crate::overworld::{
 };
 
 #[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "game://lozo", extension = "lozo.ron")]
+#[asset_spec(
+    base_path = "game://lozo",
+    resolve_strategy = ResolveStrategy::FileStemIsId { extension: "lozo.ron" }
+)]
 pub struct LozoAsset {
     pub width: u32,
     pub height: u32,

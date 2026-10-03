@@ -89,6 +89,7 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let asset_spec_impl = quote! {
         impl #elf_module::AssetPathSpec for #enum_type {
             const BASE_PATH: &'static str = #base_path;
+            const RESOLVE_STRATEGY: #elf_module::ResolveStrategy = #elf_module::ResolveStrategy::FileNameIsId;
         }
     };
     quote! {

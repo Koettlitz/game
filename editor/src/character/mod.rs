@@ -19,13 +19,18 @@ use asset::CharacterKindAsset;
 use crate::ui::{PlaceCharacter, SpawnCursorSprite};
 
 pub mod asset;
+pub mod io;
 
 pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.init_ron_asset::<CharacterKindAsset>()
-            .add_plugins(AssetSetPlugin::<CharacterKindAsset>::default())
+            .add_plugins((
+                AssetSetPlugin::<CharacterKindAsset>::default(),
+                io::export::ExportPlugin,
+                io::save::CharacterSavePlugin,
+            ))
             .add_systems(
                 Update,
                 place_character.run_if(in_state(ProgressState::Finished)),

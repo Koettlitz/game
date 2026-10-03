@@ -4,14 +4,16 @@ use engine::progress::{ProgressPlugin, ProgressScreen, ProgressState};
 
 use animation::SpriteAnimationPlugin;
 use character::CharacterPlugin;
-use io::IoPlugin;
 use object::GameObjectPlugin;
 use tile::TilePlugin;
 use ui::UiPlugin;
 
+use lozo::LozoIoPlugin;
+
 mod animation;
 mod character;
 mod io;
+mod lozo;
 mod object;
 mod tile;
 mod ui;
@@ -34,7 +36,7 @@ fn main() {
             CharacterPlugin,
             GameObjectPlugin,
             SpriteAnimationPlugin,
-            IoPlugin,
+            LozoIoPlugin,
         ))
         .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
         .add_systems(Startup, spawn_progress_screen)

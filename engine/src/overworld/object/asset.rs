@@ -1,11 +1,14 @@
 use crate::animation::SpriteAnimationAsset;
 use crate::asset::spritesheet::SpritesheetKind;
 use bevy::prelude::*;
-use bevy_elf::{FromDef, asset_spec};
+use bevy_elf::{FromDef, ResolveStrategy, asset_spec};
 use bevy_entity_lookup::EntityId;
 
 #[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "game://lozo/objects/sprites", extension = "objsprite.ron")]
+#[asset_spec(
+    base_path = "game://lozo/objects/sprites",
+    resolve_strategy = ResolveStrategy::FileStemIsId { extension: "objsprite.ron" }
+)]
 pub struct GameObjectSpriteAsset {
     pub id: EntityId,
     #[elf(with_resolver(SpritesheetKind::Object))]
@@ -17,7 +20,10 @@ pub struct GameObjectSpriteAsset {
 #[derive(FromDef)]
 pub struct TextureAtlasData {
     #[elf(
-        with_spec(base_path = "objects/spritesheets/layouts", extension = "layout.ron"),
+        with_spec(
+            base_path = "objects/spritesheets/layouts",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "layout.ron" }
+        ),
         expose_resolver
     )]
     pub layout: Handle<TextureAtlasLayout>,
@@ -30,7 +36,10 @@ pub enum SpriteKind {
         idx: usize,
     },
     Animated {
-        #[elf(implicit, with_spec(sub_path = "animations", extension = "ani.ron"))]
+        #[elf(implicit, with_spec(
+            sub_path = "animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }
+        ))]
         animation: Handle<SpriteAnimationAsset>,
     },
 }

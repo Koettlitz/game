@@ -12,10 +12,10 @@ use bevy::{
     ecs::system::SystemParam, log, prelude::*,
 };
 use bevy_elf::{AppExt, AssetResolver, HasResolver, ResolveError};
-use bevy_spawn_phase_events::{SpawnPhase, SpawnPhaseCompleted};
 
 pub use asset::*;
 use bevy_entity_lookup::EntityId;
+use bevy_event_cascade::{StageCompleted, StageProgress};
 mod asset;
 
 pub struct LozoPlugin;
@@ -130,32 +130,20 @@ fn propagate_in_lozo(
 #[derive(EntityEvent)]
 pub struct InitLozo(#[event_target] Entity);
 
-impl InitLozo {
-    pub fn entity(&self) -> Entity {
-        self.0
-    }
-}
-
+#[derive(PartialEq, Eq, Hash)]
 pub struct SpawnOverworldObjects;
 
-impl SpawnPhase for SpawnOverworldObjects {
-    type InitialComponent = Lozo;
-}
-
+#[derive(PartialEq, Eq, Hash)]
 pub struct SpawnOverworldEvents;
 
-impl SpawnPhase for SpawnOverworldEvents {
-    type InitialComponent = Lozo;
-}
-
 fn cleanup_lookup_data(
-    event: On<SpawnPhaseCompleted<SpawnOverworldEvents>>,
+    event: On<StageCompleted<SpawnOverworldEvents>>,
     entity_ids: Query<(Entity, &InLozo), With<EntityId>>,
     mut commands: Commands,
 ) {
     for e in entity_ids
         .iter()
-        .filter_map(|(e, in_lozo)| (in_lozo.0 == event.entity()).then_some(e))
+        .filter_map(|(e, in_lozo)| (in_lozo.0 == event.event_target()).then_some(e))
     {
         commands.entity(e).remove::<EntityId>();
     }
@@ -340,7 +328,12 @@ fn init_loaded_lozo(
                     entity_commands.insert(RenderLayers::layer(render_layer));
                 }
 
+                entity_commands.insert((
+                    StageProgress::<SpawnOverworldEvents>::default(),
+                    StageProgress::<SpawnOverworldObjects>::default(),
+                ));
                 entity_commands.remove::<Loading>();
+
                 commands.trigger(InitLozo(entity));
             }
             Some(RecursiveDependencyLoadState::Failed(e)) => {

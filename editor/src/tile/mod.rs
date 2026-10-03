@@ -17,6 +17,7 @@ use thiserror::Error;
 
 pub mod asset;
 pub mod edge;
+pub mod io;
 
 pub const DEFAULT_TILE_KIND: &str = "grass";
 pub const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
@@ -27,7 +28,7 @@ pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((TileVisualsPlugin, TileAssetPlugin))
+        app.add_plugins((TileVisualsPlugin, TileAssetPlugin, io::IoPlugin))
             .add_observer(spawn_cursor_sprite)
             .add_systems(Startup, init_tile_grid_progress)
             .add_systems(
@@ -73,7 +74,7 @@ fn spawn_tile_grid(
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
     mut progress: Single<&mut Progress, With<TileGridProgress>>,
-) -> Result<()> {
+) -> Result {
     let (id, tile_kind_handle) = tile_kind_map
         .iter()
         .find(|(id, _)| *id == DEFAULT_TILE_KIND)
@@ -111,7 +112,7 @@ fn place_tile(
     tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
-) -> Result<()> {
+) -> Result {
     let (mut grid, grid_size) = tile_grid.into_inner();
     let mut changed = Vec::new();
     for m in event_reader.read() {

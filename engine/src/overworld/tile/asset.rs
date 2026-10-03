@@ -7,7 +7,7 @@ use crate::{
     overworld::tile::Passability,
 };
 use bevy::prelude::*;
-use bevy_elf::FromDef;
+use bevy_elf::{FromDef, ResolveStrategy};
 
 #[derive(FromDef, Debug)]
 #[elf(on_def(#[derive(Serialize, Deserialize, Default)]))]
@@ -22,10 +22,10 @@ pub struct TileVisualsAsset {
     #[elf(with_resolver(SpritesheetKind::Tile))]
     pub spritesheet: Handle<Image>,
 
-    #[elf(
-        with_spec(base_path = "tiles/spritesheets/layouts", extension = "layout.ron"),
-        expose_resolver
-    )]
+    #[elf(with_spec(
+        base_path = "tiles/spritesheets/layouts",
+        resolve_strategy = ResolveStrategy::FileStemIsId { extension: "layout.ron" }
+    ), expose_resolver)]
     pub layout: Handle<TextureAtlasLayout>,
     pub kind: TileVisualKind,
     pub z: f32,
@@ -38,7 +38,10 @@ pub enum TileVisualKind {
         idx: usize,
     },
     Animated {
-        #[elf(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
+        #[elf(with_spec(
+            base_path = "tiles/animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }
+        ))]
         animation: Handle<SpriteAnimationAsset>,
     },
 }

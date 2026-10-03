@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_elf::{AppExt, FromDef};
-use bevy_spawn_phase_events::{InSpawnPhase, LozoAppExt};
+use bevy_event_cascade::{EventCascadeAppExt, InStage};
 use serde::{Deserialize, Serialize};
 use std::{
     ops::{Deref, DerefMut},
@@ -31,7 +31,7 @@ pub struct CharacterPlugin;
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.init_ron_asset::<CharacterAsset>()
-            .register_spawn_event::<CharactersSpawned>()
+            .register_event::<CharactersSpawned>()
             .add_systems(
                 PreUpdate,
                 (
@@ -50,15 +50,14 @@ impl Plugin for CharacterPlugin {
     }
 }
 
-#[derive(Event)]
-struct CharactersSpawned(Entity);
+#[derive(EntityEvent)]
+struct CharactersSpawned {
+    #[event_target]
+    lozo_entity: Entity,
+}
 
-impl InSpawnPhase for CharactersSpawned {
-    type SpawnPhase = SpawnOverworldObjects;
-
-    fn entity(&self) -> Entity {
-        self.0
-    }
+impl InStage for CharactersSpawned {
+    type Stage = SpawnOverworldObjects;
 }
 
 fn spawn_characters(
@@ -68,13 +67,13 @@ fn spawn_characters(
     character_assets: Res<Assets<CharacterAsset>>,
     mut commands: LozoCommands,
 ) -> Result {
-    let lozo_asset = lozo_assets.require_handle(lozo_query.get(event.entity())?.handle())?;
+    let lozo_asset = lozo_assets.require_handle(lozo_query.get(event.event_target())?.handle())?;
 
     for character in &lozo_asset.characters {
         let character_asset = character_assets.require_handle(character.handle())?;
 
         let mut character_commands = commands.spawn_into_lozo(
-            event.entity(),
+            event.event_target(),
             (
                 Character(character.handle().clone()),
                 Transform::from_translation(character_asset.position),
@@ -105,7 +104,9 @@ fn spawn_characters(
         }
     }
 
-    commands.trigger(CharactersSpawned(event.entity()));
+    commands.trigger(CharactersSpawned {
+        lozo_entity: event.event_target(),
+    });
     Ok(())
 }
 

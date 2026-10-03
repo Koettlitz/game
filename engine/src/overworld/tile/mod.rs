@@ -116,7 +116,7 @@ fn spawn_tile_grid(
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
 ) -> Result {
-    let lozo = lozo_query.get(event.entity())?;
+    let lozo = lozo_query.get(event.event_target())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     let (grid, grid_size) = create_grid_bundle(lozo_asset.grid_size(), |pos| {
@@ -138,7 +138,7 @@ fn spawn_tile_grid(
 
         let tile_entity = commands
             .spawn_into_lozo(
-                event.entity(),
+                event.event_target(),
                 (
                     Tile {
                         passability: tile_asset.passability,
@@ -152,8 +152,10 @@ fn spawn_tile_grid(
         Ok(Some(tile_entity))
     })?;
 
-    commands.entity(event.entity()).insert((grid, grid_size));
-    commands.trigger(TileGridSpawned(event.entity()));
+    commands
+        .entity(event.event_target())
+        .insert((grid, grid_size));
+    commands.trigger(TileGridSpawned(event.event_target()));
 
     Ok(())
 }

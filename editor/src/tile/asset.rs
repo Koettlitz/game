@@ -1,4 +1,4 @@
-use bevy_elf::{AppExt, AssetRef, FromDef, FromDefError, asset_spec};
+use bevy_elf::{AppExt, AssetRef, FromDef, FromDefError, ResolveStrategy, asset_spec};
 use engine::{
     animation::SpriteAnimationAsset,
     asset::{
@@ -144,7 +144,10 @@ fn derive_texture_atlas_layout(image: &Image) -> Option<TextureAtlasLayout> {
 }
 
 #[derive(Asset, TypePath, Debug)]
-#[asset_spec(base_path = "editor://tiles/edge_config", extension = "edge.ron")]
+#[asset_spec(
+    base_path = "editor://tiles/edge_config",
+    resolve_strategy = ResolveStrategy::FileStemIsId { extension: "edge.ron" }
+)]
 pub struct TileEdgeConfig {
     pub group: Option<String>,
     pub edge_cases: Vec<(AdjacentRequirements, GroundTileVisualLayers)>,
@@ -590,7 +593,10 @@ impl From<GroundTileVisualDef> for GroundTileVisualLayersDef {
 pub enum GroundTileVisual {
     Static(usize),
     Animated(
-        #[elf(with_spec(base_path = "tiles/animations", extension = "ani.ron"))]
+        #[elf(with_spec(
+            base_path = "tiles/animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }
+        ))]
         AssetRef<SpriteAnimationAsset>,
     ),
     Neighbor(Neighbor),

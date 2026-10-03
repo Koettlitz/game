@@ -12,7 +12,7 @@ use engine::{
 
 use crate::{
     character::asset::{CharacterKindAsset, CharacterKindMap},
-    io::export::ExportLozo,
+    lozo::ExportLozo,
     object::asset::{GameObjectKindAsset, GameObjectKindMap},
     tile::asset::{TileKindAsset, TileKindMap},
     ui::{

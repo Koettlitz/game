@@ -2,7 +2,7 @@ use bevy_elf::AppExt;
 use bevy_entity_lookup::EntityId;
 
 use bevy::prelude::*;
-use bevy_spawn_phase_events::{InSpawnPhase, LozoAppExt};
+use bevy_event_cascade::{EventCascadeAppExt, InStage};
 
 use crate::{
     animation::Animated,
@@ -19,20 +19,16 @@ pub struct GameObjectPlugin;
 impl Plugin for GameObjectPlugin {
     fn build(&self, app: &mut App) {
         app.init_ron_asset::<GameObjectSpriteAsset>()
-            .register_spawn_event::<GameObjectsSpawned>()
+            .register_event::<GameObjectsSpawned>()
             .add_observer(spawn_objects);
     }
 }
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct GameObjectsSpawned(Entity);
 
-impl InSpawnPhase for GameObjectsSpawned {
-    type SpawnPhase = SpawnOverworldObjects;
-
-    fn entity(&self) -> Entity {
-        self.0
-    }
+impl InStage for GameObjectsSpawned {
+    type Stage = SpawnOverworldObjects;
 }
 
 fn spawn_objects(
@@ -42,15 +38,15 @@ fn spawn_objects(
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,
 ) -> Result {
-    let lozo = lozo_query.get(event.entity())?;
+    let lozo = lozo_query.get(event.event_target())?;
     let lozo_asset = lozo_assets.require_handle(lozo.handle())?;
 
     for object in &lozo_asset.objects {
         let asset = object_assets.require_handle(object.handle())?;
-        spawn_object_sprite(asset.id.clone(), event.entity(), asset, &mut commands)?;
+        spawn_object_sprite(asset.id.clone(), event.event_target(), asset, &mut commands)?;
     }
 
-    commands.trigger(GameObjectsSpawned(event.entity()));
+    commands.trigger(GameObjectsSpawned(event.event_target()));
 
     Ok(())
 }

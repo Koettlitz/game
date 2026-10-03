@@ -4,6 +4,7 @@ use bevy_elf::AppExt;
 use bevy_elf::AssetRef;
 use bevy_elf::AssetResolver;
 use bevy_elf::FromDef;
+use bevy_elf::ResolveStrategy;
 use engine::animation::SpriteAnimationAsset;
 use engine::asset::AssetMap;
 use engine::asset::AssetSetPlugin;
@@ -251,7 +252,10 @@ pub struct GameObjectSpritesheet {
 
     #[elf(
         implicit,
-        with_spec(base_path = "objects/spritesheets/layouts", extension = "layout.ron")
+        with_spec(
+            base_path = "objects/spritesheets/layouts",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "layout.ron" }
+        )
     )]
     layout: Handle<TextureAtlasLayout>,
     kind: ObjectSpriteKind,
@@ -303,13 +307,17 @@ pub struct Door {
     target_lozo: String,
 
     #[elf(
-        with_spec(base_path = "objects/animations", extension = "ani.ron"),
+        with_spec(
+            base_path = "objects/animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }),
         expose_resolver
     )]
     open_animation: AssetRef<SpriteAnimationAsset>,
 
     #[elf(
-        with_spec(base_path = "objects/animations", extension = "ani.ron"),
+        with_spec(
+            base_path = "objects/animations",
+            resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }),
         expose_resolver
     )]
     close_animation: AssetRef<SpriteAnimationAsset>,
