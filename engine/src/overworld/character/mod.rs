@@ -682,7 +682,7 @@ fn update_visuals(
 }
 
 fn register_bobbing_observer(
-    event: On<Insert, Sprite>,
+    event: On<Insert<Sprite>>,
     sprites: Query<&ChildOf, (With<Bobbing>, With<Sprite>)>,
     characters: Query<(), With<Character>>,
     mut commands: Commands,

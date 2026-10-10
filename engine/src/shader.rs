@@ -43,7 +43,7 @@ impl<T> Default for ShaderPlugin<T> {
 impl<S> Plugin for ShaderPlugin<S>
 where
     S: ShaderDescriptor + 'static,
-    S::Uniform: ExtractComponent + ShaderType + WriteInto + Clone,
+    S::Uniform: ExtractComponent<RenderApp> + ShaderType + WriteInto + Clone,
 {
     fn build(&self, app: &mut App) {
         app.add_plugins((

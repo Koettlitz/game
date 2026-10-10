@@ -115,7 +115,7 @@ impl<'w, 's> DerefMut for LozoCommands<'w, 's> {
 }
 
 fn propagate_in_lozo(
-    event: On<Insert, ChildOf>,
+    event: On<Insert<ChildOf>>,
     child_of: Query<&ChildOf>,
     in_lozo_entities: Query<&InLozo, With<Children>>,
     mut commands: Commands,
@@ -300,7 +300,7 @@ fn commit_transition(
     Ok(())
 }
 
-fn on_lozo_added(event: On<Add, Lozo>, mut commands: Commands) {
+fn on_lozo_added(event: On<Add<Lozo>>, mut commands: Commands) {
     commands.entity(event.entity).insert(Loading);
 }
 

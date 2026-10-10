@@ -3,6 +3,7 @@ use bevy::{
     image::ImageSampler,
     prelude::*,
     render::{
+        RenderApp,
         extract_component::ExtractComponent,
         render_resource::{ShaderType, TextureFormat},
     },
@@ -147,6 +148,7 @@ pub fn ensure_pixel_perfect_size(size: f32) -> u32 {
 }
 
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
+#[extract_app(RenderApp)]
 struct ZoomWarpUniform {
     pub progress: f32,
 }
@@ -167,7 +169,7 @@ impl ShaderDescriptor for ZoomWarpShader {
     }
 
     fn shader_path() -> &'static str {
-        "shaders/zoom_warp.wgsl"
+        "shaders/zoom_warp.wesl"
     }
 }
 

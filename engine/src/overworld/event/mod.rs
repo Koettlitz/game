@@ -32,7 +32,7 @@ impl Plugin for OverworldEventPlugin {
             .add_observer(on_activate_next_lozo)
             .add_observer(on_unload_next_lozo)
             .add_observer(on_play_sprite_animation)
-            .add_observer(on_play_zoom_warp);
+            .add_observer(on_play_camera_animation);
     }
 }
 
@@ -247,7 +247,7 @@ fn on_play_sprite_animation(event: On<PlaySpriteAnimation>, mut commands: Comman
     Ok(())
 }
 
-fn on_play_zoom_warp(
+fn on_play_camera_animation(
     event: On<PlayCameraAnimation>,
     mut commands: Commands,
     has_camera: Query<&HasCamera>,

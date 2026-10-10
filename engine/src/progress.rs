@@ -21,14 +21,14 @@ impl Plugin for ProgressPlugin {
     }
 }
 
-fn init_progress_screen(event: On<Add, ProgressScreen>, mut commands: Commands) {
+fn init_progress_screen(event: On<Add<ProgressScreen>>, mut commands: Commands) {
     commands
         .entity(event.entity)
         .insert(Text("Loading... 0%".to_string()));
 }
 
 fn init_progress_panel(
-    event: On<Add, ProgressPanel>,
+    event: On<Add<ProgressPanel>>,
     panels: Query<&ProgressPanel>,
     mut commands: Commands,
     mut counter: Local<usize>,

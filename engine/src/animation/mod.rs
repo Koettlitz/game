@@ -151,7 +151,7 @@ fn update_changed_sprites(
     Ok(())
 }
 
-fn on_remove_animated(event: On<Remove, Animated>, mut commands: Commands) {
+fn on_remove_animated(event: On<Remove<Animated>>, mut commands: Commands) {
     let entity = event.entity;
     commands.queue(move |world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
@@ -161,7 +161,7 @@ fn on_remove_animated(event: On<Remove, Animated>, mut commands: Commands) {
 }
 
 fn on_insert_timer(
-    event: On<Insert, TimerId>,
+    event: On<Insert<TimerId>>,
     timers: Query<&TimerId>,
     mut timer_map: ResMut<TimerMap>,
 ) -> Result<()> {
@@ -171,7 +171,7 @@ fn on_insert_timer(
 }
 
 fn on_remove_timer(
-    event: On<Remove, TimerId>,
+    event: On<Remove<TimerId>>,
     timers: Query<&TimerId>,
     mut timer_map: ResMut<TimerMap>,
 ) -> Result<()> {

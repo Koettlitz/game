@@ -3,7 +3,7 @@ resolver = "3"
 members = ["editor", "macros", "engine", "spielwiese", "build", "game"]
 
 [workspace.dependencies]
-bevy = { version = "0.19", features = ["debug", "serialize"] }    
+bevy = { version = "0.20", features = ["debug", "serialize"] }    
 strum = "0.28"
 strum_macros = "0.28"
 ron = "0.12"

@@ -61,7 +61,7 @@ impl ShowGridLines {
     }
 }
 
-fn on_tile_grid_spawn(event: On<Insert, GridSize>, mut commands: Commands) {
+fn on_tile_grid_spawn(event: On<Insert<GridSize>>, mut commands: Commands) {
     commands
         .entity(event.entity)
         .insert(ShowGridLines::default());
