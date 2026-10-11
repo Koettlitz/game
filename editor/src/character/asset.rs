@@ -6,7 +6,7 @@ use engine::{
     asset::AssetMap,
     overworld::character::asset::{CharacterSpritesheet, CharacterState, CharacterVisual},
 };
-use macros::asset_set;
+use glaze::asset_set;
 
 pub type CharacterKindMap = AssetMap<CharacterResolverSet, CharacterKindAsset>;
 

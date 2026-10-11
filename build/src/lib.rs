@@ -24,6 +24,14 @@ pub enum AssetSource {
 }
 
 impl AssetSource {
+    pub fn from_crate() -> Self {
+        match env!("CARGO_CRATE_NAME") {
+            "editor" => Self::Editor,
+            "game" => Self::Game,
+            _ => Self::Workspace,
+        }
+    }
+
     pub fn asset_root(crate_root: &Path) -> PathBuf {
         crate_root.to_path_buf().join("assets")
     }
@@ -34,6 +42,11 @@ impl AssetSource {
             Self::Editor => Some("editor://"),
             Self::Game => Some("game://"),
         }
+    }
+
+    pub fn to_asset_path(&self, base_path: &str) -> String {
+        let prefix = self.prefix().unwrap_or("");
+        format!("{prefix}{base_path}")
     }
 }
 

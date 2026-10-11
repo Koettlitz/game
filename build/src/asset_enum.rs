@@ -1,3 +1,5 @@
+use bevy_elf::ResolveStrategy;
+use ron::de::SpannedError;
 use std::{
     collections::HashMap,
     env::VarError,
@@ -14,6 +16,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
+const DESCRIPTOR_FILE_NAME: &str = ".build.ron";
+
 pub fn generate_resolver_enums(
     asset_source: AssetSource,
     asset_root: &Path,
@@ -23,13 +27,17 @@ pub fn generate_resolver_enums(
     Ok(result)
 }
 
-fn generate_resolver_enums_in(
-    asset_source: AssetSource,
-    asset_root: &Path,
-    asset_dir: &Path,
-    enums: &mut HashMap<PathBuf, TokenStream>,
-) -> Result<(), BsError> {
+struct InspectedDir {
+    descriptor_file: Option<PathBuf>,
+    asset_files: Vec<PathBuf>,
+    asset_dirs: Vec<PathBuf>,
+}
+
+fn inspect_dir(asset_root: &Path, asset_dir: &Path) -> Result<InspectedDir, BsError> {
+    let mut descriptor_file = None;
     let mut asset_files = Vec::new();
+    let mut asset_dirs = Vec::new();
+
     let read_dir = match fs::read_dir(asset_root.join(asset_dir)) {
         Ok(dir) => dir,
         Err(e) => {
@@ -42,27 +50,91 @@ fn generate_resolver_enums_in(
 
     for file in read_dir {
         let file = file?;
-        let path = file.path();
-        let path = path.strip_prefix(asset_root)?;
+        let absolute_path = file.path();
+        let relative_path = absolute_path.strip_prefix(asset_root)?;
         if file.file_type()?.is_dir() {
-            generate_resolver_enums_in(asset_source, asset_root, path, enums)?;
+            asset_dirs.push(relative_path.to_path_buf());
+        } else if relative_path
+            .file_name()
+            .is_some_and(|n| n == DESCRIPTOR_FILE_NAME)
+        {
+            descriptor_file = Some(absolute_path.to_path_buf());
         } else {
             // TODO: remove this fragile workaround and implement paths for top level assets
             // properly
             if asset_root != asset_dir {
-                asset_files.push(path.to_path_buf());
+                asset_files.push(relative_path.to_path_buf());
             }
         }
     }
 
-    if !asset_files.is_empty() {
+    Ok(InspectedDir {
+        descriptor_file,
+        asset_files,
+        asset_dirs,
+    })
+}
+
+fn generate_resolver_enums_in(
+    asset_source: AssetSource,
+    asset_root: &Path,
+    asset_dir: &Path,
+    enums: &mut HashMap<PathBuf, TokenStream>,
+) -> Result<(), BsError> {
+    let inspected_dir = inspect_dir(asset_root, asset_dir)?;
+
+    eprintln!(
+        "found {} dirs under {}",
+        inspected_dir.asset_dirs.len(),
+        asset_dir.display()
+    );
+    for asset_dir in inspected_dir.asset_dirs {
+        generate_resolver_enums_in(asset_source, asset_root, &asset_dir, enums)?;
+    }
+
+    let Some(descriptor) = inspected_dir.descriptor_file else {
+        eprintln!(
+            "No build descriptor file in {} found. Skipping directory.",
+            asset_dir.display()
+        );
+        return Ok(());
+    };
+
+    eprintln!("parsing build descriptor: {}", descriptor.display());
+    // Leaking the value here is ok, cause this is the build process, so its short lived
+    let descriptor = fs::read_to_string(&descriptor)
+        .map_err(|e| BsError::Io {
+            e,
+            msg: Some(format!(
+                "Invalid path to build descriptor: {}",
+                descriptor.display()
+            )),
+        })?
+        .leak();
+    eprintln!(
+        "parsed descriptor for dir {}: {descriptor}",
+        asset_dir.display()
+    );
+    let resolve_strategy: ResolveStrategy = ron::de::from_str(descriptor).map_err(|e| {
+        let msg = format!("Failed to parse descriptor {descriptor} - {e}");
+        BsError::Spanned { e, msg: Some(msg) }
+    })?;
+
+    if asset_root != asset_dir {
         let enum_name = derive_enum_type_name(asset_dir)?;
         let progress_name = derive_progress_name(asset_dir)?;
-        let resolver_enum =
-            generate_resolver_enum(&enum_name, &progress_name, asset_files, asset_source)?;
+
+        let resolver_enum = generate_resolver_enum(
+            &enum_name,
+            &progress_name,
+            inspected_dir.asset_files,
+            &resolve_strategy,
+            asset_source,
+        )?;
         let generated_file_path = derive_enum_file_name(asset_dir)?;
         enums.insert(generated_file_path, resolver_enum);
-    };
+    }
+
     Ok(())
 }
 
@@ -70,41 +142,87 @@ fn generate_resolver_enum(
     enum_name: &str,
     progress_name: &str,
     file_paths: impl IntoIterator<Item = impl AsRef<Path>>,
+    resolve_strategy: &ResolveStrategy,
     asset_source: AssetSource,
 ) -> Result<TokenStream, BsError> {
     let mut variant_idents = Vec::new();
-    let mut variant_strings = Vec::new();
+    let mut variant_ids = Vec::new();
     let mut asset_paths = Vec::new();
-    for file in file_paths {
-        let file = file.as_ref();
-        let Some(file_name) = file.file_name() else {
+
+    for file_path in file_paths {
+        let file_path = file_path.as_ref();
+        let Some(file_name) = file_path.file_name() else {
             continue;
         };
         let file_name = file_name.to_string_lossy().to_string();
-        let variant_string = file_name.split('.').next().unwrap().to_string();
-        let variant_name = variant_string.to_case(Case::UpperCamel);
-        variant_idents.push(Ident::new(&variant_name, Span::call_site()));
-        variant_strings.push(variant_string);
-        let asset_path = if let Some(prefix) = asset_source.prefix() {
-            format!("{prefix}{}", file.to_string_lossy())
+
+        match resolve_strategy {
+            ResolveStrategy::FileStemIsId { .. } => {
+                let variant_id = file_name.split('.').next().unwrap().to_string();
+                let variant_ident = variant_id.to_case(Case::UpperCamel);
+                variant_idents.push(Ident::new(&variant_ident, Span::call_site()));
+                variant_ids.push(variant_id);
+            }
+            ResolveStrategy::FileNameIsId | ResolveStrategy::DirectoryNameIsId { .. } => {
+                let variant_ident = file_name.to_case(Case::UpperCamel);
+                variant_idents.push(Ident::new(&variant_ident, Span::call_site()));
+                variant_ids.push(file_name);
+            }
+        }
+
+        let base_path = if let Some(prefix) = asset_source.prefix() {
+            format!("{prefix}{}", file_path.to_string_lossy())
         } else {
-            file.to_string_lossy().to_string()
+            file_path.to_string_lossy().to_string()
         };
+        let asset_path = match resolve_strategy {
+            ResolveStrategy::FileStemIsId { .. } | ResolveStrategy::FileNameIsId => base_path,
+            ResolveStrategy::DirectoryNameIsId { file_name } => {
+                format!("{base_path}/{file_name}")
+            }
+        };
+
         asset_paths.push(syn::LitStr::new(&asset_path, Span::call_site()));
     }
-    // TODO: determine default another way (e.g. descriptor file)
-    let default_variant_ident = variant_idents.remove(0);
-    let default_variant_path = asset_paths.remove(0);
-    let default_variant_string = variant_strings.remove(0);
+
     let enum_type: syn::Type = syn::parse_str(enum_name)?;
     let bevy_crate = resolve_crate_name("bevy")?;
     let elf_module = CratePath::try_from("bevy_elf")?;
     let asset_set_module = CratePath::try_from(ASSET_SET_MODULE_PATH)?;
+
+    let asset_descriptor_impl = if asset_paths.is_empty() {
+        quote! {
+            impl #asset_set_module::AssetDescriptor for #enum_type {
+                fn id(&self) -> &'static str {
+                    panic!("How was this method even called on an enum without variants?")
+                }
+
+                fn asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
+                    panic!("How was this method even called on an enum without variants?")
+                }
+            }
+        }
+    } else {
+        quote! {
+            impl #asset_set_module::AssetDescriptor for #enum_type {
+                fn id(&self) -> &'static str {
+                    match self {
+                        #(Self::#variant_idents => #variant_ids,)*
+                    }
+                }
+
+                fn asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
+                    match self {
+                        #(Self::#variant_idents => #bevy_crate::asset::AssetPath::from(#asset_paths),)*
+                    }
+                }
+            }
+        }
+    };
+
     Ok(quote! {
-        #[derive(Default, Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
+        #[derive(Clone, Copy, Hash, PartialEq, Eq, #bevy_crate::prelude::TypePath, strum_macros::EnumIter)]
         pub enum #enum_type {
-            #[default]
-            #default_variant_ident,
             #(#variant_idents),*
         }
 
@@ -113,21 +231,13 @@ fn generate_resolver_enum(
 
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
-                    #default_variant_string => Ok(Self::#default_variant_ident),
-                    #(#variant_strings => Ok(Self::#variant_idents),)*
+                    #(#variant_ids => Ok(Self::#variant_idents),)*
                     _ => Err(#asset_set_module::InvalidAssetLinkError(s.to_string())),
                 }
             }
         }
 
-        impl #asset_set_module::AsAssetPath for #enum_type {
-            fn as_asset_path(&self) -> #bevy_crate::asset::AssetPath<'static> {
-                match self {
-                    Self::#default_variant_ident => #bevy_crate::asset::AssetPath::from(#default_variant_path),
-                    #(Self::#variant_idents => #bevy_crate::asset::AssetPath::from(#asset_paths),)*
-                }
-            }
-        }
+        #asset_descriptor_impl
 
         impl #asset_set_module::ProgressName for #enum_type {
             fn name<'a>() -> &'a str {
@@ -138,7 +248,7 @@ fn generate_resolver_enum(
         impl #elf_module::StaticAssetResolver for #enum_type {
             fn resolve(asset_id: &str) -> std::result::Result<#bevy_crate::asset::AssetPath<'static>, #elf_module::ResolveError> {
                 let instance = <Self as std::str::FromStr>::from_str(asset_id)?;
-                Ok(<Self as #asset_set_module::AsAssetPath>::as_asset_path(&instance))
+                Ok(<Self as #asset_set_module::AssetDescriptor>::asset_path(&instance))
             }
         }
     })
@@ -189,6 +299,10 @@ pub enum BsError {
         e: io::Error,
         msg: Option<String>,
     },
+    Spanned {
+        e: SpannedError,
+        msg: Option<String>,
+    },
     PathError {
         #[source]
         e: StripPrefixError,
@@ -207,6 +321,12 @@ impl BsError {
 impl From<io::Error> for BsError {
     fn from(e: io::Error) -> Self {
         Self::Io { e, msg: None }
+    }
+}
+
+impl From<SpannedError> for BsError {
+    fn from(e: SpannedError) -> Self {
+        Self::Spanned { e, msg: None }
     }
 }
 
@@ -238,6 +358,7 @@ impl Display for BsError {
         match self {
             Self::Io { e, msg } => with_err_and_optional_msg(f, e, msg.as_deref()),
             Self::PathError { e, msg } => with_err_and_optional_msg(f, e, msg.as_deref()),
+            Self::Spanned { e, msg } => with_err_and_optional_msg(f, e, msg.as_deref()),
             Self::Syn(e) => e.fmt(f),
             Self::Var(e) => e.fmt(f),
         }

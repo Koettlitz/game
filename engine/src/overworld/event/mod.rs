@@ -12,8 +12,8 @@ use crate::{
         camera::{HasCamera, ZoomWarp},
         character::{CharEnteredTile, CharLeftTile, CharReachedTile},
         lozo::{
-            InLozo, Lozo, LozoAsset, LozoCommands, LozoTransition, SpawnOverworldEvents,
-            SpawnOverworldObjects,
+            InLozo, Lozo, LozoAsset, LozoAssetSource, LozoCommands, LozoSource, LozoTransition,
+            SpawnOverworldEvents, SpawnOverworldObjects,
         },
         tile::TileEdge,
     },
@@ -126,7 +126,7 @@ impl InStage for TileEdgeEventsSpawned {
 fn spawn_edge_events(
     event: On<StageCompleted<SpawnOverworldObjects>>,
     mut commands: LozoCommands,
-    lozo_query: Query<&Lozo>,
+    lozo_query: Query<&LozoAssetSource, With<Lozo>>,
     lozo_assets: Res<Assets<LozoAsset>>,
     lookup_map: Res<LookupMap>,
 ) -> Result {
@@ -206,7 +206,7 @@ fn on_load_next_lozo(
 ) -> Result {
     commands.spawn(LozoTransition::new(
         event.current,
-        asset_server.load(LozoAsset::resolver().resolve(&event.next)?),
+        LozoAssetSource::from(asset_server.load(LozoAsset::resolver().resolve(&event.next)?)),
         event.trigger,
         event.after_animation.clone(),
     ));

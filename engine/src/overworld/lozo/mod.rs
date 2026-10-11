@@ -1,58 +1,140 @@
 use std::{
     collections::HashSet,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-use crate::overworld::{
-    camera::{CameraOf, HasCamera},
-    event::{CameraAnimationLookedUp, PlayCameraAnimation},
+use crate::{
+    asset::Phantom,
+    overworld::{
+        camera::{CameraOf, HasCamera},
+        event::{CameraAnimationLookedUp, PlayCameraAnimation},
+    },
 };
 use bevy::{
     asset::RecursiveDependencyLoadState, camera::visibility::RenderLayers,
     ecs::system::SystemParam, log, prelude::*,
 };
-use bevy_elf::{AppExt, AssetResolver, HasResolver, ResolveError};
 
 pub use asset::*;
+use bevy_elf::{AppExt, AssetResolver, HasResolver};
 use bevy_entity_lookup::EntityId;
 use bevy_event_cascade::{StageCompleted, StageProgress};
 mod asset;
 
+pub struct LozoPluginWithSource<S>(Phantom<S>);
+
+#[derive(Default)]
 pub struct LozoPlugin;
+
 impl Plugin for LozoPlugin {
     fn build(&self, app: &mut App) {
+        app.init_ron_asset::<LozoAsset>();
+        LozoPluginWithSource::<LozoAssetSource>::default().build(app);
+    }
+}
+
+impl<S> Default for LozoPluginWithSource<S> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<S: LozoSource> Plugin for LozoPluginWithSource<S> {
+    fn build(&self, app: &mut App) {
         app.register_required_components::<Sprite, NeedsRenderLayers>()
-            .init_ron_asset::<LozoAsset>()
             .add_systems(
                 PostUpdate,
                 (
-                    (check_transitions, init_loaded_lozo).chain(),
+                    (check_transitions::<S>, init_loaded_lozo::<S>).chain(),
                     attach_render_layers,
                 ),
             )
             .add_observer(propagate_in_lozo)
-            .add_observer(on_lozo_added)
-            .add_observer(transition_entities)
-            .add_observer(commit_transition)
+            .add_observer(on_lozo_added::<S>)
+            .add_observer(transition_entities::<S>)
+            .add_observer(commit_transition::<S>)
             .add_observer(cleanup_lookup_data);
     }
 }
 
 #[derive(Component, Default)]
 #[require(Visibility, Transform)]
-pub struct Lozo(Handle<LozoAsset>);
+pub struct Lozo;
 
-impl Lozo {
-    pub fn new(handle: Handle<LozoAsset>) -> Self {
-        Self(handle)
-    }
+pub trait LozoSource: Component + Clone {
+    type Asset: Asset;
 
-    pub fn from_id(id: &str, asset_server: &AssetServer) -> Result<Self, ResolveError> {
+    fn handle(&self) -> &Handle<Self::Asset>;
+}
+
+#[derive(Component, Clone)]
+pub struct LozoAssetSource(Handle<LozoAsset>);
+
+impl LozoAssetSource {
+    pub fn from_id(id: &str, asset_server: &AssetServer) -> Result<Self> {
         Ok(Self(asset_server.load(LozoAsset::resolver().resolve(id)?)))
     }
+}
 
-    pub fn handle(&self) -> &Handle<LozoAsset> {
+impl LozoSource for LozoAssetSource {
+    type Asset = LozoAsset;
+
+    fn handle(&self) -> &Handle<Self::Asset> {
         &self.0
+    }
+}
+
+impl From<Handle<LozoAsset>> for LozoAssetSource {
+    fn from(value: Handle<LozoAsset>) -> Self {
+        Self(value)
+    }
+}
+
+fn on_lozo_added<S: LozoSource>(event: On<Add<S>>, mut commands: Commands) {
+    commands.entity(event.entity).insert((Lozo, Loading));
+}
+
+fn init_loaded_lozo<S>(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    query: Query<(Entity, &S, Option<&RenderLayers>), (With<Loading>, With<Lozo>)>,
+    render_layers: Query<&RenderLayers>,
+) where
+    S: LozoSource,
+{
+    let mut used_render_layers = Vec::new();
+    for (entity, source, lozo_render_layers) in query {
+        match asset_server.get_recursive_dependency_load_state(source.handle().id()) {
+            None | Some(RecursiveDependencyLoadState::Loaded) => {
+                let mut entity_commands = commands.entity(entity);
+
+                if lozo_render_layers.is_none() {
+                    let render_layer = find_free_lozo_render_layer(
+                        render_layers
+                            .iter()
+                            .flat_map(|rl| rl.iter())
+                            .chain(used_render_layers.iter().copied()),
+                    );
+
+                    used_render_layers.push(render_layer);
+                    entity_commands.insert(RenderLayers::layer(render_layer));
+                }
+
+                entity_commands.insert((
+                    StageProgress::<SpawnOverworldEvents>::default(),
+                    StageProgress::<SpawnOverworldObjects>::default(),
+                ));
+                entity_commands.remove::<Loading>();
+
+                commands.trigger(InitLozo(entity));
+            }
+            Some(RecursiveDependencyLoadState::Failed(e)) => {
+                log::error!("Failed loading lozo - {e}");
+                commands.entity(entity).despawn();
+            }
+            _ => {}
+        }
     }
 }
 
@@ -150,18 +232,20 @@ fn cleanup_lookup_data(
 }
 
 #[derive(Component)]
-pub struct LozoTransition {
+pub struct LozoTransitionWithAsset<S: LozoSource> {
     from: Entity,
-    pub to: Handle<LozoAsset>,
+    pub to: S,
     pub entity: Entity,
     pub after_animation: Option<CameraAnimationLookedUp>,
     pub activate: bool,
 }
 
-impl LozoTransition {
+pub type LozoTransition = LozoTransitionWithAsset<LozoAssetSource>;
+
+impl<S: LozoSource> LozoTransitionWithAsset<S> {
     pub fn new(
         from: Entity,
-        to: Handle<LozoAsset>,
+        to: S,
         entity: Entity,
         after_animation: Option<CameraAnimationLookedUp>,
     ) -> Self {
@@ -182,15 +266,15 @@ impl LozoTransition {
 #[derive(Component)]
 struct Loading;
 
-fn check_transitions(
+fn check_transitions<S: LozoSource>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    transitions: Query<(Entity, &LozoTransition)>,
-    lozos: Query<(Entity, &Lozo)>,
+    transitions: Query<(Entity, &LozoTransitionWithAsset<S>)>,
+    lozos: Query<(Entity, &S), With<Lozo>>,
     render_layers: Query<&RenderLayers>,
 ) {
     for (transition_entity, transition) in transitions {
-        match asset_server.get_recursive_dependency_load_state(transition.to.id()) {
+        match asset_server.get_recursive_dependency_load_state(transition.to.handle().id()) {
             Some(RecursiveDependencyLoadState::Loaded) => {
                 if !transition.activate {
                     continue;
@@ -198,14 +282,17 @@ fn check_transitions(
 
                 let target_lozo = lozos
                     .iter()
-                    .find_map(|(e, lozo)| (lozo.handle().id() == transition.to.id()).then_some(e))
+                    .find_map(|(e, source)| {
+                        (source.handle().id() == transition.to.handle().id()).then_some(e)
+                    })
                     .unwrap_or_else(|| {
                         let render_layer = find_free_lozo_render_layer(
                             render_layers.iter().flat_map(|rl| rl.iter()),
                         );
                         commands
                             .spawn((
-                                Lozo(transition.to.clone()),
+                                Lozo,
+                                transition.to.clone(),
                                 RenderLayers::layer(render_layer),
                             ))
                             .id()
@@ -232,10 +319,10 @@ struct TransitionEntities {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn transition_entities(
+fn transition_entities<S: LozoSource>(
     event: On<TransitionEntities>,
     render_layers: Query<&RenderLayers, (Without<InLozo>, Without<CameraOf>)>,
-    transitions: Query<&LozoTransition>,
+    transitions: Query<&LozoTransitionWithAsset<S>>,
     in_lozo_entities: Query<&Children, With<InLozo>>,
     mut render_layers_in_lozo: Query<&mut RenderLayers, (With<InLozo>, Without<CameraOf>)>,
     mut camera_render_layers: Query<&mut RenderLayers, With<CameraOf>>,
@@ -273,9 +360,9 @@ fn transition_entities(
 #[derive(Event)]
 struct CommitTransition(Entity);
 
-fn commit_transition(
+fn commit_transition<S: LozoSource>(
     event: On<CommitTransition>,
-    transitions: Query<(Entity, &LozoTransition)>,
+    transitions: Query<(Entity, &LozoTransitionWithAsset<S>)>,
     cameras: Query<&InLozo, With<HasCamera>>,
     mut commands: Commands,
 ) -> Result {
@@ -298,51 +385,6 @@ fn commit_transition(
     commands.entity(transition_entity).despawn();
 
     Ok(())
-}
-
-fn on_lozo_added(event: On<Add<Lozo>>, mut commands: Commands) {
-    commands.entity(event.entity).insert(Loading);
-}
-
-fn init_loaded_lozo(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    query: Query<(Entity, &Lozo, Option<&RenderLayers>), With<Loading>>,
-    render_layers: Query<&RenderLayers>,
-) {
-    let mut used_render_layers = Vec::new();
-    for (entity, Lozo(handle), lozo_render_layers) in query {
-        match asset_server.get_recursive_dependency_load_state(handle.id()) {
-            Some(RecursiveDependencyLoadState::Loaded) => {
-                let mut entity_commands = commands.entity(entity);
-
-                if lozo_render_layers.is_none() {
-                    let render_layer = find_free_lozo_render_layer(
-                        render_layers
-                            .iter()
-                            .flat_map(|rl| rl.iter())
-                            .chain(used_render_layers.iter().copied()),
-                    );
-
-                    used_render_layers.push(render_layer);
-                    entity_commands.insert(RenderLayers::layer(render_layer));
-                }
-
-                entity_commands.insert((
-                    StageProgress::<SpawnOverworldEvents>::default(),
-                    StageProgress::<SpawnOverworldObjects>::default(),
-                ));
-                entity_commands.remove::<Loading>();
-
-                commands.trigger(InitLozo(entity));
-            }
-            Some(RecursiveDependencyLoadState::Failed(e)) => {
-                log::error!("Failed loading lozo - {e}");
-                commands.entity(entity).despawn();
-            }
-            _ => {}
-        }
-    }
 }
 
 fn find_free_lozo_render_layer(layers: impl Iterator<Item = usize>) -> usize {

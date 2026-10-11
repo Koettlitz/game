@@ -9,7 +9,7 @@ use thiserror::Error;
 use crate::{
     animation::Animated,
     asset::AssetsExt,
-    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoCommands},
+    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoAssetSource, LozoCommands, LozoSource},
 };
 
 pub use grid::{
@@ -112,7 +112,7 @@ impl TileGridSpawned {
 
 fn spawn_tile_grid(
     event: On<InitLozo>,
-    lozo_query: Query<&Lozo>,
+    lozo_query: Query<&LozoAssetSource, With<Lozo>>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
 ) -> Result {

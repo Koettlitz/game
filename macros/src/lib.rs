@@ -66,6 +66,7 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
     };
     let struct_ident = &input_struct.ident;
     let (impl_generics, ty_generics, where_clause) = input_struct.generics.split_for_impl();
+
     let has_resolver_impl = quote! {
         impl #impl_generics #elf_module::HasResolver for #struct_ident #ty_generics
             #where_clause
@@ -77,21 +78,35 @@ pub fn asset_set(attrs: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
     };
+
     let has_resolver_set_impl = quote! {
         impl #asset_set_module::HasResolverSet for #struct_ident #ty_generics
             #where_clause
-    {
+        {
             type ResolverSet = #enum_type;
         }
     };
+
+    let glaze_crate = match CratePath::try_from("glaze") {
+        Ok(glaze_crate) => glaze_crate,
+        Err(e) => return e.to_compile_error().into(),
+    };
     let base_path = args.base_path;
-    // TODO: include asset source prefix in base_path
+    let resolve_strategy = args.resolve_strategy;
     let asset_spec_impl = quote! {
-        impl #elf_module::AssetPathSpec for #enum_type {
-            const BASE_PATH: &'static str = #base_path;
-            const RESOLVE_STRATEGY: #elf_module::ResolveStrategy = #elf_module::ResolveStrategy::FileNameIsId;
+        impl #elf_module::AssetPathSpecProvider for #enum_type {
+            fn base_path(&self) -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Owned(
+                    #glaze_crate::AssetSource::from_crate().to_asset_path(#base_path)
+                )
+            }
+
+            fn resolve_strategy(&self) -> #elf_module::ResolveStrategy {
+                #resolve_strategy
+            }
         }
     };
+
     quote! {
         #input_struct
 

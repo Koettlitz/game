@@ -27,24 +27,32 @@ pub struct SavedTileGrid {
 }
 
 #[derive(EntityEvent)]
-pub struct TileGridSaved(Entity);
+pub struct TileGridSaved {
+    pub lozo_entity: Entity,
+
+    #[event_target]
+    pub save_entity: Entity,
+}
 
 fn save_tile_grid(
     event: On<LozoSaveInitialized>,
-    tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
+    tile_grid: Query<(&Grid<Option<Tile>>, &GridSize)>,
     mut commands: Commands,
-) {
-    let (grid, grid_size) = tile_grid.into_inner();
-    commands
-        .entity(event.event_target())
-        .insert(SavedTileGridDef {
-            width: grid_size.width(),
-            height: grid_size.height(),
-            grid: grid_size
-                .iter_all()
-                .map(|pos| grid[pos].as_ref().map(|tile| tile.kind.id().to_owned()))
-                .collect(),
-        });
+) -> Result {
+    let (grid, grid_size) = tile_grid.get(event.lozo_entity)?;
 
-    commands.trigger(TileGridSaved(event.event_target()));
+    commands.entity(event.save_entity).insert(SavedTileGridDef {
+        width: grid_size.width(),
+        height: grid_size.height(),
+        grid: grid_size
+            .iter_all()
+            .map(|pos| grid[pos].as_ref().map(|tile| tile.kind.id().to_owned()))
+            .collect(),
+    });
+
+    commands.trigger(TileGridSaved {
+        lozo_entity: event.lozo_entity,
+        save_entity: event.save_entity,
+    });
+    Ok(())
 }

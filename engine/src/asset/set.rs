@@ -32,8 +32,9 @@ where
     }
 }
 
-pub trait AsAssetPath {
-    fn as_asset_path(&self) -> AssetPath<'static>;
+pub trait AssetDescriptor {
+    fn id(&self) -> &'static str;
+    fn asset_path(&self) -> AssetPath<'static>;
 }
 
 /// TODO: Where does this belong?
@@ -42,12 +43,12 @@ pub trait ProgressName {
 }
 
 pub trait HasResolverSet {
-    type ResolverSet: AsAssetPath + Set + ProgressName + 'static;
+    type ResolverSet: AssetDescriptor + Set + ProgressName + 'static;
 }
 
 impl<T> HasResolverSet for T
 where
-    T: AsAssetPath + Set + ProgressName + 'static,
+    T: AssetDescriptor + Set + ProgressName + 'static,
 {
     type ResolverSet = Self;
 }
@@ -125,7 +126,7 @@ impl<S, A> Default for AssetSetLoadPlugin<S, A> {
 
 impl<S, A> Plugin for AssetSetLoadPlugin<S, A>
 where
-    S: AsAssetPath + Set + ProgressName + 'static,
+    S: AssetDescriptor + Set + ProgressName + 'static,
     A: Asset,
 {
     fn build(&self, app: &mut bevy::app::App) {
@@ -180,11 +181,11 @@ fn trigger_loading<S>(mut next_state: ResMut<NextState<LoadState<S>>>) {
 
 fn load_asset_folder<S, A>(asset_server: Res<AssetServer>, mut commands: Commands)
 where
-    S: AsAssetPath + Set + 'static,
+    S: AssetDescriptor + Set + 'static,
     A: Asset,
 {
-    let handles: Vec<Handle<A>> = S::iter()
-        .map(|p| asset_server.load(p.as_asset_path()))
+    let handles: Vec<(&'static str, Handle<A>)> = S::iter()
+        .map(|p| (p.id(), asset_server.load(p.asset_path())))
         .collect();
     commands.insert_resource(LoadingFolder::<S, A>::new(handles.clone()));
     commands.insert_resource(Handles::<S, A>::new(handles));
@@ -192,7 +193,7 @@ where
 
 fn init_progress<S, A>(loading_folder: Res<LoadingFolder<S, A>>, mut commands: Commands)
 where
-    S: AsAssetPath + ProgressName + 'static,
+    S: AssetDescriptor + ProgressName + 'static,
     A: Asset,
 {
     commands.spawn((
@@ -218,27 +219,15 @@ fn fill_asset_map<S, A>(
     mut asset_map: ResMut<AssetMap<S, A>>,
     mut progress: Query<&mut Progress, With<FolderProgress<S>>>,
 ) where
-    S: AsAssetPath + ProgressName + 'static,
+    S: AssetDescriptor + ProgressName + 'static,
     A: Asset,
 {
     let Some(mut loading_folder) = loading_folder else {
         return;
     };
-    loading_folder.0.retain(|handle: &Handle<A>| {
+    loading_folder.0.retain(|(id, handle)| {
         if assets.get(handle.id()).is_some() {
-            let id = {
-                let asset_path = handle.path().expect("missing asset path");
-                let id = asset_path
-                    .path()
-                    .file_stem()
-                    .unwrap_or_else(|| panic!("missing file stem in asset path {}", asset_path));
-                id.to_string_lossy()
-                    .split('.')
-                    .next()
-                    .expect("split string was emtpy")
-                    .to_string()
-            };
-            asset_map.0.insert(id, handle.clone());
+            asset_map.0.insert(id.to_owned().to_owned(), handle.clone());
             for mut progress in progress.iter_mut() {
                 progress.add(1);
             }
@@ -252,7 +241,7 @@ fn fill_asset_map<S, A>(
                     handle
                         .path()
                         .map(|p| Cow::Owned(format!("{p}")))
-                        .unwrap_or_else(|| Cow::Borrowed("with no path")),
+                        .unwrap_or_else(|| Cow::Borrowed(*id)),
                     S::name()
                 );
                 for mut progress in progress.iter_mut() {
@@ -270,7 +259,7 @@ fn check_handles<S, A>(
     loading_folder: Option<Res<LoadingFolder<S, A>>>,
     mut next_state: ResMut<NextState<LoadState<S>>>,
 ) where
-    S: AsAssetPath,
+    S: AssetDescriptor,
     A: Asset,
 {
     let Some(loading_folder) = loading_folder else {
@@ -289,14 +278,14 @@ fn check_finished<S: 'static, A: Asset>(
     let all_loaded = handles
         .0
         .iter()
-        .map(|handle| asset_server.recursive_dependency_load_state(handle.id()))
+        .map(|(_, handle)| asset_server.recursive_dependency_load_state(handle.id()))
         .all(|state| matches!(state, RecursiveDependencyLoadState::Loaded));
     if all_loaded {
         next_state.set(LoadState::<S>::finished());
     }
 }
 
-fn cleanup_loading_folder<S: AsAssetPath + 'static, A: Asset>(mut commands: Commands) {
+fn cleanup_loading_folder<S: AssetDescriptor + 'static, A: Asset>(mut commands: Commands) {
     commands.remove_resource::<LoadingFolder<S, A>>();
 }
 
@@ -305,21 +294,21 @@ fn cleanup_handles<S: 'static, A: Asset>(mut commands: Commands) {
 }
 
 #[derive(Resource)]
-struct LoadingFolder<S: AsAssetPath, A: Asset>(Vec<Handle<A>>, Phantom<S>);
-impl<S: AsAssetPath, A: Asset> LoadingFolder<S, A> {
-    fn new(handles: impl IntoIterator<Item = Handle<A>>) -> Self {
+struct LoadingFolder<S, A: Asset>(Vec<(&'static str, Handle<A>)>, Phantom<S>);
+impl<S, A: Asset> LoadingFolder<S, A> {
+    fn new(handles: impl IntoIterator<Item = (&'static str, Handle<A>)>) -> Self {
         Self(handles.into_iter().collect(), PhantomData)
     }
 }
 
 #[derive(Resource)]
-pub struct AssetMap<S: AsAssetPath, A: Asset>(pub HashMap<String, Handle<A>>, Phantom<S>);
-impl<S: AsAssetPath, A: Asset> Default for AssetMap<S, A> {
+pub struct AssetMap<S, A: Asset>(pub HashMap<String, Handle<A>>, Phantom<S>);
+impl<S, A: Asset> Default for AssetMap<S, A> {
     fn default() -> Self {
         Self(HashMap::new(), PhantomData)
     }
 }
-impl<S: AsAssetPath, A: Asset> AssetMap<S, A> {
+impl<S: AssetDescriptor, A: Asset> AssetMap<S, A> {
     pub fn get(&self, id: &str) -> Option<&Handle<A>> {
         self.0.get(id)
     }
@@ -330,9 +319,9 @@ impl<S: AsAssetPath, A: Asset> AssetMap<S, A> {
 }
 
 #[derive(Resource)]
-struct Handles<S, A: Asset>(Vec<Handle<A>>, Phantom<S>);
+struct Handles<S, A: Asset>(Vec<(&'static str, Handle<A>)>, Phantom<S>);
 impl<S, A: Asset> Handles<S, A> {
-    fn new(handles: impl IntoIterator<Item = Handle<A>>) -> Self {
+    fn new(handles: impl IntoIterator<Item = (&'static str, Handle<A>)>) -> Self {
         Self(handles.into_iter().collect(), PhantomData)
     }
 }

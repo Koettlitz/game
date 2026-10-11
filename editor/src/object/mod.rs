@@ -5,6 +5,7 @@ use bevy_elf::AssetRef;
 use engine::animation::SpriteAnimationAsset;
 use engine::asset::AssetsExt;
 use engine::overworld::CHARACTER_LAYER;
+use engine::overworld::lozo::LozoCommands;
 use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
 
@@ -18,6 +19,7 @@ impl Plugin for GameObjectPlugin {
             GameObjectAssetPlugin,
             io::export::ExportPlugin,
             io::save::GameObjectSavePlugin,
+            io::load::GameObjectLoadPlugin,
         ))
         .add_observer(spawn_cursor_sprite)
         .add_systems(
@@ -58,28 +60,32 @@ fn spawn_cursor_sprite(
 
 fn place_object(
     mut message_reader: MessageReader<PlaceObject>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     object_kinds: Res<Assets<GameObjectKindAsset>>,
     animations: Res<Assets<SpriteAnimationAsset>>,
-    mut commands: Commands,
+    mut commands: LozoCommands,
 ) -> Result {
     for PlaceObject {
+        lozo_entity,
         world_position,
         object_kind,
     } in message_reader.read()
     {
         let kind = object_kinds.require_handle(object_kind.handle())?;
-        let world_position = grid_size.snap_to_tile(*world_position);
-        let mut game_object = commands.spawn((
-            GameObject {
-                kind_ref: object_kind.clone(),
-            },
-            Transform::from_translation(
-                kind.offset()
-                    .map_or_else(|| world_position, |offset| world_position + offset)
-                    .extend(CHARACTER_LAYER),
+        let world_position = grid_size.get(*lozo_entity)?.snap_to_tile(*world_position);
+        let mut game_object = commands.spawn_into_lozo(
+            *lozo_entity,
+            (
+                GameObject {
+                    kind_ref: object_kind.clone(),
+                },
+                Transform::from_translation(
+                    kind.offset()
+                        .map_or_else(|| world_position, |offset| world_position + offset)
+                        .extend(CHARACTER_LAYER),
+                ),
             ),
-        ));
+        )?;
 
         for (id_suffix, (sprite, transform)) in kind.create_main_sprites() {
             let id = if let Some(id_suffix) = id_suffix {

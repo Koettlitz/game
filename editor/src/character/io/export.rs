@@ -46,14 +46,19 @@ fn export_characters(
     event: On<TileGridExported>,
     character_kinds: Res<Assets<CharacterKindAsset>>,
     character_query: Query<(&Character, &Transform)>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     mut grid_export: Query<&mut TileGridExport>,
     mut commands: Commands,
 ) -> Result {
     let mut characters = HashMap::new();
+
     for (i, (character, transform)) in character_query.iter().enumerate() {
         let character_kind = character_kinds.require_handle(character.asset_ref.handle())?;
-        let Some(position) = grid_size.world_to_grid(transform.translation.truncate()) else {
+
+        let Some(position) = grid_size
+            .get(event.lozo_entity)?
+            .world_to_grid(transform.translation.truncate())
+        else {
             return Err(BevyError::from(format!(
                 "character position out of grid bounds {}",
                 transform.translation
@@ -86,6 +91,7 @@ fn export_characters(
 
     let character_ids = characters.keys().cloned().collect();
     resolve_and_flush(characters, LozoAsset::characters_resolver());
+
     let entity = commands
         .entity(event.event_target())
         .insert(CharacterExport {

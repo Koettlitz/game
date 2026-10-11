@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 engine = { path = "../engine" }
-macros = { path = "../macros" }
+glaze = { path = "../glaze" }
 bevy = { workspace = true, features = ["file_watcher"] }
 bevy_elf = { workspace = true }
 bevy_entity_lookup = { workspace = true }

@@ -47,14 +47,16 @@ pub struct GameObjectExport {
 fn export_objects(
     event: On<TileGridExported>,
     mut grid: Query<(&mut TileGridExport, &mut EventsExport)>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     game_objects: Res<Assets<GameObjectKindAsset>>,
     object_query: Query<(&GameObject, &Transform, &Children)>,
     object_sprite_query: Query<(&GameObjectSprite, &Sprite, &GlobalTransform)>,
     mut commands: Commands,
 ) -> Result {
+    let grid_size = grid_size.get(event.lozo_entity)?;
     let (mut grid, mut events) = grid.get_mut(event.event_target())?;
     let mut object_sprite_map = HashMap::new();
+
     for (game_object, transform, children) in &object_query {
         let object_kind_id = game_object.kind_ref().id();
         let object_kind = game_objects.require_handle(game_object.kind_ref().handle())?;
@@ -68,6 +70,7 @@ fn export_objects(
                         transform.translation.truncate()
                     )
                 })?;
+
             for pos in CollisionBoxIter::from(collision_box) {
                 let pos = object_pos.as_ivec2() + pos;
                 let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)

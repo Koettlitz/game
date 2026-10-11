@@ -69,7 +69,9 @@ fn update_progress_screen(
     if changed.is_empty() {
         return;
     }
+
     let progress: Progress = progresses.iter().sum();
+
     for mut text in progress_screens.iter_mut() {
         let percent = progress.get_relative() * 100.0;
         text.0 = format!("Loading... {}%", percent as usize);
@@ -144,7 +146,11 @@ impl Progress {
     }
 
     pub fn get_relative(&self) -> f32 {
-        self.current as f32 / self.max as f32
+        if self.max == 0 {
+            0.0
+        } else {
+            self.current as f32 / self.max as f32
+        }
     }
 
     pub fn is_finished(&self) -> bool {
@@ -160,6 +166,7 @@ impl ops::AddAssign<usize> for Progress {
 
 impl ops::Add for &Progress {
     type Output = Progress;
+
     fn add(self, rhs: Self) -> Self::Output {
         Progress {
             current: self.current + rhs.current,

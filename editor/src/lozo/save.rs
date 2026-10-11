@@ -1,6 +1,11 @@
 use bevy::{asset::AssetPath, prelude::*};
-use bevy_elf::{AssetResolver, FromDef, HasResolver, ResolveStrategy, asset_spec};
+use bevy_elf::{
+    AppExt, AssetRef, AssetResolver, FromDef, HasResolver, ResolveError, ResolveStrategy,
+    asset_spec,
+};
 use bevy_event_cascade::{StageCompleted, StageProgress};
+use engine::overworld::lozo::LozoSource;
+use thiserror::Error;
 
 use crate::{
     character::io::save::{CharactersSave, SavedCharacter},
@@ -13,7 +18,8 @@ pub struct LozoSavePlugin;
 
 impl Plugin for LozoSavePlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(init_lozo_save)
+        app.init_ron_asset::<SavedLozo>()
+            .add_observer(init_lozo_save)
             .add_observer(commit_lozo_save);
     }
 }
@@ -24,20 +30,45 @@ impl Plugin for LozoSavePlugin {
     resolve_strategy = ResolveStrategy::DirectoryNameIsId { file_name: "lozo.ron" }
 )]
 pub struct SavedLozo {
-    tile_grid: SavedTileGrid,
+    pub tile_grid: SavedTileGrid,
 
     #[elf(with_spec(sub_path = "game_objects"), expose_resolver)]
-    objects: Vec<Handle<SavedGameObject>>,
+    pub objects: Vec<Handle<SavedGameObject>>,
 
     #[elf(with_spec(sub_path = "characters"), expose_resolver)]
-    characters: Vec<Handle<SavedCharacter>>,
+    pub characters: Vec<Handle<SavedCharacter>>,
 }
 
-#[derive(Event)]
-pub struct SaveLozo;
+#[derive(Component, Clone)]
+pub struct SavedLozoSource(AssetRef<SavedLozo>);
+
+impl From<AssetRef<SavedLozo>> for SavedLozoSource {
+    fn from(value: AssetRef<SavedLozo>) -> Self {
+        Self(value)
+    }
+}
+
+impl LozoSource for SavedLozoSource {
+    type Asset = SavedLozo;
+
+    fn handle(&self) -> &Handle<Self::Asset> {
+        self.0.handle()
+    }
+}
 
 #[derive(EntityEvent)]
-pub struct LozoSaveInitialized(Entity);
+pub struct SaveLozo {
+    #[event_target]
+    pub lozo_entity: Entity,
+}
+
+#[derive(EntityEvent)]
+pub struct LozoSaveInitialized {
+    pub lozo_entity: Entity,
+
+    #[event_target]
+    pub save_entity: Entity,
+}
 
 #[derive(Component)]
 pub struct LozoSave {
@@ -45,22 +76,27 @@ pub struct LozoSave {
 }
 
 impl LozoSave {
-    pub fn id(&self) -> &str {
-        &self.id
+    pub fn base_path(&self) -> Result<AssetPath<'static>, LozoBasePathError> {
+        let asset_path = SavedLozo::resolver().resolve(&self.id)?;
+        asset_path
+            .parent()
+            .ok_or_else(|| LozoBasePathError::NoParent(asset_path))
     }
+}
 
-    pub fn base_path(&self) -> AssetPath<'static> {
-        match SavedLozo::resolver().resolve(&self.id) {
-            Ok(b) => b,
-            Err(e) => panic!("Could not resolve SavedLozo id \"{}\" - {e}", self.id),
-        }
-    }
+#[derive(Error, Debug)]
+pub enum LozoBasePathError {
+    #[error("Lozos AssetPath: \"{0}\" had no parent")]
+    NoParent(AssetPath<'static>),
+
+    #[error("Failed to resolve lozo id - {0}")]
+    Resolve(#[from] ResolveError),
 }
 
 pub struct SaveLozoObjects;
 
-fn init_lozo_save(_: On<SaveLozo>, mut commands: Commands) {
-    let entity = commands
+fn init_lozo_save(event: On<SaveLozo>, mut commands: Commands) {
+    let save_entity = commands
         .spawn((
             LozoSave {
                 id: "world".to_owned(),
@@ -69,7 +105,10 @@ fn init_lozo_save(_: On<SaveLozo>, mut commands: Commands) {
         ))
         .id();
 
-    commands.trigger(LozoSaveInitialized(entity));
+    commands.trigger(LozoSaveInitialized {
+        lozo_entity: event.lozo_entity,
+        save_entity,
+    });
 }
 
 fn commit_lozo_save(event: On<StageCompleted<SaveLozoObjects>>, mut commands: Commands) {

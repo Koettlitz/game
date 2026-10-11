@@ -22,11 +22,19 @@ impl Plugin for LozoExportPlugin {
     }
 }
 
-#[derive(Event)]
-pub struct ExportLozo;
+#[derive(EntityEvent)]
+pub struct ExportLozo {
+    #[event_target]
+    pub lozo_entity: Entity,
+}
 
 #[derive(EntityEvent)]
-pub struct LozoExportInitialized(Entity);
+pub struct LozoExportInitialized {
+    pub lozo_entity: Entity,
+
+    #[event_target]
+    pub export_entity: Entity,
+}
 
 #[derive(Component)]
 pub struct LozoExport;
@@ -40,7 +48,7 @@ pub struct EventsExport {
     pub char_reached_events: HashMap<TileEdge, Vec<TileEventActionDef>>,
 }
 
-fn init_lozo_export(_: On<ExportLozo>, mut commands: Commands) {
+fn init_lozo_export(event: On<ExportLozo>, mut commands: Commands) {
     let entity = commands
         .spawn((
             LozoExport,
@@ -48,7 +56,11 @@ fn init_lozo_export(_: On<ExportLozo>, mut commands: Commands) {
             EventsExport::default(),
         ))
         .id();
-    commands.trigger(LozoExportInitialized(entity));
+
+    commands.trigger(LozoExportInitialized {
+        lozo_entity: event.lozo_entity,
+        export_entity: entity,
+    });
 }
 
 fn commit_lozo_export(event: On<StageCompleted<ExportLozoObjects>>, mut commands: Commands) {

@@ -22,8 +22,8 @@ impl Plugin for GameObjectSavePlugin {
 
 #[derive(Asset, FromDef, TypePath)]
 pub struct SavedGameObject {
-    kind: AssetRef<GameObjectKindAsset>,
-    position: UVec2,
+    pub kind: AssetRef<GameObjectKindAsset>,
+    pub position: UVec2,
 }
 
 #[derive(Component)]
@@ -41,7 +41,7 @@ impl InStage for GameObjectsSaved {
 fn save_game_objects(
     event: On<TileGridSaved>,
     lozo_save: Query<&LozoSave>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     objects_query: Query<(&GameObject, &Transform, Option<&EntityId>)>,
     mut commands: Commands,
 ) -> Result {
@@ -49,6 +49,7 @@ fn save_game_objects(
 
     for (i, (object, transform, id)) in objects_query.iter().enumerate() {
         let position = grid_size
+            .get(event.lozo_entity)?
             .world_to_grid(transform.translation.truncate())
             .ok_or_else(|| format!("object position out of grid bounds: {:?}", transform))?;
 
@@ -64,7 +65,7 @@ fn save_game_objects(
 
     let object_ids = objects.iter().map(|(id, _)| id.to_owned()).collect();
 
-    let base_path = lozo_save.get(event.event_target())?.base_path();
+    let base_path = lozo_save.get(event.event_target())?.base_path()?;
     resolve_and_flush(objects, SavedLozo::objects_resolver(&base_path.to_string()));
 
     commands

@@ -11,7 +11,7 @@ use engine::asset::AssetSetPlugin;
 use engine::asset::AssetsExt;
 use engine::asset::spritesheet::SpritesheetKind;
 use engine::overworld::tile::TILE_SIZE;
-use macros::asset_set;
+use glaze::asset_set;
 use serde::{Deserialize, Serialize};
 use std::cmp;
 

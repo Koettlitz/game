@@ -27,6 +27,21 @@ impl Plugin for UiPlugin {
     }
 }
 
+#[derive(Resource)]
+pub struct CurrentLozo(Entity);
+
+impl CurrentLozo {
+    pub fn new(entity: Entity) -> Self {
+        Self(entity)
+    }
+}
+
+impl ContainsEntity for CurrentLozo {
+    fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
 pub fn screen_to_world(
     cursor_pos: Vec2,
     camera: &Camera,

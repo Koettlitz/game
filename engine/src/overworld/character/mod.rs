@@ -5,7 +5,10 @@ use crate::{
         character::asset::{CharacterAsset, CharacterVisual, Route},
         event::TileEdgeEvent,
         input::InputSystems,
-        lozo::{InLozo, InitLozo, Lozo, LozoAsset, LozoCommands, SpawnOverworldObjects},
+        lozo::{
+            InLozo, InitLozo, Lozo, LozoAsset, LozoAssetSource, LozoCommands, LozoSource,
+            SpawnOverworldObjects,
+        },
         tile::{Grid, GridSize, Neighbor, Passability, TILE_SIZE, Tile, TileEdge},
     },
 };
@@ -62,7 +65,7 @@ impl InStage for CharactersSpawned {
 
 fn spawn_characters(
     event: On<InitLozo>,
-    lozo_query: Query<&Lozo>,
+    lozo_query: Query<&LozoAssetSource, With<Lozo>>,
     lozo_assets: Res<Assets<LozoAsset>>,
     character_assets: Res<Assets<CharacterAsset>>,
     mut commands: LozoCommands,

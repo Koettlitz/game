@@ -1,0 +1,5 @@
+(
+    kind: "pink_kid",
+    position: (26, 6),
+    orientation: Down,
+)

@@ -12,11 +12,11 @@ use engine::{
 
 use crate::{
     character::asset::{CharacterKindAsset, CharacterKindMap},
-    lozo::ExportLozo,
+    lozo::{ExportLozo, SaveLozo},
     object::asset::{GameObjectKindAsset, GameObjectKindMap},
     tile::asset::{TileKindAsset, TileKindMap},
     ui::{
-        ShowGridLines,
+        CurrentLozo, ShowGridLines,
         camera::{CameraMovement, WorldCamera},
         screen_to_world,
     },
@@ -50,8 +50,11 @@ impl Plugin for InputPlugin {
                     move_camera,
                     (
                         (
-                            (update_cursor_position, switch_cursor),
-                            (place_tiles, place_object),
+                            (
+                                update_cursor_position.run_if(resource_exists::<CurrentLozo>),
+                                switch_cursor,
+                            ),
+                            (place_tiles, place_object).run_if(resource_exists::<CurrentLozo>),
                         )
                             .chain(),
                         toggle_grid_lines,
@@ -61,30 +64,38 @@ impl Plugin for InputPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (update_cursor_visuals, save_lozo).run_if(in_state(ProgressState::Finished)),
+                (
+                    update_cursor_visuals,
+                    trigger_commands.run_if(resource_exists::<CurrentLozo>),
+                )
+                    .run_if(in_state(ProgressState::Finished)),
             );
     }
 }
 
 #[derive(Message)]
 pub struct PlaceTile {
+    pub lozo_entity: Entity,
     pub world_position: Vec2,
     pub tile_kind: AssetRef<TileKindAsset>,
 }
 
 #[derive(Message)]
 pub struct RemoveTile {
+    pub lozo_entity: Entity,
     pub world_position: Vec2,
 }
 
 #[derive(Message)]
 pub struct PlaceObject {
+    pub lozo_entity: Entity,
     pub world_position: Vec2,
     pub object_kind: AssetRef<GameObjectKindAsset>,
 }
 
 #[derive(Message)]
 pub struct PlaceCharacter {
+    pub lozo_entity: Entity,
     pub world_position: Vec2,
     pub character_kind: AssetRef<CharacterKindAsset>,
     pub orientation: Orientation,
@@ -174,14 +185,20 @@ struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 
 fn update_cursor_position(
     mut cursor: Single<&mut Transform, With<Cursor>>,
-    grid_size: Single<&GridSize>,
+    current_lozo: Res<CurrentLozo>,
+    grid_size: Query<&GridSize>,
     camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
-) {
+) -> Result {
     if let Some(cursor_position) = window.cursor_position() {
         let world_position = screen_to_world(cursor_position, camera.0, camera.1);
-        cursor.translation = grid_size.snap_to_tile(world_position).extend(CURSOR_Z);
+        cursor.translation = grid_size
+            .get(current_lozo.entity())?
+            .snap_to_tile(world_position)
+            .extend(CURSOR_Z);
     }
+
+    Ok(())
 }
 
 fn switch_cursor(
@@ -267,6 +284,7 @@ fn place_tiles(
     window: Single<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
     cursor: Single<&Cursor>,
+    current_lozo: Res<CurrentLozo>,
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
 ) {
@@ -282,6 +300,7 @@ fn place_tiles(
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };
+
     if let Some(mouse_motion) = mouse_motion.read().next() {
         let delta = mouse_motion.delta * window.scale_factor();
         let mut starting_pos = cursor_position - delta;
@@ -294,11 +313,15 @@ fn place_tiles(
             let world_position = screen_to_world(starting_pos, camera.0, camera.1);
             if left_pressed {
                 place_tile_writer.write(PlaceTile {
+                    lozo_entity: current_lozo.entity(),
                     world_position,
                     tile_kind: tile_kind.clone(),
                 });
             } else if right_pressed {
-                remove_tile_writer.write(RemoveTile { world_position });
+                remove_tile_writer.write(RemoveTile {
+                    lozo_entity: current_lozo.entity(),
+                    world_position,
+                });
             }
             starting_pos += tile_step;
         }
@@ -307,11 +330,15 @@ fn place_tiles(
 
         if mouse_btn.just_pressed(MouseButton::Left) {
             place_tile_writer.write(PlaceTile {
+                lozo_entity: current_lozo.entity(),
                 world_position,
                 tile_kind: tile_kind.clone(),
             });
         } else if mouse_btn.just_pressed(MouseButton::Right) {
-            remove_tile_writer.write(RemoveTile { world_position });
+            remove_tile_writer.write(RemoveTile {
+                lozo_entity: current_lozo.entity(),
+                world_position,
+            });
         }
     }
 }
@@ -321,6 +348,7 @@ fn place_object(
     mouse_btn: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
+    current_lozo: Res<CurrentLozo>,
     mut place_object_message_writer: MessageWriter<PlaceObject>,
     mut place_character_message_writer: MessageWriter<PlaceCharacter>,
 ) {
@@ -334,12 +362,14 @@ fn place_object(
     match *cursor {
         Cursor::Object(object_kind) => {
             place_object_message_writer.write(PlaceObject {
+                lozo_entity: current_lozo.entity(),
                 world_position,
                 object_kind: object_kind.clone(),
             });
         }
         Cursor::Character { asset, orientation } => {
             place_character_message_writer.write(PlaceCharacter {
+                lozo_entity: current_lozo.entity(),
                 character_kind: asset.clone(),
                 world_position,
                 orientation: *orientation,
@@ -368,10 +398,22 @@ fn toggle_grid_lines(keys: Res<ButtonInput<KeyCode>>, mut grid_lines: Single<&mu
     }
 }
 
-fn save_lozo(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
-    if (keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight))
-        && keys.just_pressed(KeyCode::KeyS)
-    {
-        commands.trigger(ExportLozo);
+fn trigger_commands(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+    current_lozo: Res<CurrentLozo>,
+) {
+    if keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight) {
+        if keys.just_pressed(KeyCode::KeyS) {
+            commands.trigger(SaveLozo {
+                lozo_entity: current_lozo.entity(),
+            });
+        }
+
+        if keys.just_pressed(KeyCode::KeyE) {
+            commands.trigger(ExportLozo {
+                lozo_entity: current_lozo.entity(),
+            });
+        }
     }
 }

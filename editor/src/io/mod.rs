@@ -1,10 +1,7 @@
 use std::fs;
 
 use bevy::{
-    asset::{
-        AssetPath,
-        io::{AssetSourceId, file::FileAssetReader},
-    },
+    asset::{AssetPath, io::file::FileAssetReader},
     prelude::*,
     tasks::IoTaskPool,
 };
@@ -47,23 +44,30 @@ pub fn flush_assets<A: Serialize>(
 }
 
 pub fn write_asset<A: Serialize>(asset_path: AssetPath, asset: A) -> Result {
-    let base_path = FileAssetReader::get_base_path();
-    let source_folder = match asset_path.source() {
-        AssetSourceId::Default => "assets",
-        AssetSourceId::Name(name) => &format!("{}/assets", name.as_ref()),
+    let file_path = {
+        let base_path = FileAssetReader::get_base_path();
+        let sub_path = asset_path.path();
+
+        if let Some(source) = asset_path.source().as_str() {
+            base_path.join(source).join("assets").join(sub_path)
+        } else {
+            base_path.join("assets").join(sub_path)
+        }
     };
-    let file_path = base_path.join(source_folder).join(asset_path.path());
+
     if let Some(dir_path) = file_path.parent()
         && !dir_path.exists()
     {
         info!("ensuring parent dirs exist for {}", dir_path.display());
         fs::create_dir_all(dir_path)?;
     }
+
     info!(
         "writing asset to {asset_path} => \"{}\"",
         file_path.display()
     );
     let serialized = ron::ser::to_string_pretty(&asset, PrettyConfig::default())?;
     fs::write(file_path, serialized)?;
+
     Ok(())
 }

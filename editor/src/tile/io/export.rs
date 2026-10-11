@@ -27,7 +27,11 @@ impl Plugin for ExportPlugin {
 }
 
 #[derive(EntityEvent)]
-pub struct TileGridExported(Entity);
+pub struct TileGridExported {
+    pub lozo_entity: Entity,
+    #[event_target]
+    pub export_entity: Entity,
+}
 
 #[derive(Component)]
 pub struct TileGridExport {
@@ -38,13 +42,13 @@ pub struct TileGridExport {
 
 fn export_grid(
     event: On<LozoExportInitialized>,
-    tile_grid: Single<(&Grid<Option<Tile>>, &GridSize)>,
+    tile_grid: Query<(&Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
     sprites_query: Query<(&TileSprite, &Sprite, Option<&AnimationId>, &Transform)>,
     mut commands: Commands,
 ) -> Result {
-    let (tile_grid, grid_size) = tile_grid.into_inner();
+    let (tile_grid, grid_size) = tile_grid.get(event.lozo_entity)?;
     let mut grid = Vec::new();
     let mut layout_map = HashMap::new();
 
@@ -56,6 +60,7 @@ fn export_grid(
         let tile_kind_handle = tile.kind.handle();
         let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
         let mut visuals = Vec::new();
+
         for tile_sprite in &tile.sprite_stack {
             let (sprite_tag, sprite, animated, transform) = sprites_query.get(*tile_sprite)?;
             let atlas = sprite
@@ -64,22 +69,24 @@ fn export_grid(
                 .ok_or("missing texture atlas on tile sprite")?;
             let layout = layouts.require_handle(&atlas.layout)?;
             let layout_id = sprite_tag.id().to_string();
+
             layout_map
                 .entry(layout_id.clone())
                 .or_insert_with(|| layout.clone());
+
             let kind = match animated {
                 Some(animation_id) => TileVisualKindDef::Animated {
                     animation: animation_id.0.clone(),
                 },
                 None => TileVisualKindDef::Static { idx: atlas.index },
             };
-            let visual = TileVisualsDef {
+
+            visuals.push(TileVisualsDef {
                 spritesheet: sprite_tag.id().to_string(),
                 layout: layout_id,
                 kind,
                 z: transform.translation.z,
-            };
-            visuals.push(visual);
+            });
         }
 
         grid.push(Some(TileDef {
@@ -98,6 +105,9 @@ fn export_grid(
             grid,
         });
 
-    commands.trigger(TileGridExported(event.event_target()));
+    commands.trigger(TileGridExported {
+        lozo_entity: event.lozo_entity,
+        export_entity: event.export_entity,
+    });
     Ok(())
 }

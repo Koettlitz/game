@@ -7,7 +7,9 @@ use bevy_event_cascade::{EventCascadeAppExt, InStage};
 use crate::{
     animation::Animated,
     asset::AssetsExt,
-    overworld::lozo::{InitLozo, Lozo, LozoAsset, LozoCommands, SpawnOverworldObjects},
+    overworld::lozo::{
+        InitLozo, Lozo, LozoAsset, LozoAssetSource, LozoCommands, LozoSource, SpawnOverworldObjects,
+    },
 };
 
 pub use asset::*;
@@ -33,7 +35,7 @@ impl InStage for GameObjectsSpawned {
 
 fn spawn_objects(
     event: On<InitLozo>,
-    lozo_query: Query<&Lozo>,
+    lozo_query: Query<&LozoAssetSource, With<Lozo>>,
     lozo_assets: Res<Assets<LozoAsset>>,
     mut commands: LozoCommands,
     object_assets: Res<Assets<GameObjectSpriteAsset>>,

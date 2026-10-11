@@ -11,6 +11,9 @@ proc-macro-crate = { workspace = true }
 anyhow = { workspace = true } 
 convert_case = { workspace = true } 
 thiserror = { workspace = true } 
+bevy_elf = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
 
 [dev-dependencies]
 engine = { path = "../engine" }

@@ -10,7 +10,7 @@ use engine::{
         tile::{GridCursor, Neighbor, Passability, TILE_SIZE},
     },
 };
-use macros::asset_set;
+use glaze::asset_set;
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display},
@@ -43,19 +43,23 @@ fn derive_layouts(
     mut tile_kinds: ResMut<Assets<TileKindAsset>>,
     images: Res<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-) -> Result<()> {
+) -> Result {
     for msg in message_reader.read() {
         let AssetEvent::LoadedWithDependencies { id } = msg else {
             continue;
         };
+
         for tile_kind in tile_kind_map.0.values() {
             let mut tile_kind = tile_kinds.require_handle_mut(tile_kind)?;
+
             if &tile_kind.spritesheet.image().id() != id {
                 continue;
             }
+
             tile_kind.spritesheet.derive_layout(&images, &mut layouts)?;
         }
     }
+
     Ok(())
 }
 

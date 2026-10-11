@@ -8,7 +8,7 @@ use object::GameObjectPlugin;
 use tile::TilePlugin;
 use ui::UiPlugin;
 
-use lozo::LozoIoPlugin;
+use lozo::LozoPlugin;
 
 mod animation;
 mod character;
@@ -36,7 +36,7 @@ fn main() {
             CharacterPlugin,
             GameObjectPlugin,
             SpriteAnimationPlugin,
-            LozoIoPlugin,
+            LozoPlugin,
         ))
         .init_asset_loader::<RonAssetLoader<TextureAtlasLayout>>()
         .add_systems(Startup, spawn_progress_screen)

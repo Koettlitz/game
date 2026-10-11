@@ -17,7 +17,7 @@ use engine::{
             Bobbing, CHARACTER_SPRITE_SCALE, Character, CharacterController, LoadingCharacter,
             Player, asset::CharacterAsset,
         },
-        lozo::{Lozo, LozoCommands},
+        lozo::{LozoAssetSource, LozoCommands},
         tile::GridSize,
     },
 };
@@ -53,7 +53,7 @@ fn setup_main_camera(mut commands: Commands) {
 }
 
 fn spawn_lozo(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
-    commands.spawn(Lozo::from_id("world", &asset_server)?);
+    commands.spawn(LozoAssetSource::from_id("world", &asset_server)?);
     Ok(())
 }
 

@@ -22,9 +22,9 @@ impl Plugin for CharacterSavePlugin {
 
 #[derive(Asset, FromDef, TypePath)]
 pub struct SavedCharacter {
-    kind: AssetRef<CharacterKindAsset>,
-    position: UVec2,
-    orientation: Orientation,
+    pub kind: AssetRef<CharacterKindAsset>,
+    pub position: UVec2,
+    pub orientation: Orientation,
 }
 
 impl InStage for CharactersSaved {
@@ -32,7 +32,10 @@ impl InStage for CharactersSaved {
 }
 
 #[derive(EntityEvent)]
-pub struct CharactersSaved(Entity);
+pub struct CharactersSaved {
+    #[event_target]
+    pub save_entity: Entity,
+}
 
 #[derive(Component)]
 pub struct CharactersSave {
@@ -42,7 +45,7 @@ pub struct CharactersSave {
 fn save_characters(
     event: On<TileGridSaved>,
     lozo_save: Query<&LozoSave>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     characters: Query<(Option<&EntityId>, &Character, &Transform)>,
     mut commands: Commands,
 ) -> Result {
@@ -50,6 +53,7 @@ fn save_characters(
 
     for (i, (id, character, transform)) in characters.iter().enumerate() {
         let position = grid_size
+            .get(event.lozo_entity)?
             .world_to_grid(transform.translation.truncate())
             .ok_or_else(|| format!("characer out of grid bounds: {}", transform.translation))?
             .as_uvec2();
@@ -70,7 +74,7 @@ fn save_characters(
         .map(|(id, _)| id.to_owned())
         .collect();
 
-    let base_path = lozo_save.get(event.event_target())?.base_path();
+    let base_path = lozo_save.get(event.event_target())?.base_path()?;
     resolve_and_flush(
         saved_characters,
         SavedLozo::characters_resolver(&base_path.to_string()),
@@ -80,7 +84,9 @@ fn save_characters(
         .entity(event.event_target())
         .insert(CharactersSave { character_ids });
 
-    commands.trigger(CharactersSaved(event.event_target()));
+    commands.trigger(CharactersSaved {
+        save_entity: event.save_entity,
+    });
 
     Ok(())
 }

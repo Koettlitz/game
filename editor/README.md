@@ -7,5 +7,7 @@
 | Delete tile                       | Right mouse                                                   |
 | Select tile cursor                | g: `grass`<br>w: `water_wild`<br>s: `sand`<br>c: `water_calm` |
 | Select object cursor              | Shift + ...<br>C: `pokecenter`                                |
+| Select character cursor           | Shift + ...<br>p: `pink kid`                                  |
 | Toggle grid lines                 | Ctrl + g                                                      |
-| Export map to game                | Ctrl + s                                                      |
+| Save map                          | Ctrl + s                                                      |
+| Export map to game                | Ctrl + e                                                      |

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_elf::{AppExt, AssetRef};
+use bevy_entity_lookup::EntityId;
 use engine::{
     animation::{Animated, SpriteAnimationAsset},
     asset::{AssetSetPlugin, AssetsExt},
@@ -9,6 +10,7 @@ use engine::{
             CHARACTER_SPRITE_SCALE, Orientation,
             asset::{CharacterState, CharacterVisual},
         },
+        lozo::LozoCommands,
         tile::GridSize,
     },
     progress::ProgressState,
@@ -30,6 +32,7 @@ impl Plugin for CharacterPlugin {
                 AssetSetPlugin::<CharacterKindAsset>::default(),
                 io::export::ExportPlugin,
                 io::save::CharacterSavePlugin,
+                io::load::CharacterLoadPlugin,
             ))
             .add_systems(
                 Update,
@@ -72,11 +75,12 @@ pub struct Character {
 
 fn place_character(
     mut event_reader: MessageReader<PlaceCharacter>,
-    grid_size: Single<&GridSize>,
+    grid_size: Query<&GridSize>,
     assets: Res<Assets<CharacterKindAsset>>,
-    mut commands: Commands,
+    mut commands: LozoCommands,
 ) -> Result {
     for PlaceCharacter {
+        lozo_entity,
         world_position,
         character_kind,
         orientation,
@@ -87,23 +91,27 @@ fn place_character(
             CharacterVisual::Static(idx) => (*idx, None),
             CharacterVisual::Animated(animation) => (0, Some(animation)),
         };
-        let world_position = grid_size.snap_to_tile(*world_position);
+        let world_position = grid_size.get(*lozo_entity)?.snap_to_tile(*world_position);
 
-        let mut sprite_commands = commands.spawn((
-            Character {
-                asset_ref: character_kind.clone(),
-                orientation: *orientation,
-            },
-            Sprite::from_atlas_image(
-                asset.spritesheet.image().handle().clone(),
-                TextureAtlas {
-                    layout: asset.spritesheet.layout().handle().clone(),
-                    index,
+        let mut sprite_commands = commands.spawn_into_lozo(
+            *lozo_entity,
+            (
+                Character {
+                    asset_ref: character_kind.clone(),
+                    orientation: *orientation,
                 },
+                Sprite::from_atlas_image(
+                    asset.spritesheet.image().handle().clone(),
+                    TextureAtlas {
+                        layout: asset.spritesheet.layout().handle().clone(),
+                        index,
+                    },
+                ),
+                Transform::from_translation(world_position.extend(CHARACTER_LAYER))
+                    .with_scale(CHARACTER_SPRITE_SCALE),
             ),
-            Transform::from_translation(world_position.extend(CHARACTER_LAYER))
-                .with_scale(CHARACTER_SPRITE_SCALE),
-        ));
+        )?;
+        sprite_commands.insert(EntityId::new(format!("character{}", sprite_commands.id())));
         if let Some(animation) = animation {
             sprite_commands.insert(Animated::by(animation.handle().clone()));
         }

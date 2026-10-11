@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["editor", "macros", "engine", "spielwiese", "build", "game"]
+members = ["editor", "macros", "engine", "spielwiese", "build", "game", "glaze"]
 
 [workspace.dependencies]
 bevy = { version = "0.20", features = ["debug", "serialize"] }    

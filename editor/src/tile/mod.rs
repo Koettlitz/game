@@ -1,17 +1,17 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     tile::{asset::TileAssetPlugin, edge::TileVisualsPlugin},
     ui::{PlaceTile, RemoveTile, SpawnCursorSprite},
 };
-use asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileResolverSet};
+use asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset};
 use bevy::prelude::*;
 use bevy_elf::AssetRef;
 use engine::{
     animation::Animated,
-    asset::{AssetMap, AssetsExt, LoadState},
-    overworld::tile::{Grid, GridCommands, GridSize},
-    progress::{Progress, ProgressPanel, ProgressState},
+    asset::AssetsExt,
+    overworld::tile::{Grid, GridSize},
+    progress::ProgressState,
 };
 use thiserror::Error;
 
@@ -22,22 +22,16 @@ pub mod io;
 pub const DEFAULT_TILE_KIND: &str = "grass";
 pub const DEFAULT_TILE_GRID_SIZE: UVec2 = UVec2::new(32, 20);
 
-type TileKindMap = AssetMap<TileResolverSet, TileKindAsset>;
-
 pub struct TilePlugin;
 
 impl Plugin for TilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((TileVisualsPlugin, TileAssetPlugin, io::IoPlugin))
+        app.add_message::<PlaceTiles>()
+            .add_plugins((TileVisualsPlugin, TileAssetPlugin, io::IoPlugin))
             .add_observer(spawn_cursor_sprite)
-            .add_systems(Startup, init_tile_grid_progress)
-            .add_systems(
-                OnEnter(LoadState::<TileResolverSet>::finished()),
-                spawn_tile_grid,
-            )
             .add_systems(
                 Update,
-                ((grow_grid_to_fit_tiles, place_tile).chain(), remove_tile)
+                ((group_place_tile_events, place_tiles).chain(), remove_tile)
                     .run_if(in_state(ProgressState::Finished)),
             )
             .add_systems(
@@ -48,11 +42,11 @@ impl Plugin for TilePlugin {
     }
 }
 
-#[derive(Component)]
-struct TileGridProgress;
-
 #[derive(Event)]
-struct TilesChanged(Vec<UVec2>);
+struct TilesChanged {
+    lozo_entity: Entity,
+    positions: Vec<UVec2>,
+}
 
 pub struct Tile {
     pub kind: AssetRef<TileKindAsset>,
@@ -60,112 +54,112 @@ pub struct Tile {
     pub group: Option<String>,
 }
 
-fn init_tile_grid_progress(mut commands: Commands) {
-    commands.spawn((
-        TileGridProgress,
-        Progress::new(0, 1),
-        ProgressPanel::new("tile grid".to_string()),
-    ));
+#[derive(Message)]
+struct PlaceTiles {
+    lozo_entity: Entity,
+    placements: Vec<(Vec2, AssetRef<TileKindAsset>)>,
 }
 
-fn spawn_tile_grid(
-    mut commands: GridCommands,
-    tile_kind_map: Res<TileKindMap>,
-    tile_kinds: Res<Assets<TileKindAsset>>,
-    edge_configs: Res<Assets<TileEdgeConfig>>,
-    mut progress: Single<&mut Progress, With<TileGridProgress>>,
-) -> Result {
-    let (id, tile_kind_handle) = tile_kind_map
-        .iter()
-        .find(|(id, _)| *id == DEFAULT_TILE_KIND)
-        .ok_or_else(|| format!("missing tile kind \"{DEFAULT_TILE_KIND}\""))?;
-    commands.spawn_from_fn_result(DEFAULT_TILE_GRID_SIZE, |_| {
-        let tile_kind = tile_kinds.require_handle(tile_kind_handle)?;
-        let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-        Ok(Some(Tile {
-            kind: AssetRef::new(id.clone(), tile_kind_handle.clone()),
-            sprite_stack: Vec::default(),
-            group: edge_config.group.clone(),
-        }))
-    })?;
-    progress.add(1);
-    Ok(())
-}
-
-fn grow_grid_to_fit_tiles(
+fn group_place_tile_events(
     mut event_reader: MessageReader<PlaceTile>,
-    tile_grid: Single<(&mut Grid<Option<Tile>>, &mut GridSize)>,
+    mut event_writer: MessageWriter<PlaceTiles>,
 ) {
-    if event_reader.is_empty() {
-        return;
+    let mut by_lozo: HashMap<Entity, Vec<(Vec2, AssetRef<TileKindAsset>)>> = HashMap::new();
+
+    for msg in event_reader.read() {
+        by_lozo
+            .entry(msg.lozo_entity)
+            .or_default()
+            .push((msg.world_position, msg.tile_kind.clone()));
     }
-    let (mut grid, mut grid_size) = tile_grid.into_inner();
-    grid.grow_to_fit(
-        &mut grid_size,
-        event_reader.read().map(|msg| msg.world_position),
-    );
+
+    for (lozo_entity, placements) in by_lozo {
+        event_writer.write(PlaceTiles {
+            lozo_entity,
+            placements,
+        });
+    }
 }
 
-fn place_tile(
-    mut event_reader: MessageReader<PlaceTile>,
-    mut commands: Commands,
-    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+fn place_tiles(
+    mut event_reader: MessageReader<PlaceTiles>,
+    mut tile_grid: Query<(&mut Grid<Option<Tile>>, &mut GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
+    mut commands: Commands,
 ) -> Result {
-    let (mut grid, grid_size) = tile_grid.into_inner();
-    let mut changed = Vec::new();
-    for m in event_reader.read() {
-        let Some(pos) = grid_size.world_to_grid(m.world_position) else {
-            error!(
-                "world position {} in PlaceTile message out of bounds",
-                m.world_position
-            );
-            continue;
-        };
-        if let Some(tile) = &mut grid[pos] {
-            if tile.kind.id() != m.tile_kind.id() {
-                tile.kind = m.tile_kind.clone();
-                let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
-                let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-                tile.group = edge_config.group.clone();
+    for PlaceTiles {
+        lozo_entity,
+        placements,
+    } in event_reader.read()
+    {
+        let (mut grid, mut grid_size) = tile_grid.get_mut(*lozo_entity)?;
+        grid.grow_to_fit(&mut grid_size, placements.iter().map(|(p, _)| *p));
+
+        let mut changed = Vec::new();
+
+        for (world_position, tile_kind_ref) in placements {
+            let Some(pos) = grid_size.world_to_grid(*world_position) else {
+                error!(
+                    "world position {} in PlaceTile message out of bounds",
+                    world_position
+                );
+                continue;
+            };
+
+            let tile_kind = tile_kinds.require_handle(tile_kind_ref.handle())?;
+            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
+
+            if let Some(tile) = &mut grid[pos] {
+                if tile.kind.handle().id() != tile_kind_ref.handle().id() {
+                    tile.kind = tile_kind_ref.clone();
+                    tile.group = edge_config.group.clone();
+                    changed.push(*pos);
+                }
+            } else {
+                grid[pos] = Some(Tile {
+                    kind: tile_kind_ref.clone(),
+                    group: edge_config.group.clone(),
+                    sprite_stack: Vec::default(),
+                });
                 changed.push(*pos);
             }
-        } else {
-            let tile_kind = tile_kinds.require_handle(m.tile_kind.handle())?;
-            let edge_config = edge_configs.require_handle(&tile_kind.edge_config)?;
-            grid[pos] = Some(Tile {
-                kind: m.tile_kind.clone(),
-                group: edge_config.group.clone(),
-                sprite_stack: Vec::default(),
+        }
+
+        if !changed.is_empty() {
+            commands.trigger(TilesChanged {
+                lozo_entity: *lozo_entity,
+                positions: changed,
             });
-            changed.push(*pos);
         }
     }
-    if !changed.is_empty() {
-        commands.trigger(TilesChanged(changed));
-    }
+
     Ok(())
 }
 
 fn remove_tile(
     mut message_reader: MessageReader<RemoveTile>,
-    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+    mut tile_grid: Query<(&mut Grid<Option<Tile>>, &GridSize)>,
     mut commands: Commands,
-) {
-    let (mut grid, grid_size) = tile_grid.into_inner();
+) -> Result {
     for msg in message_reader.read() {
+        let (mut grid, grid_size) = tile_grid.get_mut(msg.lozo_entity)?;
+
         let Some(pos) = grid_size.world_to_grid(msg.world_position) else {
             continue;
         };
         let Some(tile) = &grid[pos] else {
             continue;
         };
+
         for sprite in &tile.sprite_stack {
             commands.entity(*sprite).despawn();
         }
+
         grid[pos] = None;
     }
+
+    Ok(())
 }
 
 fn spawn_cursor_sprite(
@@ -221,11 +215,9 @@ fn hot_reload_tile_kinds(
     edge_configs: Res<Assets<TileEdgeConfig>>,
     images: Res<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    ground_tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+    mut ground_tile_grid: Query<(Entity, &mut Grid<Option<Tile>>, &GridSize)>,
     mut commands: Commands,
-) -> Result<()> {
-    let (mut grid, grid_size) = ground_tile_grid.into_inner();
-    let mut changed = Vec::new();
+) -> Result {
     for msg in message_reader.read() {
         let AssetEvent::LoadedWithDependencies { id } = msg else {
             continue;
@@ -236,50 +228,69 @@ fn hot_reload_tile_kinds(
             .spritesheet
             .derive_layout(&images, &mut layouts)
             .ok();
-        for pos in grid_size.iter_all() {
-            let Some(tile) = &mut grid[pos] else {
-                continue;
-            };
-            if tile.kind.handle().id() == *id {
-                tile.group = edge_config.group.clone();
-                changed.push(*pos);
+
+        for (lozo_entity, mut grid, grid_size) in &mut ground_tile_grid {
+            let mut changed = Vec::new();
+
+            for pos in grid_size.iter_all() {
+                let Some(tile) = &mut grid[pos] else {
+                    continue;
+                };
+                if tile.kind.handle().id() == *id {
+                    tile.group = edge_config.group.clone();
+                    changed.push(*pos);
+                }
+            }
+
+            if !changed.is_empty() {
+                commands.trigger(TilesChanged {
+                    lozo_entity,
+                    positions: changed,
+                });
             }
         }
-    }
-    if !changed.is_empty() {
-        commands.trigger(TilesChanged(changed));
     }
     Ok(())
 }
 
 fn hot_reload_edge_configs(
     mut message_reader: MessageReader<AssetEvent<TileEdgeConfig>>,
-    ground_tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+    mut ground_tile_grid: Query<(Entity, &mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
     mut commands: Commands,
-) -> Result<()> {
-    let (mut grid, grid_size) = ground_tile_grid.into_inner();
-    let mut changed = Vec::new();
+) -> Result {
     for msg in message_reader.read() {
         let AssetEvent::LoadedWithDependencies { id } = msg else {
             continue;
         };
+
         let edge_config = edge_configs.require(*id)?;
-        for pos in grid_size.iter_all() {
-            let Some(tile) = &mut grid[pos] else {
-                continue;
-            };
-            let tile_kind = tile_kinds.require_handle(tile.kind.handle())?;
-            if &tile_kind.edge_config.id() == id {
-                tile.group = edge_config.group.clone();
-                changed.push(*pos);
+
+        for (lozo_entity, mut grid, grid_size) in &mut ground_tile_grid {
+            let mut changed = Vec::new();
+
+            for pos in grid_size.iter_all() {
+                let Some(tile) = &mut grid[pos] else {
+                    continue;
+                };
+
+                let tile_kind = tile_kinds.require_handle(tile.kind.handle())?;
+                if &tile_kind.edge_config.id() == id {
+                    tile.group = edge_config.group.clone();
+                    changed.push(*pos);
+                }
+            }
+
+            if !changed.is_empty() {
+                commands.trigger(TilesChanged {
+                    lozo_entity,
+                    positions: changed,
+                });
             }
         }
     }
-    if !changed.is_empty() {
-        commands.trigger(TilesChanged(changed));
-    }
+
     Ok(())
 }
 

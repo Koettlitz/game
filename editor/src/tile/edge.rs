@@ -3,64 +3,68 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use engine::{
     animation::Animated,
-    asset::{AssetsExt},
+    asset::AssetsExt,
     overworld::tile::{Grid, GridPosition, GridSize},
-    progress::ProgressState,
 };
 
-use super::{ spawn_tile_grid, InvalidGridPosition, Tile, TilesChanged, asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileKindSpritesheet} };
+use super::{
+    InvalidGridPosition, Tile, TilesChanged,
+    asset::{GroundTileVisual, TileEdgeConfig, TileKindAsset, TileKindSpritesheet},
+};
 
 pub struct TileVisualsPlugin;
 impl Plugin for TileVisualsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(ProgressState::Finished),
-            init_sprite_grid.after(spawn_tile_grid),
-        )
-        .add_observer(on_ground_tile_changed)
-        .add_observer(update_sprites);
+        app.add_observer(on_ground_tile_changed)
+            .add_observer(update_sprites);
     }
 }
 
 #[derive(Event)]
-struct UpdateTileSprites(UVec2);
-
-fn init_sprite_grid(mut commands: Commands, grid_size: Single<&GridSize>) {
-    for pos in grid_size.iter_all() {
-        commands.trigger(UpdateTileSprites(*pos));
-    }
+struct UpdateTileSprites {
+    lozo_entity: Entity,
+    pos: UVec2,
 }
 
 fn on_ground_tile_changed(
     event: On<TilesChanged>,
     mut commands: Commands,
-    grid_size: Single<&GridSize>,
-) {
+    grid_size: Query<&GridSize>,
+) -> Result {
     let mut sprites_to_update: HashSet<UVec2> = HashSet::new();
-    for position in &event.0 {
+
+    for position in &event.positions {
+        let grid_size = grid_size.get(event.lozo_entity)?;
         let Some(position) = GridPosition::new(*position, &grid_size) else {
             error!("invalid position in GroundTilesChangedEvent: {position}");
             continue;
         };
+
         for neighbor in position.around_inclusive().into_iter().flatten() {
             sprites_to_update.insert(*neighbor);
         }
     }
+
     for sprite_to_update in sprites_to_update {
-        commands.trigger(UpdateTileSprites(sprite_to_update));
+        commands.trigger(UpdateTileSprites {
+            lozo_entity: event.lozo_entity,
+            pos: sprite_to_update,
+        });
     }
+
+    Ok(())
 }
 
 fn update_sprites(
     event: On<UpdateTileSprites>,
     mut commands: Commands,
-    tile_grid: Single<(&mut Grid<Option<Tile>>, &GridSize)>,
+    mut tile_grid: Query<(&mut Grid<Option<Tile>>, &GridSize)>,
     tile_kinds: Res<Assets<TileKindAsset>>,
     edge_configs: Res<Assets<TileEdgeConfig>>,
-) -> Result<()> {
-    let (mut tile_grid, grid_size) = tile_grid.into_inner();
+) -> Result {
+    let (mut tile_grid, grid_size) = tile_grid.get_mut(event.lozo_entity)?;
     let position =
-        GridPosition::new(event.0, grid_size).ok_or_else(|| InvalidGridPosition(event.0))?;
+        GridPosition::new(event.pos, grid_size).ok_or_else(|| InvalidGridPosition(event.pos))?;
     let (id, tile_kind_asset) = if let Some(tile) = &mut tile_grid[position] {
         for old_sprite in tile.sprite_stack.drain(..) {
             commands.entity(old_sprite).despawn();
@@ -72,12 +76,11 @@ fn update_sprites(
     } else {
         return Ok(());
     };
+
     let layers = &edge_configs.require_handle(&tile_kind_asset.edge_config)?
         .edge_cases
         .iter()
-        .find(|(req, _)| 
-            req.matches(&tile_grid.cursor_at(position))
-        )
+        .find(|(req, _)| req.matches(&tile_grid.cursor_at(position)))
         .expect("no adjacent requirement matched the current surroundings - this should never happen because there needs to be a default")
         .1;
     for (z, layer) in layers.iter() {
@@ -93,6 +96,7 @@ fn update_sprites(
             grid_size,
             &tile_grid,
         )?;
+
         if let Some(entity) = sprite_entity {
             tile_grid[position]
                 .as_mut()
