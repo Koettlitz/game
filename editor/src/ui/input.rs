@@ -184,15 +184,16 @@ struct TileKindKeyMap(HashMap<KeyCode, AssetRef<TileKindAsset>>);
 struct GameObjectKindKeyMap(HashMap<KeyCode, AssetRef<GameObjectKindAsset>>);
 
 fn update_cursor_position(
-    mut cursor: Single<&mut Transform, With<Cursor>>,
+    mut cursor: Query<&mut Transform, With<Cursor>>,
     current_lozo: Res<CurrentLozo>,
     grid_size: Query<&GridSize>,
-    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
+    window: Query<&Window, With<PrimaryWindow>>,
 ) -> Result {
-    if let Some(cursor_position) = window.cursor_position() {
-        let world_position = screen_to_world(cursor_position, camera.0, camera.1);
-        cursor.translation = grid_size
+    if let Some(cursor_position) = window.single()?.cursor_position() {
+        let (camera, camera_transform) = camera.single()?;
+        let world_position = screen_to_world(cursor_position, camera, camera_transform);
+        cursor.single_mut()?.translation = grid_size
             .get(current_lozo.entity())?
             .snap_to_tile(world_position)
             .extend(CURSOR_Z);
@@ -203,21 +204,25 @@ fn update_cursor_position(
 
 fn switch_cursor(
     keys: Res<ButtonInput<KeyCode>>,
-    mut cursor: Single<&mut Cursor>,
+    mut cursor: Query<&mut Cursor>,
     character_kind_keymap: Res<CharacterKindKeyMap>,
     tilekind_keymap: Res<TileKindKeyMap>,
     objectkind_keymap: Res<GameObjectKindKeyMap>,
-) {
+) -> Result {
+    if keys.just_pressed(KeyCode::Escape) {
+        *cursor.single_mut()? = Cursor::Default;
+    }
+
     if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
         for key in keys.get_just_pressed() {
             if let Some(handle) = objectkind_keymap.0.get(key) {
-                **cursor = Cursor::Object(handle.clone());
+                *cursor.single_mut()? = Cursor::Object(handle.clone());
             }
         }
     } else if keys.pressed(KeyCode::AltLeft) || keys.pressed(KeyCode::AltRight) {
         for key in keys.get_just_pressed() {
             if let Some(handle) = character_kind_keymap.0.get(key) {
-                **cursor = Cursor::Character {
+                *cursor.single_mut()? = Cursor::Character {
                     asset: handle.clone(),
                     orientation: Orientation::default(),
                 };
@@ -226,10 +231,12 @@ fn switch_cursor(
     } else {
         for key in keys.get_just_pressed() {
             if let Some(handle) = tilekind_keymap.0.get(key) {
-                **cursor = Cursor::GroundTile(handle.clone());
+                *cursor.single_mut()? = Cursor::GroundTile(handle.clone());
             }
         }
     }
+
+    Ok(())
 }
 
 #[derive(Event)]
@@ -250,56 +257,63 @@ impl<A: Asset> SpawnCursorSprite<A> {
 }
 
 fn update_cursor_visuals(
-    cursor: Single<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
+    cursor: Query<(Entity, &Cursor, Option<&Children>), Changed<Cursor>>,
     mut commands: Commands,
-) {
-    let (entity, cursor, children) = cursor.into_inner();
+) -> Result {
+    for (entity, cursor, children) in cursor {
+        if let Some(children) = children {
+            for child in children {
+                commands.entity(*child).despawn();
+            }
+        }
 
-    if let Some(children) = children {
-        for child in children {
-            commands.entity(*child).despawn();
+        match *cursor {
+            Cursor::GroundTile(ref tile_kind) => {
+                commands.trigger(SpawnCursorSprite::new(entity, tile_kind.handle().clone()));
+            }
+            Cursor::Object(ref object_handle) => {
+                commands.trigger(SpawnCursorSprite::new(
+                    entity,
+                    object_handle.handle().clone(),
+                ));
+            }
+            Cursor::Character { ref asset, .. } => {
+                commands.trigger(SpawnCursorSprite::new(entity, asset.handle().clone()));
+            }
+            Cursor::Default => {}
         }
     }
 
-    match *cursor {
-        Cursor::GroundTile(ref tile_kind) => {
-            commands.trigger(SpawnCursorSprite::new(entity, tile_kind.handle().clone()));
-        }
-        Cursor::Object(ref object_handle) => {
-            commands.trigger(SpawnCursorSprite::new(
-                entity,
-                object_handle.handle().clone(),
-            ));
-        }
-        Cursor::Character { ref asset, .. } => {
-            commands.trigger(SpawnCursorSprite::new(entity, asset.handle().clone()));
-        }
-        Cursor::Default => {}
-    }
+    Ok(())
 }
 
 fn place_tiles(
     mut mouse_motion: MessageReader<MouseMotion>,
-    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
+    window: Query<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    cursor: Single<&Cursor>,
+    cursor: Query<&Cursor>,
     current_lozo: Res<CurrentLozo>,
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
-) {
+) -> Result {
     let left_pressed = mouse_btn.pressed(MouseButton::Left);
     let right_pressed = mouse_btn.pressed(MouseButton::Right);
     if !left_pressed && !right_pressed {
-        return;
+        return Ok(());
     }
-    let Cursor::GroundTile(tile_kind) = *cursor else {
-        return;
+
+    let Cursor::GroundTile(tile_kind) = cursor.single()? else {
+        return Ok(());
     };
+
     // TODO: use cursor Transform component instead
+    let window = window.single()?;
     let Some(cursor_position) = window.cursor_position() else {
-        return;
+        return Ok(());
     };
+
+    let (camera, camera_transform) = camera.single()?;
 
     if let Some(mouse_motion) = mouse_motion.read().next() {
         let delta = mouse_motion.delta * window.scale_factor();
@@ -310,7 +324,7 @@ fn place_tiles(
             .clamp_length(tile_step_size, tile_step_size);
         let step_count = (delta.length() / tile_step.length()).ceil() as usize;
         for _ in 0..step_count {
-            let world_position = screen_to_world(starting_pos, camera.0, camera.1);
+            let world_position = screen_to_world(starting_pos, camera, camera_transform);
             if left_pressed {
                 place_tile_writer.write(PlaceTile {
                     lozo_entity: current_lozo.entity(),
@@ -326,40 +340,45 @@ fn place_tiles(
             starting_pos += tile_step;
         }
     } else {
-        let world_position = screen_to_world(cursor_position, camera.0, camera.1);
+        let world_position = screen_to_world(cursor_position, camera, camera_transform);
 
-        if mouse_btn.just_pressed(MouseButton::Left) {
+        if left_pressed {
             place_tile_writer.write(PlaceTile {
                 lozo_entity: current_lozo.entity(),
                 world_position,
                 tile_kind: tile_kind.clone(),
             });
-        } else if mouse_btn.just_pressed(MouseButton::Right) {
+        } else if right_pressed {
             remove_tile_writer.write(RemoveTile {
                 lozo_entity: current_lozo.entity(),
                 world_position,
             });
         }
     }
+
+    Ok(())
 }
 
 fn place_object(
-    cursor: Single<&Cursor>,
+    cursor: Query<&Cursor>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    camera: Single<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
+    window: Query<&Window, With<PrimaryWindow>>,
     current_lozo: Res<CurrentLozo>,
     mut place_object_message_writer: MessageWriter<PlaceObject>,
     mut place_character_message_writer: MessageWriter<PlaceCharacter>,
-) {
+) -> Result {
     if !mouse_btn.just_pressed(MouseButton::Left) {
-        return;
+        return Ok(());
     }
-    let Some(cursor_position) = window.cursor_position() else {
-        return;
+    let Some(cursor_position) = window.single()?.cursor_position() else {
+        return Ok(());
     };
-    let world_position = screen_to_world(cursor_position, camera.0, camera.1);
-    match *cursor {
+
+    let (camera, camera_transform) = camera.single()?;
+    let world_position = screen_to_world(cursor_position, camera, camera_transform);
+
+    match cursor.single()? {
         Cursor::Object(object_kind) => {
             place_object_message_writer.write(PlaceObject {
                 lozo_entity: current_lozo.entity(),
@@ -377,6 +396,8 @@ fn place_object(
         }
         _ => {}
     }
+
+    Ok(())
 }
 
 fn move_camera(
