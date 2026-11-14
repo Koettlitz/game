@@ -66,6 +66,7 @@ impl Plugin for InputPlugin {
                 PostUpdate,
                 (
                     update_cursor_visuals,
+                    update_outline,
                     trigger_commands.run_if(resource_exists::<CurrentLozo>),
                 )
                     .run_if(in_state(ProgressState::Finished)),
@@ -293,7 +294,7 @@ fn place_tiles(
     camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
     window: Query<&Window, With<PrimaryWindow>>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    cursor: Query<&Cursor>,
+    cursor: Query<(&Cursor, &Transform)>,
     current_lozo: Res<CurrentLozo>,
     mut place_tile_writer: MessageWriter<PlaceTile>,
     mut remove_tile_writer: MessageWriter<RemoveTile>,
@@ -304,19 +305,18 @@ fn place_tiles(
         return Ok(());
     }
 
-    let Cursor::GroundTile(tile_kind) = cursor.single()? else {
-        return Ok(());
-    };
-
-    // TODO: use cursor Transform component instead
-    let window = window.single()?;
-    let Some(cursor_position) = window.cursor_position() else {
+    let (Cursor::GroundTile(tile_kind), cursor_transform) = cursor.single()? else {
         return Ok(());
     };
 
     let (camera, camera_transform) = camera.single()?;
 
     if let Some(mouse_motion) = mouse_motion.read().next() {
+        let window = window.single()?;
+        let Some(cursor_position) = window.cursor_position() else {
+            return Ok(());
+        };
+
         let delta = mouse_motion.delta * window.scale_factor();
         let mut starting_pos = cursor_position - delta;
         let tile_step_size = TILE_SIZE as f32;
@@ -324,8 +324,10 @@ fn place_tiles(
             .delta
             .clamp_length(tile_step_size, tile_step_size);
         let step_count = (delta.length() / tile_step.length()).ceil() as usize;
+
         for _ in 0..step_count {
             let world_position = screen_to_world(starting_pos, camera, camera_transform);
+
             if left_pressed {
                 place_tile_writer.write(PlaceTile {
                     lozo_entity: current_lozo.entity(),
@@ -338,21 +340,22 @@ fn place_tiles(
                     world_position,
                 });
             }
+
             starting_pos += tile_step;
         }
     } else {
-        let world_position = screen_to_world(cursor_position, camera, camera_transform);
+        let world_position = cursor_transform.translation.truncate();
 
         if left_pressed {
             place_tile_writer.write(PlaceTile {
-                lozo_entity: current_lozo.entity(),
                 world_position,
+                lozo_entity: current_lozo.entity(),
                 tile_kind: tile_kind.clone(),
             });
         } else if right_pressed {
             remove_tile_writer.write(RemoveTile {
-                lozo_entity: current_lozo.entity(),
                 world_position,
+                lozo_entity: current_lozo.entity(),
             });
         }
     }
@@ -361,10 +364,8 @@ fn place_tiles(
 }
 
 fn place_object(
-    cursor: Query<&Cursor>,
+    cursor: Query<(&Cursor, &Transform)>,
     mouse_btn: Res<ButtonInput<MouseButton>>,
-    camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    window: Query<&Window, With<PrimaryWindow>>,
     current_lozo: Res<CurrentLozo>,
     mut place_object_message_writer: MessageWriter<PlaceObject>,
     mut place_character_message_writer: MessageWriter<PlaceCharacter>,
@@ -372,18 +373,13 @@ fn place_object(
     if !mouse_btn.just_pressed(MouseButton::Left) {
         return Ok(());
     }
-    let Some(cursor_position) = window.single()?.cursor_position() else {
-        return Ok(());
-    };
+    let (cursor, cursor_transform) = cursor.single()?;
 
-    let (camera, camera_transform) = camera.single()?;
-    let world_position = screen_to_world(cursor_position, camera, camera_transform);
-
-    match cursor.single()? {
+    match cursor {
         Cursor::Object(object_kind) => {
             place_object_message_writer.write(PlaceObject {
                 lozo_entity: current_lozo.entity(),
-                world_position,
+                world_position: cursor_transform.translation.truncate(),
                 object_kind: object_kind.clone(),
             });
         }
@@ -391,7 +387,7 @@ fn place_object(
             place_character_message_writer.write(PlaceCharacter {
                 lozo_entity: current_lozo.entity(),
                 character_kind: asset.clone(),
-                world_position,
+                world_position: cursor_transform.translation.truncate(),
                 orientation: *orientation,
             });
         }
@@ -399,6 +395,10 @@ fn place_object(
     }
 
     Ok(())
+}
+
+fn update_outline() {
+    todo!("Show outlined object")
 }
 
 fn move_camera(

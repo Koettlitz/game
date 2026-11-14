@@ -53,10 +53,7 @@ fn load_initial_lozo(
     let id = "world";
 
     let handle = match SavedLozo::resolver().resolve(id) {
-        Ok(asset_path) => {
-            println!("Resolving id {id} resulted in AssetPath: {asset_path}");
-            asset_server.load(asset_path)
-        }
+        Ok(asset_path) => asset_server.load(asset_path),
         Err(e) => {
             debug!("lozo \"{id}\" not found: {e} - constructing default lozo.");
 

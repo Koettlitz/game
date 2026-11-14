@@ -6,7 +6,6 @@ use engine::animation::SpriteAnimationAsset;
 use engine::asset::AssetsExt;
 use engine::overworld::CHARACTER_LAYER;
 use engine::overworld::lozo::LozoCommands;
-use engine::overworld::tile::GridSize;
 use engine::progress::ProgressState;
 
 pub mod asset;
@@ -60,7 +59,6 @@ fn spawn_cursor_sprite(
 
 fn place_object(
     mut message_reader: MessageReader<PlaceObject>,
-    grid_size: Query<&GridSize>,
     object_kinds: Res<Assets<GameObjectKindAsset>>,
     animations: Res<Assets<SpriteAnimationAsset>>,
     mut commands: LozoCommands,
@@ -72,7 +70,6 @@ fn place_object(
     } in message_reader.read()
     {
         let kind = object_kinds.require_handle(object_kind.handle())?;
-        let world_position = grid_size.get(*lozo_entity)?.snap_to_tile(*world_position);
         let mut game_object = commands.spawn_into_lozo(
             *lozo_entity,
             (
@@ -81,7 +78,7 @@ fn place_object(
                 },
                 Transform::from_translation(
                     kind.offset()
-                        .map_or_else(|| world_position, |offset| world_position + offset)
+                        .map_or_else(|| *world_position, |offset| world_position + offset)
                         .extend(CHARACTER_LAYER),
                 ),
             ),
