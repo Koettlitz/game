@@ -35,7 +35,7 @@ fn on_ground_tile_changed(
 
     for position in &event.positions {
         let grid_size = grid_size.get(event.lozo_entity)?;
-        let Some(position) = GridPosition::new(*position, &grid_size) else {
+        let Some(position) = GridPosition::new(*position, grid_size) else {
             error!("invalid position in GroundTilesChangedEvent: {position}");
             continue;
         };

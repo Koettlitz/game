@@ -73,7 +73,7 @@ fn export_objects(
 
             for pos in CollisionBoxIter::from(collision_box) {
                 let pos = object_pos.as_ivec2() + pos;
-                let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), &grid_size)
+                let pos = GridPosition::new(UVec2::new(pos.x as u32, pos.y as u32), grid_size)
                     .ok_or_else(|| format!("position out of bounds: {}", pos.as_vec2()))?;
                 let tile_def = grid.grid[*pos.as_index()].get_or_insert_with(TileDef::default);
                 tile_def.passability &= Passability::Never;

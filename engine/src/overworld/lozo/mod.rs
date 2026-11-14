@@ -95,6 +95,7 @@ fn on_lozo_added<S: LozoSource>(event: On<Add<S>>, mut commands: Commands) {
     commands.entity(event.entity).insert((Lozo, Loading));
 }
 
+#[allow(clippy::type_complexity)]
 fn init_loaded_lozo<S>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,

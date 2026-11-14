@@ -226,7 +226,7 @@ fn apply_behaviours(
     grid_size: Query<&GridSize>,
 ) -> Result {
     for (behaviour, transform, mut controller, in_lozo) in characters {
-        match &*behaviour {
+        match behaviour {
             CharacterBehaviour::Walking { route, next } => {
                 let grid_size = grid_size.get(in_lozo.entity())?;
                 let current_pos = grid_size
@@ -288,7 +288,7 @@ fn update_behaviours(
             let current_pos = grid_size
                 .get(in_lozo.entity())?
                 .world_to_grid(world_pos)
-                .ok_or_else(|| CharacterPositionOutOfGridBounds(world_pos))?;
+                .ok_or(CharacterPositionOutOfGridBounds(world_pos))?;
             let next_pos = route.targets[*next];
 
             if *current_pos == next_pos {
@@ -547,7 +547,7 @@ fn start_tile_transition(
     let world_pos = transform.translation.truncate();
     let origin = grid_size
         .world_to_grid(world_pos)
-        .ok_or_else(|| CharacterPositionOutOfGridBounds(world_pos))?;
+        .ok_or(CharacterPositionOutOfGridBounds(world_pos))?;
 
     let Some(target) = origin.neighbor(&orientation.as_neighbor()) else {
         return Ok(());

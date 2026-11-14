@@ -78,7 +78,7 @@ impl CharacterVisual {
     pub fn atlas_index(&self, animations: &Assets<SpriteAnimationAsset>) -> Result<usize> {
         Ok(match self {
             Self::Static(idx) => *idx,
-            Self::Animated(animation) => animations.require_handle(&animation.handle())?.frames[0],
+            Self::Animated(animation) => animations.require_handle(animation.handle())?.frames[0],
         })
     }
 
@@ -111,20 +111,20 @@ impl From<(super::CharacterState, Orientation)> for CharacterState {
     }
 }
 
-impl Into<super::CharacterState> for CharacterState {
-    fn into(self) -> super::CharacterState {
-        match self {
-            Self::Standing(_) => super::CharacterState::Standing,
-            Self::Walking(_) => super::CharacterState::Walking,
+impl From<CharacterState> for super::CharacterState {
+    fn from(value: CharacterState) -> Self {
+        match value {
+            CharacterState::Standing(_) => Self::Standing,
+            CharacterState::Walking(_) => Self::Walking,
         }
     }
 }
 
-impl Into<(super::CharacterState, super::Orientation)> for CharacterState {
-    fn into(self) -> (super::CharacterState, super::Orientation) {
-        match self {
-            Self::Standing(orientation) => (super::CharacterState::Standing, orientation.into()),
-            Self::Walking(orientation) => (super::CharacterState::Walking, orientation.into()),
+impl From<CharacterState> for (super::CharacterState, super::Orientation) {
+    fn from(value: CharacterState) -> Self {
+        match value {
+            CharacterState::Standing(orientation) => (super::CharacterState::Standing, orientation),
+            CharacterState::Walking(orientation) => (super::CharacterState::Walking, orientation),
         }
     }
 }

@@ -287,6 +287,7 @@ fn update_cursor_visuals(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn place_tiles(
     mut mouse_motion: MessageReader<MouseMotion>,
     camera: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,

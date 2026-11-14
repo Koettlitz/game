@@ -80,7 +80,7 @@ impl LozoSave {
         let asset_path = SavedLozo::resolver().resolve(&self.id)?;
         asset_path
             .parent()
-            .ok_or_else(|| LozoBasePathError::NoParent(asset_path))
+            .ok_or(LozoBasePathError::NoParent(asset_path))
     }
 }
 

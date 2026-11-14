@@ -29,7 +29,7 @@ impl Plugin for OverworldPlugin {
             CameraPlugin,
             CharacterPlugin,
             GameObjectPlugin,
-            LozoPlugin::default(),
+            LozoPlugin,
             TilePlugin,
             OverworldEventPlugin,
         ));

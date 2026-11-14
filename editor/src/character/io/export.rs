@@ -79,12 +79,12 @@ fn export_characters(
                 animations: character_kind
                     .animations
                     .iter()
-                    .map(|(state, visual)| (state.clone().into(), visual.clone().into_def()))
+                    .map(|(state, visual)| (*state, visual.clone().into_def()))
                     .collect(),
                 position: transform.translation,
                 orientation: character.orientation,
                 behaviour: default_route(*position, &character.orientation)
-                    .map(|r| CharacterBehaviourDef::Walking(r)),
+                    .map(CharacterBehaviourDef::Walking),
             },
         );
     }
